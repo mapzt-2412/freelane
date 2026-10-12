@@ -11,3 +11,5 @@ configs/*.local.toml
 # Private VM settings backups and interrupted atomic saves
 *.toml.backup-*
 *.toml.pending-*
+
+*.app-start.lock

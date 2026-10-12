@@ -500,6 +500,24 @@ impl Desktop {
                     {
                         self.guest_request(ctx, true);
                     }
+                    if os == GuestOs::Windows {
+                        ui.separator();
+                        ui.heading(lang.text("Independent app window & Dock"));
+                        ui.label(lang.text("App name"));
+                        ui.add(egui::TextEdit::singleline(&mut self.app_name).hint_text("Notepad"));
+                        ui.label(lang.text("New app profile path"));
+                        ui.add(egui::TextEdit::singleline(&mut self.app_profile_output).desired_width(f32::INFINITY).hint_text("/absolute/path/to/notepad.app.toml"));
+                        let ready=agent_enabled && !busy && !self.app_name.trim().is_empty() && !self.app_profile_output.trim().is_empty() && !self.app_path.trim().is_empty();
+                        ui.horizontal_wrapped(|ui|{
+                            if ui.add_enabled(ready,egui::Button::new(lang.text("Save app profile"))).clicked(){self.save_app_profile(ctx,false);}
+                            if ui.add_enabled(ready,egui::Button::new(lang.text("Save & open separate window"))).clicked(){self.save_app_profile(ctx,true);}
+                        });
+                        if ui.add_enabled(!busy && !self.app_profile_output.trim().is_empty(),egui::Button::new(lang.text("Open saved app profile"))).clicked(){self.open_saved_app(ctx);}
+                        ui.label(lang.text("New Dock .app path (Mac only)"));
+                        ui.add(egui::TextEdit::singleline(&mut self.dock_output).desired_width(f32::INFINITY).hint_text("/Users/you/Applications/Windows Notepad.app"));
+                        if ui.add_enabled(cfg!(target_os="macos") && !busy && !self.app_profile_output.trim().is_empty() && !self.dock_output.trim().is_empty(),egui::Button::new(lang.text("Export Dock launcher"))).clicked(){self.export_app_dock(ctx);}
+                        ui.small(lang.text("Requires updated Windows agent. Snapshot viewer; GPU apps, UAC, shortcuts and delegated processes may be unsupported. Existing files are never overwritten."));
+                    }
                     if !agent_enabled {
                         ui.small(
                             lang.text("Install and run the guest agent to launch applications."),

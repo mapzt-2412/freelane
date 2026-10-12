@@ -1,5 +1,6 @@
 //! Portable VM configuration, lifecycle boundaries and an external QEMU backend.
 pub mod agent;
+pub mod app_launcher;
 pub mod benchmark;
 pub mod mobile;
 pub mod qemu;

@@ -2,6 +2,8 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
 pub const VERSION: u16 = 1;
+/// Optional window extension; v1 ping/launch remain compatible.
+pub const WINDOW_VERSION: u16 = 2;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -14,10 +16,42 @@ pub struct Request {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     Ping,
+    Windows {
+        pid: u32,
+    },
+    CaptureWindow {
+        target: WindowTarget,
+    },
+    WindowClick {
+        target: WindowTarget,
+        x: u16,
+        y: u16,
+    },
+    WindowText {
+        target: WindowTarget,
+        text: String,
+    },
+    WindowKey {
+        target: WindowTarget,
+        key: u16,
+    },
     Launch {
         executable: String,
         arguments: Vec<String>,
     },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WindowTarget {
+    pub handle: u64,
+    pub pid: u32,
+    pub created: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WindowInfo {
+    pub target: WindowTarget,
+    pub title: String,
 }
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -29,17 +63,64 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
-    Pong { os: String, arch: String },
-    Launched { pid: u32 },
-    Failed { message: String },
+    Pong {
+        os: String,
+        arch: String,
+    },
+    Capabilities {
+        window_snapshots: bool,
+    },
+    Windows {
+        windows: Vec<WindowInfo>,
+    },
+    WindowFrame {
+        target: WindowTarget,
+        width: u32,
+        height: u32,
+        jpeg_hex: String,
+    },
+    WindowInputAccepted,
+    Launched {
+        pid: u32,
+    },
+    Failed {
+        message: String,
+    },
 }
 impl Request {
     pub fn validate(&self) -> io::Result<()> {
-        if self.version != VERSION {
+        if self.version != VERSION && self.version != WINDOW_VERSION {
             return Err(invalid("Unsupported guest protocol version"));
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        let window_action = !matches!(self.action, Action::Ping | Action::Launch { .. });
+        if window_action && self.version != WINDOW_VERSION {
+            return Err(invalid("Window actions require protocol v2"));
+        }
+        match &self.action {
+            Action::Windows { pid } if *pid == 0 => return Err(invalid("Invalid process ID")),
+            Action::CaptureWindow { target }
+            | Action::WindowClick { target, .. }
+            | Action::WindowText { target, .. }
+            | Action::WindowKey { target, .. }
+                if target.pid == 0 || target.handle == 0 || target.created == 0 =>
+            {
+                return Err(invalid("Invalid window identity"))
+            }
+            Action::WindowClick { x, y, .. } if *x > 32767 || *y > 32767 => {
+                return Err(invalid("Invalid click coordinate"))
+            }
+            Action::WindowText { text, .. } if text.len() > 1024 || text.contains('\0') => {
+                return Err(invalid("Window text exceeds 1024 bytes"))
+            }
+            Action::WindowKey { key, .. }
+                if ![8, 9, 13, 27, 33, 34, 35, 36, 37, 38, 39, 40, 46].contains(key) =>
+            {
+                return Err(invalid("Unsupported window key"))
+            }
+            _ => {}
         }
         if let Action::Launch {
             executable,
@@ -109,7 +190,7 @@ mod tests {
     #[test]
     fn incompatible_or_malformed_requests_are_rejected() {
         let mut request = Request {
-            version: 2,
+            version: 99,
             id: 1,
             action: Action::Ping,
         };

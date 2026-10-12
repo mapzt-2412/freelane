@@ -1,7 +1,18 @@
 //! Execute only in the guest's interactive user session. Never install as a privileged host service.
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
 use std::io::{self, BufRead, Write};
+#[cfg(windows)]
+mod windows;
 pub trait Launcher {
+    fn window_action(&mut self, _action: &Action) -> io::Result<Outcome> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Windows interactive window extension unavailable",
+        ))
+    }
+    fn window_support(&self) -> bool {
+        false
+    }
     fn launch(&mut self, executable: &str, arguments: &[String]) -> io::Result<u32>;
 }
 pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
@@ -10,6 +21,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             message: error.to_string(),
         },
         Ok(()) => match request.action {
+            Action::Ping if request.version == freelane_agent_protocol::WINDOW_VERSION => {
+                Outcome::Capabilities {
+                    window_snapshots: launcher.window_support(),
+                }
+            }
             Action::Ping => Outcome::Pong {
                 os: std::env::consts::OS.into(),
                 arch: std::env::consts::ARCH.into(),
@@ -23,10 +39,19 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     message: format!("Launch failed ({:?})", error.kind()),
                 },
             },
+            ref action => launcher
+                .window_action(action)
+                .unwrap_or_else(|e| Outcome::Failed {
+                    message: e.to_string(),
+                }),
         },
     };
     Response {
-        version: VERSION,
+        version: if request.version == freelane_agent_protocol::WINDOW_VERSION {
+            request.version
+        } else {
+            VERSION
+        },
         id: request.id,
         outcome,
     }
@@ -49,6 +74,12 @@ pub fn serve(
 pub struct WindowsLauncher;
 #[cfg(windows)]
 impl Launcher for WindowsLauncher {
+    fn window_support(&self) -> bool {
+        true
+    }
+    fn window_action(&mut self, action: &Action) -> io::Result<Outcome> {
+        windows::handle(action)
+    }
     fn launch(&mut self, executable: &str, arguments: &[String]) -> io::Result<u32> {
         if !std::path::Path::new(executable).is_absolute() {
             return Err(io::Error::new(
@@ -114,6 +145,40 @@ mod tests {
             self.0.push((exe.into(), args.into()));
             Ok(42)
         }
+    }
+    #[test]
+    fn window_capability_handshake_preserves_v1_ping_and_rejects_v1_mutations() {
+        let mut fake = Fake(vec![]);
+        let ping = |version| Request {
+            version,
+            id: 3,
+            action: Action::Ping,
+        };
+        assert!(matches!(
+            handle(ping(VERSION), &mut fake).outcome,
+            Outcome::Pong { .. }
+        ));
+        let response = handle(ping(freelane_agent_protocol::WINDOW_VERSION), &mut fake);
+        assert_eq!(response.version, freelane_agent_protocol::WINDOW_VERSION);
+        assert_eq!(
+            response.outcome,
+            Outcome::Capabilities {
+                window_snapshots: false
+            }
+        );
+        assert!(matches!(
+            handle(
+                Request {
+                    version: VERSION,
+                    id: 4,
+                    action: Action::Windows { pid: 42 }
+                },
+                &mut fake
+            )
+            .outcome,
+            Outcome::Failed { .. }
+        ));
+        assert!(fake.0.is_empty());
     }
     #[test]
     fn invalid_request_never_reaches_process_launcher() {

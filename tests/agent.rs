@@ -181,3 +181,74 @@ fn independent_cli_requests_do_not_reuse_response_ids() {
         "a delayed reply must not match the next CLI process"
     );
 }
+
+#[test]
+fn window_extension_rejects_legacy_reply_and_wrong_window_identity() {
+    use freelane_agent_protocol::{WindowTarget, WINDOW_VERSION};
+    fn exchange(reply_version: u16, actual: WindowTarget) -> freelane::Result<Response> {
+        let path = std::env::temp_dir().join(format!(
+            "fl-window-{}-{}.sock",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let listener = UnixListener::bind(&path).unwrap();
+        let worker = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let request: Request = freelane_agent_protocol::read_frame(&mut BufReader::new(
+                socket.try_clone().unwrap(),
+            ))
+            .unwrap();
+            assert_eq!(request.version, WINDOW_VERSION);
+            freelane_agent_protocol::write_frame(
+                &mut socket,
+                &Response {
+                    version: reply_version,
+                    id: request.id,
+                    outcome: Outcome::WindowFrame {
+                        target: actual,
+                        width: 1,
+                        height: 1,
+                        jpeg_hex: "ffd8ffd9".into(),
+                    },
+                },
+            )
+            .unwrap();
+        });
+        let result = freelane::agent::request_socket_version(
+            &path,
+            Action::CaptureWindow {
+                target: WindowTarget {
+                    handle: 10,
+                    pid: 20,
+                    created: 30,
+                },
+            },
+            WINDOW_VERSION,
+        );
+        worker.join().unwrap();
+        std::fs::remove_file(path).unwrap();
+        result
+    }
+    assert!(exchange(
+        VERSION,
+        WindowTarget {
+            handle: 10,
+            pid: 20,
+            created: 30
+        }
+    )
+    .unwrap_err()
+    .to_string()
+    .contains("mismatch"));
+    assert!(exchange(
+        WINDOW_VERSION,
+        WindowTarget {
+            handle: 11,
+            pid: 20,
+            created: 30
+        }
+    )
+    .unwrap_err()
+    .to_string()
+    .contains("requested action"));
+}

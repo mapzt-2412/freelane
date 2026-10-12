@@ -112,6 +112,15 @@ impl Language {
             "Status unavailable" => "Không đọc được trạng thái",
             "Display snapshot updated" => "Đã cập nhật khung hình",
             "VM worker disconnected" => "Tác vụ VM bị ngắt kết nối",
+            "Independent app window & Dock" => "Cửa sổ ứng dụng riêng & Dock",
+            "App name" => "Tên ứng dụng",
+            "New app profile path" => "Đường dẫn profile ứng dụng mới",
+            "Save app profile" => "Lưu profile ứng dụng",
+            "Save & open separate window" => "Lưu & mở cửa sổ riêng",
+            "New Dock .app path (Mac only)" => "Đường dẫn launcher Dock .app mới (chỉ Mac)",
+            "Export Dock launcher" => "Tạo launcher Dock",
+            "Open saved app profile" => "Mở profile ứng dụng đã lưu",
+            "Requires updated Windows agent. Snapshot viewer; GPU apps, UAC, shortcuts and delegated processes may be unsupported. Existing files are never overwritten." => "Cần agent Windows mới. Cửa sổ dùng ảnh chụp; app GPU, UAC, phím tắt và app chuyển sang tiến trình khác có thể chưa hỗ trợ. Không ghi đè tệp có sẵn.",
             _ => english,
         }
     }

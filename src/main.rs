@@ -16,6 +16,28 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command,path] if command=="app-capabilities" => {
+            let response=freelane::agent::window_request(Path::new(path),freelane_agent_protocol::Action::Ping)?;
+            println!("{}",serde_json::to_string(&response).map_err(|e|Error(e.to_string()))?);Ok(())
+        }
+        [command,path,pid] if command=="app-windows" => {
+            let pid=pid.parse::<u32>().map_err(|_|Error("PID must be an integer".into()))?;
+            let response=freelane::agent::window_request(Path::new(path),freelane_agent_protocol::Action::Windows{pid})?;
+            println!("{}",serde_json::to_string(&response).map_err(|e|Error(e.to_string()))?);Ok(())
+        }
+        [command, path] if command == "app-open" => {
+            let profile=freelane::app_launcher::AppProfile::load(Path::new(path))?;
+            let exe=env::current_exe().map_err(|e|Error(e.to_string()))?;
+            let (pid,windows)=freelane::app_launcher::open(&profile,&exe)?;
+            println!("{}",serde_json::json!({"pid":pid,"windows":windows,"agent_socket":qemu::runtime_dir(&profile.vm)?.join("agent.sock"),"mode":"window snapshots; not a live video stream"}));Ok(())
+        }
+        [command,path,output] if command=="app-export" => {
+            let profile=freelane::app_launcher::AppProfile::load(Path::new(path))?;
+            let cli=env::current_exe().map_err(|e|Error(e.to_string()))?;
+            freelane::app_launcher::export_dock(&profile,Path::new(output),&cli.parent().unwrap().join("freelane-desktop"),&cli)?;
+            println!("Created Dock launcher {}; drag it to the Dock",output);Ok(())
+        }
+
         [command, path, rest @ ..] if command.starts_with("mobile-") => {
             let path = std::fs::canonicalize(path).map_err(|e| Error(e.to_string()))?;
             let profile = freelane::mobile::load(&path)?;

@@ -1,0 +1,7 @@
+name = "Windows Notepad"
+vm = "/absolute/path/to/windows/vm.toml"
+executable = 'C:\Windows\System32\notepad.exe'
+arguments = []
+boot_timeout_seconds = 600
+# Run: freelane-desktop --app /absolute/path/to/notepad.app.toml
+# On Mac: freelane app-export /absolute/path/to/notepad.app.toml '/Users/you/Applications/Windows Notepad.app'

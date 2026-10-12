@@ -742,6 +742,7 @@ name = "freelane-guest-agent"
 version = "0.1.0"
 dependencies = [
  "freelane-agent-protocol",
+ "image",
 ]
 
 [[package]]
@@ -963,6 +964,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

@@ -11,6 +11,16 @@ pub fn request(config: &Path, action: Action) -> Result<Response> {
     request_socket(&qemu::runtime_dir(config)?.join("agent.sock"), action)
 }
 pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
+    request_socket_version(socket, action, VERSION)
+}
+pub fn window_request(config: &Path, action: Action) -> Result<Response> {
+    request_socket_version(
+        &qemu::runtime_dir(config)?.join("agent.sock"),
+        action,
+        freelane_agent_protocol::WINDOW_VERSION,
+    )
+}
+pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Result<Response> {
     // Independent CLI invocations share a persistent serial channel: never reuse ID 1.
     let id = loop {
         let id = getrandom::u64()
@@ -20,7 +30,7 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
         }
     };
     let request = Request {
-        version: VERSION,
+        version,
         id,
         action,
     };
@@ -72,7 +82,7 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     }
     let response: Response =
         serde_json::from_slice(&bytes).map_err(|_| Error("Invalid guest agent response".into()))?;
-    if response.version != VERSION || response.id != request.id {
+    if response.version != version || response.id != request.id {
         return Err(Error("Guest agent version/response ID mismatch".into()));
     }
     if let freelane_agent_protocol::Outcome::Failed { message } = &response.outcome {
@@ -82,10 +92,61 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
         (&request.action, &response.outcome),
         (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. })
             | (
+                Action::Ping,
+                freelane_agent_protocol::Outcome::Capabilities { .. }
+            )
+            | (
+                Action::Windows { .. },
+                freelane_agent_protocol::Outcome::Windows { .. }
+            )
+            | (
+                Action::CaptureWindow { .. },
+                freelane_agent_protocol::Outcome::WindowFrame { .. }
+            )
+            | (
+                Action::WindowClick { .. } | Action::WindowText { .. } | Action::WindowKey { .. },
+                freelane_agent_protocol::Outcome::WindowInputAccepted
+            )
+            | (
                 Action::Launch { .. },
                 freelane_agent_protocol::Outcome::Launched { .. }
             )
     );
+    let expected = expected
+        && match (&request.action, &response.outcome) {
+            (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. }) => version == VERSION,
+            (Action::Ping, freelane_agent_protocol::Outcome::Capabilities { .. }) => {
+                version == freelane_agent_protocol::WINDOW_VERSION
+            }
+            (
+                Action::CaptureWindow { target },
+                freelane_agent_protocol::Outcome::WindowFrame {
+                    target: actual,
+                    width,
+                    height,
+                    jpeg_hex,
+                },
+            ) => {
+                target == actual
+                    && *width > 0
+                    && *height > 0
+                    && *width <= 640
+                    && *height <= 480
+                    && jpeg_hex.len() <= 56000
+                    && jpeg_hex.len() % 2 == 0
+                    && jpeg_hex.bytes().all(|b| b.is_ascii_hexdigit())
+            }
+            (Action::Windows { pid }, freelane_agent_protocol::Outcome::Windows { windows }) => {
+                windows.len() <= 128
+                    && windows.iter().all(|w| {
+                        w.target.pid == *pid
+                            && w.target.handle != 0
+                            && w.target.created != 0
+                            && w.title.len() <= 2048
+                    })
+            }
+            _ => true,
+        };
     if !expected {
         return Err(Error(
             "Guest agent response does not match requested action".into(),

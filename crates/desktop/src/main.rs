@@ -1,3 +1,4 @@
+mod app_ui;
 mod i18n;
 mod interface;
 mod mobile_ui;
@@ -61,6 +62,9 @@ struct Desktop {
     installer_path: String,
     shared_path: String,
     draft_path: String,
+    app_name: String,
+    app_profile_output: String,
+    dock_output: String,
     app_path: String,
     app_arguments: String,
     vm: Option<VmInfo>,
@@ -75,6 +79,80 @@ struct Desktop {
     display_at: Option<Instant>,
 }
 impl Desktop {
+    fn save_app_profile(&mut self, ctx: &egui::Context, open: bool) {
+        let Some(vm) = self.vm.as_ref() else {
+            return;
+        };
+        let profile = freelane::app_launcher::AppProfile {
+            name: self.app_name.trim().into(),
+            vm: vm.path.clone(),
+            executable: self.app_path.trim().into(),
+            arguments: if self.app_arguments.is_empty() {
+                Vec::new()
+            } else {
+                self.app_arguments.lines().map(str::to_owned).collect()
+            },
+            boot_timeout_seconds: 600,
+        };
+        let output = PathBuf::from(self.app_profile_output.trim());
+        self.work(ctx, move || {
+            profile.save(&output).map_err(|e| e.to_string())?;
+            if open {
+                let executable = std::env::current_exe().map_err(|e| e.to_string())?;
+                Command::new(executable)
+                    .args([
+                        "--app",
+                        output.to_str().ok_or("Profile path must be UTF-8")?,
+                    ])
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn()
+                    .map_err(|e| e.to_string())?;
+            }
+            Ok(Event::Notice(format!(
+                "Đã lưu {}. Cửa sổ riêng dùng agent Windows mới; chưa phải video trực tiếp.",
+                output.display()
+            )))
+        });
+    }
+    fn open_saved_app(&mut self, ctx: &egui::Context) {
+        let path = PathBuf::from(self.app_profile_output.trim());
+        self.work(ctx, move || {
+            let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+            freelane::app_launcher::AppProfile::load(&path).map_err(|e| e.to_string())?;
+            Command::new(std::env::current_exe().map_err(|e| e.to_string())?)
+                .arg("--app")
+                .arg(&path)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            Ok(Event::Notice(
+                "Đã mở viewer riêng; xem trạng thái trong cửa sổ ứng dụng.".into(),
+            ))
+        });
+    }
+    fn export_app_dock(&mut self, ctx: &egui::Context) {
+        let source = PathBuf::from(self.app_profile_output.trim());
+        let output = PathBuf::from(self.dock_output.trim());
+        self.work(ctx, move || {
+            let profile =
+                freelane::app_launcher::AppProfile::load(&source).map_err(|e| e.to_string())?;
+            let desktop = std::env::current_exe().map_err(|e| e.to_string())?;
+            let cli = desktop
+                .parent()
+                .ok_or("Cannot locate CLI")?
+                .join("freelane");
+            freelane::app_launcher::export_dock(&profile, &output, &desktop, &cli)
+                .map_err(|e| e.to_string())?;
+            Ok(Event::Notice(format!(
+                "Đã tạo {}. Kéo launcher này vào Dock.",
+                output.display()
+            )))
+        });
+    }
     fn work(&mut self, ctx: &egui::Context, task: impl FnOnce() -> WorkResult + Send + 'static) {
         if self.pending.is_some() {
             return;
@@ -238,6 +316,7 @@ impl Desktop {
                     Outcome::Pong { os, arch } => format!("Guest responded: {os} / {arch}"),
                     Outcome::Launched { pid } => format!("Guest reported process started (PID {pid}). Check its guest window."),
                     Outcome::Failed { message } => format!("Guest request failed: {message}"),
+                    _ => "Unexpected guest launch/ping response".into(),
                 },
                 Err(error) => {
                     let followup = if launch { " If launching timed out, check the guest before trying again; execution outcome may be unknown." } else { "" };
@@ -436,6 +515,35 @@ impl eframe::App for Desktop {
     }
 }
 fn main() -> eframe::Result {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if let [flag, path, attach, pid] = args.as_slice() {
+        if flag == "--app" && attach == "--pid" {
+            let pid = match pid.parse::<u32>() {
+                Ok(p) if p > 0 => p,
+                _ => {
+                    eprintln!("PID must be positive");
+                    std::process::exit(2);
+                }
+            };
+            return app_ui::run(Path::new(path), Some(pid));
+        }
+    }
+    if let [flag, path] = args.as_slice() {
+        if flag == "--app" {
+            return app_ui::run(Path::new(path), None);
+        }
+    }
+    if args.is_empty() {
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(contents) = exe.parent().and_then(|p| p.parent()) {
+                let profile = contents.join("Resources/app.toml");
+                if profile.is_file() {
+                    return app_ui::run(&profile, None);
+                }
+            }
+        }
+    }
+
     let mut paths = Vec::new();
     let mut mobile_path = String::new();
     let mut language = Language::Vietnamese;
