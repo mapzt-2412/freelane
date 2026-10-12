@@ -20,7 +20,8 @@ spec.loader.exec_module(mcp)
 class ServerTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
+        # macOS temp paths can alias /private/var; the server canonicalizes profiles.
+        self.root = Path(self.temp.name).resolve()
         (self.root / "Cargo.toml").write_text('[package]\nname="fixture"\nversion="0.1.0"\n')
         (self.root / "vm.toml").write_text('# protocol fixture only\n')
         self.config = self.root / "mcp.toml"
