@@ -103,7 +103,13 @@ impl Desktop {
         let Some(vm) = &self.vm else { return };
         let path = vm.path.clone();
         self.work(ctx, move || {
-            let reply = qemu::control(&path, action).map_err(|e| e.to_string())?;
+            let reply = qemu::control(&path, action).map_err(|e| {
+                if action == "status" {
+                    format!("Status unavailable. If the VM is powered off, use Start; otherwise inspect its runtime log. Details: {e}")
+                } else {
+                    e.to_string()
+                }
+            })?;
             Ok(match action {
                 "status" => Event::Status(reply["status"].as_str().unwrap_or("unknown").to_owned()),
                 "shutdown" => {
@@ -306,23 +312,46 @@ impl eframe::App for Desktop {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);
-        egui::CentralPanel::default().show(ui, |ui| {
+        egui::Panel::top("header").show(ui, |ui| {
             ui.heading("FreeLane");
             ui.label("Windows and Ubuntu on your desktop · experimental VM manager");
             ui.add_space(12.0);
             ui.horizontal(|ui| {
                 ui.label("VM file");
-                ui.add(egui::TextEdit::singleline(&mut self.draft_path).desired_width(650.0));
-                if ui.add_enabled(self.pending.is_none() && self.child.is_none() && !self.draft_path.trim().is_empty(), egui::Button::new("Open VM")).clicked() { self.open(&ctx); }
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.draft_path)
+                        .desired_width((ui.available_width() - 115.0).max(100.0)),
+                );
+                if ui
+                    .add_enabled(
+                        self.pending.is_none()
+                            && self.child.is_none()
+                            && !self.draft_path.trim().is_empty(),
+                        egui::Button::new("Open VM"),
+                    )
+                    .clicked()
+                {
+                    self.open(&ctx);
+                }
             });
+            ui.add_space(8.0);
+        });
+        egui::Panel::left("controls")
+            .default_size(330.0)
+            .size_range(280.0..=420.0)
+            .resizable(true)
+            .show(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
             ui.separator();
             if let Some(vm) = &self.vm {
                 ui.heading(&vm.name);
-                ui.small(vm.path.display().to_string());
-                ui.label(format!("{} CPUs · {} MiB RAM · Last status: {}", vm.cpus, vm.memory, self.status));
+                ui.label(match vm.guest_os { GuestOs::Ubuntu => "Ubuntu · ARM64", GuestOs::Windows => "Windows · ARM64" });
+                ui.collapsing("Configuration path", |ui| { ui.label(vm.path.display().to_string()); });
+                ui.label(format!("{} CPUs · {:.1} GiB RAM", vm.cpus, vm.memory as f64 / 1024.0));
+                ui.label(format!("Last observed status: {}", self.status));
                 ui.small(format!("Configured acceleration: {}", vm.acceleration));
                 let busy = self.pending.is_some();
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     if ui.add_enabled(!busy && self.child.is_none() && self.status != "running" && self.status != "paused", egui::Button::new("Start")).clicked() { self.start(); }
                     for (label, action) in [("Refresh status", "status"), ("Pause", "pause"), ("Resume", "resume"), ("Shutdown", "shutdown"), ("Force stop", "stop")] {
                         if ui.add_enabled(!busy, egui::Button::new(label)).clicked() { self.control(&ctx, action); }
@@ -338,11 +367,12 @@ impl eframe::App for Desktop {
                 let configured = vm.guest_agent;
                 let enabled = configured && self.pending.is_none();
                 ui.separator();
-                ui.horizontal(|ui| {
+                ui.heading("Guest applications");
+                ui.vertical(|ui| {
                     let ubuntu = self.vm.as_ref().is_some_and(|vm| vm.guest_os == GuestOs::Ubuntu);
                     ui.label(if ubuntu { "Ubuntu app (absolute path)" } else { "Windows app (.exe path)" });
                     ui.add(egui::TextEdit::singleline(&mut self.app_path)
-                        .desired_width(420.0).hint_text(if ubuntu { "/usr/bin/gedit" } else { r"C:\Windows\System32\notepad.exe" }));
+                        .desired_width(f32::INFINITY).hint_text(if ubuntu { "/usr/bin/gedit" } else { r"C:\Windows\System32\notepad.exe" }));
                     if ui.add_enabled(enabled, egui::Button::new("Check guest connection")).clicked() {
                         self.guest_request(&ctx, false);
                     }
@@ -351,7 +381,7 @@ impl eframe::App for Desktop {
                     }
                 });
                 ui.collapsing("Arguments (one per line)", |ui| {
-                    ui.add(egui::TextEdit::multiline(&mut self.app_arguments).desired_rows(2));
+                    ui.add(egui::TextEdit::multiline(&mut self.app_arguments).desired_width(f32::INFINITY).desired_rows(2));
                 });
                 if !configured {
                     ui.small("Enable the guest agent in VM settings and run it in the guest's interactive session to launch apps.");
@@ -359,6 +389,20 @@ impl eframe::App for Desktop {
             }
             if self.pending.is_some() { ui.spinner(); }
             if !self.notice.is_empty() { ui.label(&self.notice); }
+            if self.vm.is_none() {
+                ui.heading("Choose a virtual machine");
+                ui.label("Open an existing vm.toml above to view its resources and controls.");
+                ui.add_space(8.0);
+                ui.small("Create Windows or Ubuntu ARM64 profiles with the FreeLane CLI.");
+            }
+            ui.separator();
+            ui.small("Shutdown requests guest powerdown. Force stop can lose unsaved data.");
+            ui.small("Closing FreeLane leaves the VM running.");
+            });
+        });
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.heading("Guest display");
+            ui.small("Snapshots · optional refresh every 5 seconds");
             ui.add_space(10.0);
             let display_height = (ui.available_height() - 50.0).max(100.0);
             egui::ScrollArea::both().max_height(display_height).show(ui, |ui| {
@@ -372,12 +416,14 @@ impl eframe::App for Desktop {
                         }
                     }
                 } else {
-                    ui.label("Open a VM and refresh its display to capture a frame.");
+                    ui.centered_and_justified(|ui| {
+                        ui.label("No display snapshot yet\nStart your VM, then choose Refresh display.");
+                    });
                 }
             });
             ui.separator();
             ui.small("Click a display snapshot to send mouse input. Use the VM's native display for keyboard input and interactive apps.");
-            ui.small("Closing this manager leaves the VM running. Shutdown requests guest powerdown; force stop ends it immediately.");
+
         });
     }
 }
@@ -386,10 +432,16 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "FreeLane",
         eframe::NativeOptions {
-            viewport: egui::ViewportBuilder::default().with_inner_size([1100.0, 820.0]),
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size([1200.0, 820.0])
+                .with_min_inner_size([800.0, 600.0]),
             ..Default::default()
         },
-        Box::new(move |_| {
+        Box::new(move |creation| {
+            creation.egui_ctx.global_style_mut(|style| {
+                style.spacing.item_spacing = egui::vec2(10.0, 10.0);
+                style.spacing.button_padding = egui::vec2(12.0, 7.0);
+            });
             Ok(Box::new(Desktop {
                 draft_path: path,
                 ..Default::default()
