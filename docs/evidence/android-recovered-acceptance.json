@@ -1,0 +1,30 @@
+{
+  "result": "passed",
+  "recorded_at_utc": "2026-10-12T09:20:19.363177+00:00",
+  "platform": "Android AOSP 10 API29 x86",
+  "cpu_acceleration": "software TCG; no KVM",
+  "gpu": "Google SwiftShader",
+  "boot_completed": true,
+  "apk_sha256": "bd3b13b46af447bc82e8f950b47caa3f928e8955f8ba85608aa36c3b1ec7c064",
+  "install": {
+    "exit_code": 0,
+    "timed_out": false,
+    "output_truncated": false,
+    "output": "Performing Streamed Install\nSuccess\n\n"
+  },
+  "launch": {
+    "exit_code": 0,
+    "timed_out": false,
+    "output_truncated": false,
+    "output": "Starting: Intent { cmp=org.freelane.smoke/.MainActivity }\nStatus: ok\nLaunchState: COLD\nActivity: org.freelane.smoke/.MainActivity\nTotalTime: 19770\nWaitTime: 19995\nComplete\n\n"
+  },
+  "foreground_activity": "org.freelane.smoke/.MainActivity",
+  "focused_window_verified": true,
+  "anr_dialog_detected": false,
+  "png_sha256": "1a0df438f787ea4ba34d1f2a3350d718dad0c9994a9c6a66e41aa2562217ee74",
+  "mcp_stdio_test": true,
+  "ios_runtime_test": false,
+  "native_mac_test": false,
+  "manual_recovery_before_run": "System UI ANR occurred after software boot at 480x800; manually tapped Wait once before this run. Earlier unrecovered acceptance failed.",
+  "scope": "Single app observation, not sustained stability or performance"
+}

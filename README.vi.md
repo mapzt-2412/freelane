@@ -31,6 +31,16 @@ Chọn thẻ VM bên trái hoặc **Thêm máy ảo** để mở tệp cấu hì
 
 Ảnh ghi lại VM thử nghiệm EFI trên Linux, không phải Ubuntu Desktop đã cài.
 
+## Android và iOS
+
+Đã thêm mục **Android & iOS**: cấu hình thiết bị, khởi động/tắt, cài và mở app, chụp màn hình qua UI/CLI/MCP. Android dùng SDK Emulator/ADB; iOS dùng Xcode Simulator trên Mac và cần bản `.app` build cho Simulator, chưa chạy được IPA App Store.
+
+```sh
+./target/debug/freelane-desktop --mobile /duong/dan/mobile.toml
+```
+
+Android đã cài/mở APK thật trên cloud sau khi chọn **Wait** để phục hồi lỗi System UI. Lỗi vẫn xuất hiện khi boot bằng CPU phần mềm; chưa thể gọi là ổn định hay mượt. iOS và tăng tốc Android trên Mac cần kiểm thử Mac thật. Xem [hướng dẫn và ảnh kiểm thử](docs/mobile.md).
+
 ## Chưa hoàn tất
 
 Chưa có GPU 3D/Metal, driver GPU Windows ARM, chia sẻ hai chiều cho Windows hay kiểm thử USB vật lý. Chưa xác minh game/FPS hoặc hiệu năng Mac. GPU Virtio 2D không đồng nghĩa với tăng tốc 3D.

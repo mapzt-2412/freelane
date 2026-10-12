@@ -66,6 +66,7 @@ These examples require the client process to run on that Linux machine. For a re
 
 | Tool | Purpose |
 | --- | --- |
+| `mobile_control`, `mobile_install`, `mobile_launch`, `mobile_capture` | Registered Android AVD/Xcode Simulator operations; [mobile setup and limitations](mobile.md) |
 | `host_info` | Host architecture, tool paths, repository and registered VM names |
 | `dev_run` | Start one fixed task: build, test, test_arm, lint, format_check, check_mac, build_agent or build_linux_agent |
 | `dev_result` | Poll a session-local job ID; running/passed/failed/timed_out, actual exit code and bounded output tail |
@@ -95,9 +96,9 @@ export FREELANE_TEST_NVRAM=/path/to/AAVMF_VARS.fd
 python3 tests/mcp_real_smoke.py
 ```
 
-The local Linux run completed a real stdio handshake/catalog, ran the 37 portable checks and five real ARM/QEMU tests as MCP jobs, then verified new VM startup, duplicate-start rejection, pause/resume, actual PNG output, key/click requests and client disconnect/reconnection while the guest stayed running. It also sent a guest powerdown request. UEFI may ignore that request, so the test explicitly stops only its own disposable fixture and checks runtime cleanup and preservation of the shared firmware variable template. It does not claim that a shutdown acknowledgment proves Windows exited.
+The latest local Linux run completed a real stdio handshake/catalog of 14 tools, ran 54 portable checks and six real ARM/QEMU tests as MCP jobs, then verified new VM startup, duplicate-start rejection, pause/resume, actual PNG output, key/click requests and client disconnect/reconnection while the guest stayed running. It also sent a guest powerdown request. UEFI may ignore that request, so the test explicitly stops only its own disposable fixture and checks runtime cleanup and preservation of the shared firmware variable template. It does not claim that a shutdown acknowledgment proves Windows exited.
 
-Nine protocol/subprocess tests passed separately, including failed exit codes, output truncation, total timeouts, literal arguments, rejected unknown VM names, notifications producing no responses, recovery after malformed/oversized requests and lossless conversion of actual PPM bytes. Fake-CLI cases are protocol tests, not Windows evidence. The official Node MCP SDK 1.32.1 also completed real stdio negotiation, listed all ten tools, read host information, observed an expected tool error and ran/polled an actual format-check job. It was installed outside the repository with registry integrity verification as an optional check; the server has no Node runtime dependency. Actual installed Windows operations through this MCP server and actual Codex/Cursor/Claude UI connections remain to be verified. CI is configured to repeat the Python/VM checks; remote CI results are separate from local results.
+Eleven protocol/subprocess tests passed separately, including failed exit codes, output truncation, total timeouts, literal arguments, rejected unknown VM names, notifications producing no responses, recovery after malformed/oversized requests and lossless conversion of actual PPM bytes. Fake-CLI cases are protocol tests, not Windows evidence. The official Node MCP SDK 1.32.1 also completed real stdio negotiation, listed the then-current ten tools (before the four mobile tools were added), read host information, observed an expected tool error and ran/polled an actual format-check job. It was installed outside the repository with registry integrity verification as an optional check; the server has no Node runtime dependency. Actual installed Windows operations through this MCP server and actual Codex/Cursor/Claude UI connections remain to be verified. CI is configured to repeat the Python/VM checks; remote CI results are separate from local results.
 
 ## Installed Ubuntu acceptance
 

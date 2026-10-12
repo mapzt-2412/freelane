@@ -2,7 +2,7 @@
 
 English · [Tiếng Việt](README.vi.md)
 
-An experimental, open-source VM manager for **Windows 11 ARM and Ubuntu ARM64**, targeting **macOS on Apple Silicon**.
+An experimental, open-source VM manager for **Windows 11 ARM and Ubuntu ARM64**, targeting **macOS on Apple Silicon**. It also integrates **Android Emulator and Xcode iOS Simulator** for mobile development.
 
 FreeLane uses Rust to manage a separately installed QEMU backend. It provides a desktop manager, CLI and stdio MCP server for development and VM testing. The long-term goal is a free alternative to Parallels Desktop; everyday reliability, universal application support and a performance advantage have **not** been demonstrated.
 
@@ -16,6 +16,7 @@ Runtime evidence below comes from **Linux cloud software emulation (TCG)**. macO
 | Desktop manager | Light control center, VM library, Vietnamese/English, editable VM settings, guest display snapshots, mouse clicks, optional five-second refresh, guest app requests | Native Mac GUI; continuous video and keyboard forwarding are not implemented |
 | Windows 11 ARM | Installed Audit desktop; 7-Zip x86/x64/ARM64 archive checks; Notepad save/close/reopen | Normal user setup, stability and application coverage; an earlier kernel crash remains unresolved |
 | Ubuntu ARM64 | Ubuntu Server 24.04.5 cloud image; unprivileged agent; file/copy/gzip/ZIP checks; exact data retained after reboot | Ubuntu Desktop, GUI apps, networking and native Mac execution |
+| Mobile devices | Android AVD/ADB and Xcode Simulator profiles; desktop/CLI/MCP install, launch and PNG capture | Android software-cloud System UI ANR; native Mac Android and iOS runtime unverified; iOS needs Simulator `.app` builds |
 | MCP | Real stdio/QEMU tests, development jobs, VM controls, PNG capture and guest ping/launch | Configuration in each editor; no remote Mac is automatically provisioned |
 | Graphics and integration | Basic display plus Ubuntu Virtio GPU 2D scanout, literal executable launch and read-only USB file transfer, live Ubuntu 9p read/write sharing and physical USB selectors | Windows two-way sharing, physical USB hardware validation, GPU acceleration, games, clipboard and seamless app windows |
 
@@ -61,6 +62,16 @@ Use **Settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network a
 The redesigned control center below records a disposable Ubuntu-profile **EFI fixture** on Linux Xvfb, with its genuine firmware frame. It is not an installed Ubuntu desktop or a native Mac run. Vietnamese is the default; switch languages in the top-right menu or pass `--lang en`. See [virtual GPU evidence and limits](docs/graphics.md) for the actual 2D implementation; 3D/Metal/Windows graphics acceleration is not implemented.
 
 ![FreeLane desktop manager with resizable sidebar](docs/assets/desktop-manager.png)
+
+## Android and iOS
+
+Prepare a matching AVD in Android Studio, or an iOS Simulator device with Xcode on Mac, then load its [mobile profile](docs/mobile.md) in **Android & iOS**. Android APK install/launch/capture was observed on Linux software emulation after manual recovery from a System UI ANR; this is not a stability claim. iOS supports Simulator-target `.app` builds and requires Mac/Xcode; App Store IPA files are not supported.
+
+```sh
+./target/debug/freelane-desktop --mobile /absolute/path/to/mobile.toml
+```
+
+[Setup, CLI/MCP commands and actual test evidence](docs/mobile.md).
 
 ## Vibe coding and MCP
 
