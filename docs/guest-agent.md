@@ -1,6 +1,6 @@
 # Experimental Windows and Linux guest agent
 
-Linux support uses `/dev/virtio-ports/org.freelane.agent.0` and absolute executable paths. A static ARM64 build and real Linux-host stdio launch tests pass; installed Ubuntu transport remains unverified. See [Ubuntu setup](ubuntu.md). The Windows instructions and existing driver behavior below remain applicable to Windows.
+Linux support uses `/dev/virtio-ports/org.freelane.agent.0` and absolute executable paths. A static ARM64 build, real Linux-host stdio launch tests and actual installed Ubuntu Server ARM64 transport/workloads pass. Ubuntu ran the agent in its normal UID 1000 console session and retained tested bytes after reboot; graphical Linux sessions and native Mac remain unverified. See [Ubuntu setup](ubuntu.md). The Windows instructions and existing driver behavior below remain applicable to Windows.
 
 FreeLane has an opt-in request channel for pinging a Windows guest and launching an executable in the agent's interactive user session. **The ARM64 executable has run through actual virtio serial in both WinPE and the installed Windows Audit session.** Normal PnPUtil staged the signed ARM64 vioserial package in the installed OS; after a clean cold boot, host ping returned Windows/aarch64 and literal CLI launch opened 7-Zip with the intended archive. The native FreeLane GUI also received ping and opened an actual Notepad window. Native Mac and normal user-session setup remain unverified. Portable tests use a fake launcher; they do not replace the Windows runtime experiment.
 

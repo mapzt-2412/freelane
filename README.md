@@ -4,7 +4,7 @@
 
 **A Rust-based alternative to Parallels Desktop for Apple Silicon — built around an ambitious goal: broad Windows application support with less overhead.**
 
-Ubuntu ARM64 is also a guest target. VM profiles, Linux guest-agent support and OS-aware desktop/MCP controls are implemented; [Ubuntu installation and runtime validation](docs/ubuntu.md) are still pending.
+Ubuntu ARM64 is also a guest target. An official Ubuntu Server 24.04.5 cloud image booted under Linux TCG; the unprivileged guest agent and MCP storage/archive checks passed, including exact bytes after reboot. VM profiles and OS-aware desktop/MCP controls are implemented. [Ubuntu desktop, networking and native Mac validation](docs/ubuntu.md) remain pending.
 
 No subscription. Open code. Performance claims backed by measurements.
 

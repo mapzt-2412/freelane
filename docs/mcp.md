@@ -99,6 +99,10 @@ The local Linux run completed a real stdio handshake/catalog, ran the 37 portabl
 
 Nine protocol/subprocess tests passed separately, including failed exit codes, output truncation, total timeouts, literal arguments, rejected unknown VM names, notifications producing no responses, recovery after malformed/oversized requests and lossless conversion of actual PPM bytes. Fake-CLI cases are protocol tests, not Windows evidence. The official Node MCP SDK 1.32.1 also completed real stdio negotiation, listed all ten tools, read host information, observed an expected tool error and ran/polled an actual format-check job. It was installed outside the repository with registry integrity verification as an optional check; the server has no Node runtime dependency. Actual installed Windows operations through this MCP server and actual Codex/Cursor/Claude UI connections remain to be verified. CI is configured to repeat the Python/VM checks; remote CI results are separate from local results.
 
+## Installed Ubuntu acceptance
+
+Installed Ubuntu Server ARM64 was subsequently tested through actual MCP guest ping/launch: normal UID 1000, literal path/UTF-8 payload, write/read/copy/ZIP checks, native reboot with a changed boot ID and unchanged saved bytes/CRC. MCP pause/status/resume and a fresh ping after resume also passed. See [Ubuntu evidence](ubuntu-test-evidence.md). This is separate from the UEFI fixtures above and does not provision a client's UI or demonstrate graphical app behavior.
+
 ## Add a Mac later
 
 Clone the repository on an Apple Silicon Mac, install the documented toolchain/QEMU/swtpm/firmware prerequisites and create a new VM with `freelane init`. Copy `configs/mcp.mac.example.toml` to `configs/mcp.mac.local.toml`, enter that Mac's existing VM path, and generate client configuration on the Mac. Choose HVF explicitly in the VM config; do not silently fall back to TCG.

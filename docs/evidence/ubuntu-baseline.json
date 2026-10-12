@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "phase": "first",
+  "nonce": "29612f751caa473a81726569042ba7dd",
+  "uid": 1000,
+  "architecture": "aarch64",
+  "ubuntu": "Ubuntu 24.04.5 LTS",
+  "kernel": "6.8.0-142-generic",
+  "boot_id": "163775dc-9643-4a24-a439-c3c486a91551",
+  "sha256": "551af47c618bbd3f6376895d859a8a65cdff4a73588668ede00355ff796ac137",
+  "literal_path": "/home/freelane/FreeLane a & b.txt",
+  "filesystem_bytes": 65445814272,
+  "copy_matches": true,
+  "zip_crc_matches": true,
+  "mcp_launch_reply": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"exit_code\": 0, \"timed_out\": false, \"output_truncated\": false, \"output\": \"{\\\"version\\\":1,\\\"id\\\":6749324606721790216,\\\"outcome\\\":{\\\"status\\\":\\\"launched\\\",\\\"pid\\\":1038}}\\n\", \"next\": \"Inspect the actual app window. On a timeout execution may be unknown; do not automatically retry.\"}"
+      }
+    ],
+    "isError": false
+  },
+  "mcp_ping_reply": {
+    "version": 1,
+    "id": 14751745716411190286,
+    "outcome": {
+      "status": "pong",
+      "os": "linux",
+      "arch": "aarch64"
+    }
+  }
+}

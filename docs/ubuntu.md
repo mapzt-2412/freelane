@@ -1,6 +1,6 @@
 # Ubuntu ARM64 guest support
 
-FreeLane now has Windows and Ubuntu VM profiles. `guest_os = "ubuntu"` selects Ubuntu naming, an `ubuntu.qcow2` disk, app-path hints and Linux executable validation in MCP. The underlying ARM QEMU/HVF backend is shared. Existing configs without `guest_os` remain Windows configs. Ubuntu is intended to run on Apple Silicon with HVF; Linux cloud uses TCG for correctness tests.
+FreeLane now has Windows and Ubuntu VM profiles. `guest_os = "ubuntu"` selects Ubuntu naming, an `ubuntu.qcow2` disk, app-path hints and Linux executable validation in MCP. New Ubuntu VMs use modern virtio storage; legacy configs still default to NVMe. The underlying ARM QEMU/HVF backend is shared. Existing configs without `guest_os` remain Windows configs. Ubuntu is intended to run on Apple Silicon with HVF; Linux cloud uses TCG for correctness tests. An official Ubuntu Server ARM64 cloud image now boots and passes installed-guest storage/agent/reboot checks; see [recorded Ubuntu evidence](ubuntu-test-evidence.md).
 
 ## Create a separate Ubuntu VM
 
@@ -15,7 +15,7 @@ target/debug/freelane init /absolute/path/to/new-ubuntu-vm /absolute/path/to/arm
 
 The final `ubuntu` selects the new profile. Omitting it preserves the original Windows behavior. Each VM gets a new sparse 64 GiB disk, private firmware/NVRAM and 4 CPUs/4096 MiB defaults. Ubuntu has no TPM attached by default; Windows keeps its existing TPM default. A private unused TPM directory may exist in the Ubuntu state directory. There is no automatic change to any Windows VM.
 
-Edit the generated config's top-level `installer` to your verified ARM64 ISO path; see [ubuntu.toml](ubuntu.toml). On Mac use `accelerator = "hvf"` and a signed/working ARM QEMU executable. In Linux cloud use `accelerator = "tcg"` and `headless = true`. Ubuntu can use the regular matching ARM UEFI code/variable pair; Windows' firmware requirements remain documented separately.
+Edit the generated config's top-level `installer` to your verified ARM64 ISO path; see [ubuntu.toml](ubuntu.toml). On Mac use `accelerator = "hvf"` and a signed/working ARM QEMU executable. In Linux cloud use `accelerator = "tcg"` and `headless = true`. Ubuntu can use the regular matching ARM UEFI code/variable pair; Windows' firmware requirements remain documented separately. For an older Ubuntu config, explicitly set `runtime.disk_device="virtio"`: the generic firmware did not enumerate our NVMe boot disk, while modern virtio booted the same Ubuntu image. NVMe remains the Windows default.
 
 ```sh
 target/debug/freelane validate /absolute/path/to/new-ubuntu-vm/vm.toml
@@ -66,8 +66,10 @@ The existing cloud-only example is unchanged and does not require a nonexistent 
 
 ## Verification and remaining gates
 
-The Linux host's real agent `--stdio` test launches an executable, observes its actual written file, preserves literal spaces/shell metacharacters, prevents child output corrupting RPC and verifies child reaping. This is Linux host evidence, not an ARM Ubuntu VM transport test. The static ARM64 agent was built and inspected as a statically linked AArch64 ELF; runtime on Ubuntu ARM64 remains unverified.
+The Linux host's real agent `--stdio` test launches an executable, observes its actual written file, preserves literal spaces/shell metacharacters, prevents child output corrupting RPC and verifies child reaping. Separately, the static AArch64 agent ran through actual virtio serial in installed Ubuntu Server 24.04.5, as UID 1000, and returned Linux/aarch64. MCP launch requests ran real Python storage/archive checks and verified exact bytes after a native guest reboot.
 
 The new Ubuntu profile executed the local EFI installer fixture through the real QEMU backend, with a private `ubuntu.qcow2`, no TPM attachment and a read-only installer. That validates profile/device wiring; it does **not** boot Ubuntu's kernel. The existing Windows/UEFI regression suite remains separate.
 
-The current cloud proxy denied CONNECT to `cloud-images.ubuntu.com` with HTTP 403. Both that host and `cdimage.ubuntu.com` have been added to the saved draft's allowed domains, preserving prior hosts. Saving the draft does not apply network settings. An official Ubuntu image download, installed Ubuntu boot, virtual serial-agent runtime, networking, graphical apps, persistence and Mac/HVF are pending until those prerequisites can be exercised. Do not count a firmware screenshot as an Ubuntu desktop.
+The earlier proxy denial was resolved after the network configuration changed. The cloud experiment deployed Canonical's signed/checksum-verified cloud image, not the interactive ISO installer. Normal desktop installation, graphical apps, networking and Mac/HVF still need validation. Network was disabled and its readiness wait timed out; no guest-network success is claimed. Software-emulated startup was slow, including parsing the test's large NoCloud payload.
+
+For opt-in headless diagnostics, `runtime.serial_console=true` exposes the guest UART through `console.sock` inside the VM's private runtime directory, while retaining `serial.log`. It defaults off and opens no TCP port. Connect with a local Unix-socket terminal tool; one UART client can be attached at a time. Start/cleanup manage the socket under the VM lock. Keep a console session connected when using this test fixture's serial-console autologin; a PID/readiness banner alone is insufficient for agent readiness. Require a fresh ping and actual workload result. The fixture's password-locked user and limited power-control delegation are described in the evidence document; they are not a production user installer.
