@@ -50,7 +50,8 @@ codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
 lipo "$app/Contents/MacOS/freelane" -verify_arch arm64
 lipo "$app/Contents/MacOS/freelane-desktop" -verify_arch arm64
-# Native Dock export/signature check. Fixture owns no VM or guest data.
+# Native Dock export/signature check; viewers share a serialized agent channel.
+# Fixture owns no VM or guest data.
 fixture_dir="$(mktemp -d "$repo_dir/target/dock-bundle-check.XXXXXX")"
 python3 - "$fixture_dir" <<'PY'
 from pathlib import Path

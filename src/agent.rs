@@ -8,17 +8,59 @@ use std::{
     time::{Duration, Instant},
 };
 pub fn request(config: &Path, action: Action) -> Result<Response> {
-    request_socket(&qemu::runtime_dir(config)?.join("agent.sock"), action)
+    request_vm(config, action, VERSION)
+}
+fn request_vm(config: &Path, action: Action, version: u16) -> Result<Response> {
+    use fs2::FileExt;
+    use std::{
+        fs::{self, OpenOptions},
+        os::unix::fs::{MetadataExt, OpenOptionsExt},
+    };
+    let directory = qemu::runtime_dir(config)?;
+    let metadata = fs::symlink_metadata(&directory)
+        .map_err(|e| Error(format!("Guest agent unavailable: {e}")))?;
+    if !metadata.is_dir()
+        || metadata.mode() & 0o077 != 0
+        || metadata.uid()
+            != fs::metadata(config)
+                .map_err(|e| Error(e.to_string()))?
+                .uid()
+    {
+        return Err(Error(
+            "Guest agent runtime must be private and owned by VM owner".into(),
+        ));
+    }
+    // The serial port has one reader. Independent Dock viewers and MCP clients
+    // must lease it across the entire request/response, not only the write.
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(directory.join("agent-client.lock"))
+        .map_err(|e| Error(e.to_string()))?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match lock.try_lock_exclusive() {
+            Ok(()) => break,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(20))
+            }
+            Err(e) => {
+                return Err(Error(format!(
+                    "Guest agent channel busy; no request sent: {e}"
+                )))
+            }
+        }
+    }
+    request_socket_version(&directory.join("agent.sock"), action, version)
 }
 pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     request_socket_version(socket, action, VERSION)
 }
 pub fn window_request(config: &Path, action: Action) -> Result<Response> {
-    request_socket_version(
-        &qemu::runtime_dir(config)?.join("agent.sock"),
-        action,
-        freelane_agent_protocol::WINDOW_VERSION,
-    )
+    request_vm(config, action, freelane_agent_protocol::WINDOW_VERSION)
 }
 pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Result<Response> {
     // Independent CLI invocations share a persistent serial channel: never reuse ID 1.

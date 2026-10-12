@@ -121,6 +121,8 @@ fn independent_cli_requests_do_not_reuse_response_ids() {
     .unwrap();
     let runtime = freelane::qemu::runtime_dir(&config).unwrap();
     fs::create_dir(&runtime).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700)).unwrap();
     let listener = UnixListener::bind(runtime.join("agent.sock")).unwrap();
     listener.set_nonblocking(true).unwrap();
     let worker = thread::spawn(move || {
@@ -251,4 +253,95 @@ fn window_extension_rejects_legacy_reply_and_wrong_window_identity() {
     .unwrap_err()
     .to_string()
     .contains("requested action"));
+}
+
+#[test]
+fn independent_app_clients_lease_the_serial_channel_until_reply() {
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        sync::mpsc,
+        time::{Duration, Instant},
+    };
+    let root = std::env::temp_dir().join(format!(
+        "fl-lease-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&root).unwrap();
+    let config = root.join("vm.toml");
+    fs::write(&config, "fixture").unwrap();
+    let runtime = freelane::qemu::runtime_dir(&config).unwrap();
+    fs::create_dir(&runtime).unwrap();
+    fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700)).unwrap();
+    let listener = UnixListener::bind(runtime.join("agent.sock")).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let (captured, ready) = mpsc::channel();
+    let (proceed, release) = mpsc::channel();
+    let server = thread::spawn(move || {
+        let accept = || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                match listener.accept() {
+                    Ok(s) => break s.0,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline);
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(e) => panic!("{e}"),
+                }
+            }
+        };
+        let mut first = accept();
+        let request: Request =
+            freelane_agent_protocol::read_frame(&mut BufReader::new(first.try_clone().unwrap()))
+                .unwrap();
+        captured.send(()).unwrap();
+        release.recv().unwrap();
+        thread::sleep(Duration::from_millis(100));
+        assert!(
+            matches!(listener.accept(),Err(e) if e.kind()==std::io::ErrorKind::WouldBlock),
+            "Second client connected before first response completed"
+        );
+        freelane_agent_protocol::write_frame(
+            &mut first,
+            &Response {
+                version: VERSION,
+                id: request.id,
+                outcome: Outcome::Pong {
+                    os: "windows".into(),
+                    arch: "aarch64".into(),
+                },
+            },
+        )
+        .unwrap();
+        drop(first);
+        let mut second = accept();
+        let request: Request =
+            freelane_agent_protocol::read_frame(&mut BufReader::new(second.try_clone().unwrap()))
+                .unwrap();
+        freelane_agent_protocol::write_frame(
+            &mut second,
+            &Response {
+                version: VERSION,
+                id: request.id,
+                outcome: Outcome::Pong {
+                    os: "windows".into(),
+                    arch: "aarch64".into(),
+                },
+            },
+        )
+        .unwrap();
+    });
+    let c = config.clone();
+    let first = thread::spawn(move || freelane::agent::request(&c, Action::Ping));
+    ready.recv().unwrap();
+    let c = config.clone();
+    let second = thread::spawn(move || freelane::agent::request(&c, Action::Ping));
+    proceed.send(()).unwrap();
+    first.join().unwrap().unwrap();
+    second.join().unwrap().unwrap();
+    server.join().unwrap();
+    fs::remove_dir_all(runtime).unwrap();
+    fs::remove_dir_all(root).unwrap();
 }
