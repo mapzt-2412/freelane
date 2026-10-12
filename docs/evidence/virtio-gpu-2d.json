@@ -1,0 +1,27 @@
+{
+  "result": "passed",
+  "guest": "ARM64 Linux DRM initramfs fixture",
+  "device": "virtio-gpu-pci,id=freelane-gpu,disable-legacy=on",
+  "dimensions": [
+    1280,
+    800
+  ],
+  "pixel_samples": [
+    "ed5e65",
+    "5984ff",
+    "3ebc85"
+  ],
+  "frame_sha256": "ba7854faf79ba9fcfda8c3331b1650e7b7deb74a4d46f8db2c5e56321bce4df5",
+  "kernel_sha256": "71fe6776ef591ea452661a5933e11d2044c5df6aaf76cf39b8d9655fa4e47904",
+  "fixture_sha256": "5f7bdefa6ca842289a95a48425b2dd215f4c6e6b07a142a464e2921f5ac6c9a6",
+  "three_dimensional_acceleration": false,
+  "native_mac_test": false,
+  "windows_driver_test": false,
+  "default_scanout_test": true,
+  "firmware_ramfb_retained": true,
+  "recorded_at_utc": "2026-10-12T07:48:26.761848+00:00",
+  "module_sha256": {
+    "virtio_dma_buf": "874eee03f6d79d638a1f1582dc794de2fcc98956e65332c6e3aee2f94d7c2b5b",
+    "virtio-gpu": "afb05bf545049fd2a5dedca338b7d7c9ac84a0c17348e3d91400f3140f5e7464"
+  }
+}

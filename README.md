@@ -1,5 +1,7 @@
 # FreeLane
 
+English · [Tiếng Việt](README.vi.md)
+
 An experimental, open-source VM manager for **Windows 11 ARM and Ubuntu ARM64**, targeting **macOS on Apple Silicon**.
 
 FreeLane uses Rust to manage a separately installed QEMU backend. It provides a desktop manager, CLI and stdio MCP server for development and VM testing. The long-term goal is a free alternative to Parallels Desktop; everyday reliability, universal application support and a performance advantage have **not** been demonstrated.
@@ -11,11 +13,11 @@ Runtime evidence below comes from **Linux cloud software emulation (TCG)**. macO
 | Component | Implemented or observed | Remaining validation |
 | --- | --- | --- |
 | VM management | Windows/Ubuntu profiles, disk initialization, private firmware state, start/status/pause/resume/shutdown | Native Mac runtime and everyday reliability |
-| Desktop manager | Blue-accented controls sidebar, editable VM settings, guest display snapshots, mouse clicks, optional five-second refresh, guest app requests | Native Mac GUI; continuous video and keyboard forwarding are not implemented |
+| Desktop manager | Light control center, VM library, Vietnamese/English, editable VM settings, guest display snapshots, mouse clicks, optional five-second refresh, guest app requests | Native Mac GUI; continuous video and keyboard forwarding are not implemented |
 | Windows 11 ARM | Installed Audit desktop; 7-Zip x86/x64/ARM64 archive checks; Notepad save/close/reopen | Normal user setup, stability and application coverage; an earlier kernel crash remains unresolved |
 | Ubuntu ARM64 | Ubuntu Server 24.04.5 cloud image; unprivileged agent; file/copy/gzip/ZIP checks; exact data retained after reboot | Ubuntu Desktop, GUI apps, networking and native Mac execution |
 | MCP | Real stdio/QEMU tests, development jobs, VM controls, PNG capture and guest ping/launch | Configuration in each editor; no remote Mac is automatically provisioned |
-| Graphics and integration | Basic QEMU display, literal executable launch and read-only USB file transfer, live Ubuntu 9p read/write sharing and physical USB selectors | Windows two-way sharing, physical USB hardware validation, GPU acceleration, games, clipboard and seamless app windows |
+| Graphics and integration | Basic display plus Ubuntu Virtio GPU 2D scanout, literal executable launch and read-only USB file transfer, live Ubuntu 9p read/write sharing and physical USB selectors | Windows two-way sharing, physical USB hardware validation, GPU acceleration, games, clipboard and seamless app windows |
 
 Ubuntu Server was deployed from an official preinstalled cloud image with NoCloud provisioning, **not** installed through the graphical Ubuntu installer. A process-start response only confirms that the guest started a process; it does not prove that an application works.
 
@@ -50,13 +52,13 @@ Supply matching ARM64 firmware code and variable-template files. Windows needs S
 
 Before starting, configure the guest media in `vm.toml` using the [Windows setup guide](docs/development.md) or [Ubuntu setup guide](docs/ubuntu.md). Initialization alone does not install an operating system. Profiles default to HVF for Apple Silicon; Linux testing requires explicitly selecting `accelerator = "tcg"`. Networking defaults to off.
 
-The desktop's **Open VM** loads the selected configuration. Editing the path does not change the active VM until it is opened. The controls sidebar shows resources, configured acceleration and the last observed status. The display area shows captured frames, rather than live video. Use QEMU's native window for keyboard input. Closing the manager leaves its VM running; prefer guest shutdown before force stop, which can lose unsaved data.
+The desktop library lists configurations supplied at startup or opened during the session. Select a card or use **Add virtual machine** to load a file. Editing the dialog path does not change the active VM until it is opened. The main view shows resources and last observed status; Details contains acceleration information. The display area shows captured frames, rather than live video. Use QEMU's native window for keyboard input. Closing the manager leaves its VM running; prefer guest shutdown before force stop, which can lose unsaved data.
 
 See [desktop instructions](docs/desktop.md) and [guest-agent setup](docs/guest-agent.md). The optional agent launches an absolute Windows `.exe` or Linux executable with literal arguments; it must be installed and running inside the guest.
 
-Use **VM settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network adapter, native display, guest-agent channel, serial console and installer media. Settings are saved only while the VM is stopped, with a backup and conflict detection. Folder modes include **read-only USB FAT** for either guest and **live read/write virtio-9p** for Ubuntu. A real ARM Linux guest verified file changes in both directions. Physical USB selectors are implemented but need actual hardware testing. Windows read/write sharing and Apple GPU passthrough remain unavailable. See [sharing limits and setup](docs/sharing.md).
+Use **Settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network adapter, native display, guest-agent channel, serial console and installer media. Settings are saved only while the VM is stopped, with a backup and conflict detection. Folder modes include **read-only USB FAT** for either guest and **live read/write virtio-9p** for Ubuntu. A real ARM Linux guest verified file changes in both directions. Physical USB selectors are implemented but need actual hardware testing. Windows read/write sharing and Apple GPU passthrough remain unavailable. See [sharing limits and setup](docs/sharing.md).
 
-The updated manager below has a disposable Ubuntu profile loaded while the guest is powered off; no guest frame is shown.
+The redesigned control center below records a disposable Ubuntu-profile **EFI fixture** on Linux Xvfb, with its genuine firmware frame. It is not an installed Ubuntu desktop or a native Mac run. Vietnamese is the default; switch languages in the top-right menu or pass `--lang en`. See [virtual GPU evidence and limits](docs/graphics.md) for the actual 2D implementation; 3D/Metal/Windows graphics acceleration is not implemented.
 
 ![FreeLane desktop manager with resizable sidebar](docs/assets/desktop-manager.png)
 
@@ -86,6 +88,6 @@ Next priorities are native Apple Silicon validation, reliable guest setup and sh
 
 ## License
 
-FreeLane source and documentation use the [MIT license](LICENSE). QEMU, firmware, TPM software and other dependencies retain their own licenses; see [dependency decisions](docs/dependencies.md). Users obtain Windows and proprietary applications separately under their respective licenses.
+FreeLane source and documentation use the [MIT license](LICENSE). The bundled UI font retains its [DejaVu license](crates/desktop/assets/DejaVu-LICENSE.txt). QEMU, firmware, TPM software and other dependencies retain their own licenses; see [dependency decisions](docs/dependencies.md). Users obtain Windows and proprietary applications separately under their respective licenses.
 
 FreeLane is independent and is not affiliated with Apple, Microsoft, Canonical or Parallels.

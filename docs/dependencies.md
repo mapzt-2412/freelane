@@ -16,3 +16,5 @@ This is an engineering baseline, not a license approval for a packaged release. 
 | Python 3.11+ standard library | Optional stdio MCP server and client configuration generator on Linux/macOS | Separately installed Python runtime retains its PSF license; no pip or MCP SDK dependency is added. | Wraps the existing host CLI, not a Windows driver or remote machine provider. |
 
 Sources: upstream QEMU documentation at https://www.qemu.org/docs/master/system/arm/virt.html and installed Debian `copyright` files for `qemu-system-arm`, `qemu-efi-aarch64`, `swtpm` and `libtpms0`. Signed Debian repository metadata and package checksums were used for the Linux installation. TLS, signature and checksum verification were not disabled.
+
+The desktop bundles the unmodified DejaVu Sans font for Vietnamese glyph coverage. Its separate copyright/license notice is retained in `crates/desktop/assets/DejaVu-LICENSE.txt`; FreeLane's MIT license does not replace the font license.
