@@ -36,6 +36,10 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 
 The desktop displays snapshots, with optional refresh for desktop VMs. Continuous video and keyboard forwarding are pending; use backend native windows for interactive input. Physical USB selectors are implemented but need hardware testing. Windows two-way folder sharing, accelerated 3D/Metal, Apple GPU passthrough, clipboard and seamless app windows remain pending.
 
+## Download an experimental build
+
+The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
+
 ## Build
 
 Use the pinned **Rust 1.99.0** toolchain:

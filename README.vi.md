@@ -36,6 +36,10 @@ Xem [bằng chứng Windows](docs/test-evidence.md), [Ubuntu](docs/ubuntu-test-e
 
 UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật định kỳ. Video liên tục và chuyển tiếp bàn phím chưa hoàn tất; dùng cửa sổ backend để tương tác. Đã có cấu hình chọn USB vật lý nhưng chưa kiểm thử phần cứng. Chia sẻ thư mục hai chiều cho Windows, tăng tốc 3D/Metal, passthrough GPU Apple, clipboard và cửa sổ app liền mạch còn đang phát triển.
 
+## Tải bản thử nghiệm
+
+[Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+, backend cài riêng và cấu hình local; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
+
 ## Build
 
 Dùng toolchain đã ghim **Rust 1.99.0**:
