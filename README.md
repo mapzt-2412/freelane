@@ -38,6 +38,8 @@ The desktop displays snapshots, with optional refresh for desktop VMs. Continuou
 
 ## Download an experimental build
 
+[Download the verified Apple Silicon build](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64` (6.21 MB). GitHub sign-in required; artifact retained for 30 days.
+
 The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 
 ## Build

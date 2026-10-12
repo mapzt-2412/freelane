@@ -38,6 +38,8 @@ UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật đ�
 
 ## Tải bản thử nghiệm
 
+[Tải bản Apple Silicon đã build thành công](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64` (6.21 MB). Cần đăng nhập GitHub; artifact được giữ 30 ngày.
+
 [Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+, backend cài riêng và cấu hình local; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
 
 ## Build

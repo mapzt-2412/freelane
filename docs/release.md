@@ -4,6 +4,8 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
+[Verified build and download](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64`, 6.21 MB, source commit `28e0fd0`. Sign in to GitHub to download the artifact. This run passed build/signature/ARM64/CLI-plan checks and uploaded the ZIP. [Recorded evidence](evidence/macos-release-build.json) distinguishes these checks from native GUI, guest and Simulator execution. Artifacts expire after 30 days.
+
 Use macOS 14 or later on Apple Silicon. The [Experimental release packages workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) builds the CLI and desktop with the macOS SDK, bundles `FreeLane.app`, ad-hoc signs it, verifies the signatures/ARM64 architecture and executes an offline release CLI plan check. Download its `FreeLane-experimental-macos-arm64` artifact from a **successful** run, then extract the inner ZIP. A workflow definition or push alone is not evidence that its build succeeded. Artifacts expire after 30 days; this workflow does not publish GitHub Releases automatically.
 
 The package contains `FreeLane.app`, CLI, documentation, example configs, source/font notices, dependency metadata, commit identifier and a ZIP SHA-256 file. It does not contain VM disks, Windows, QEMU, swtpm, firmware, Android SDKs, Xcode or guest-agent binaries. Install prerequisites separately following [the README](../README.md). SDK/firmware/config paths must match your Mac; examples contain placeholders.
@@ -29,7 +31,7 @@ Build the same package yourself on Mac with Xcode, Python3.11+ and the pinned Ru
 bash scripts/build-macos-release.sh
 ```
 
-Outputs go under `target/packages/`, named with version and commit. Existing package directories are refused; move your previous output before rebuilding the same commit. No native Mac build/runtime result is claimed until this script actually succeeds on a Mac.
+Outputs go under `target/packages/`, named with version and commit. Existing package directories are refused; move your previous output before rebuilding the same commit. The recorded Mac build passed; native GUI, HVF guest boot and mobile runtime still need testing.
 
 ## Linux cloud
 

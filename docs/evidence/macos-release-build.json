@@ -1,0 +1,33 @@
+{
+  "result": "passed",
+  "source_commit": "28e0fd08eb61036ada48abb30689c64d041ba5d2",
+  "workflow_run": "https://github.com/puma2k/freelane/actions/runs/38237076778",
+  "job": "https://github.com/puma2k/freelane/actions/runs/38237076778/job/114770270676",
+  "runner_label": "macos-15 (Apple Silicon per current runner-images catalog)",
+  "target": "aarch64-apple-darwin",
+  "profile": "release",
+  "checks": [
+    "native Mac CLI and desktop compiled",
+    "Info.plist lint",
+    "ad-hoc signing and deep/strict signature verification",
+    "CLI and desktop arm64 lipo verification",
+    "actual release CLI offline iOS mobile-plan execution",
+    "ZIP packaging and SHA-256 generation",
+    "artifact upload succeeded"
+  ],
+  "artifact": {
+    "name": "FreeLane-experimental-macos-arm64",
+    "id": "11740768018",
+    "display_size": "6.21 MB",
+    "github_artifact_digest_sha256": "90a25d7665714aa37270afa105e63d75b8a1035ea5f77bb275dba3e632a2d09f",
+    "retention_days": 30
+  },
+  "evidence_source": "Public GitHub run/job pages: build/package and upload steps reported success; named artifact present. Artifact bytes were not independently downloaded in this cloud.",
+  "notarized": false,
+  "developer_id_signed": false,
+  "native_mac_gui_test": false,
+  "hvf_guest_boot_test": false,
+  "ios_simulator_boot_test": false,
+  "android_mac_boot_test": false,
+  "qemu_or_sdks_bundled": false
+}
