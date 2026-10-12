@@ -279,3 +279,68 @@ fn settings_save_preserves_backup_and_rejects_running_or_conflicting_edits() {
     assert_eq!(fs::read_to_string(&path).unwrap(), saved);
     let _ = fs::remove_dir_all(qemu::runtime_dir(&path).unwrap());
 }
+
+#[test]
+fn readwrite_share_requires_ubuntu_and_escapes_qemu_separators() {
+    use freelane::GuestOs;
+    let images = Images::new();
+    let shared = images.0.join("share,security_model=none");
+    fs::create_dir(&shared).unwrap();
+    let mut config = images.config();
+    config.runtime.as_mut().unwrap().shared_directory = Some(shared.clone());
+    config.runtime.as_mut().unwrap().share_mode = qemu::ShareMode::Virtio9p;
+    assert!(config
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("Ubuntu"));
+    config.guest_os = GuestOs::Ubuntu;
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    assert!(args.iter().any(|arg| arg
+        == &format!(
+            "local,id=hostshare,path={},security_model=mapped-xattr",
+            shared.to_str().unwrap().replace(',', ",,")
+        )));
+    assert!(args
+        .iter()
+        .any(|arg| arg == "virtio-9p-pci,disable-legacy=on,fsdev=hostshare,mount_tag=freelane"));
+    assert!(!args
+        .iter()
+        .any(|arg| arg == "usb-storage,drive=shared,removable=on"));
+    config.runtime.as_mut().unwrap().shared_directory = Some(PathBuf::new());
+    assert!(config
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("must not be empty"));
+}
+
+#[test]
+fn physical_usb_requires_exact_bounded_selectors_without_duplicates() {
+    let images = Images::new();
+    let mut config = images.config();
+    let device = qemu::UsbHostDevice {
+        bus: 2,
+        address: 3,
+        vendor_id: 0x1234,
+        product_id: 0xabcd,
+    };
+    config
+        .runtime
+        .as_mut()
+        .unwrap()
+        .usb_devices
+        .push(device.clone());
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    assert!(args
+        .iter()
+        .any(|arg| arg == "usb-host,hostbus=2,hostaddr=3,vendorid=0x1234,productid=0xabcd"));
+    config.runtime.as_mut().unwrap().usb_devices.push(device);
+    assert!(config.validate().is_err());
+    config.runtime.as_mut().unwrap().usb_devices.pop();
+    config.runtime.as_mut().unwrap().usb_devices[0].address = 0;
+    assert!(config.validate().is_err());
+    config.runtime.as_mut().unwrap().usb_devices[0].address = 3;
+    config.runtime.as_mut().unwrap().usb_devices[0].vendor_id = 0;
+    assert!(config.validate().is_err());
+}

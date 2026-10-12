@@ -45,6 +45,36 @@ impl Config {
         Ok(config)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(runtime) = &self.runtime {
+            if runtime
+                .shared_directory
+                .as_ref()
+                .is_some_and(|path| path.as_os_str().is_empty())
+            {
+                return Err(Error(
+                    "Shared directory must not be empty; omit it to disable sharing".into(),
+                ));
+            }
+            if runtime.shared_directory.is_some()
+                && runtime.share_mode == qemu::ShareMode::Virtio9p
+                && self.guest_os != GuestOs::Ubuntu
+            {
+                return Err(Error("Read/write virtio-9p sharing requires an Ubuntu guest; Windows needs a separate compatible sharing backend".into()));
+            }
+            let mut devices = std::collections::HashSet::new();
+            if runtime.usb_devices.len() > 16
+                || runtime.usb_devices.iter().any(|device| {
+                    device.vendor_id == 0
+                        || device.bus == 0
+                        || !(1..=127).contains(&device.address)
+                        || !devices.insert((device.bus, device.address))
+                })
+            {
+                return Err(Error(
+                    "Choose up to 16 distinct USB devices with bus 1–255 and address 1–127 and a nonzero vendor ID".into(),
+                ));
+            }
+        }
         if self.runtime.as_ref().is_some_and(|runtime| {
             runtime.tcg_threading.is_some() && runtime.accelerator != qemu::Accelerator::Tcg
         }) {

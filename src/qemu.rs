@@ -56,6 +56,22 @@ pub enum NetworkDevice {
     Virtio,
     Usb,
 }
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ShareMode {
+    #[default]
+    ReadonlyUsb,
+    /// Live read/write virtio-9p mount; requires a Linux guest driver.
+    Virtio9p,
+}
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UsbHostDevice {
+    pub bus: u8,
+    pub address: u8,
+    pub vendor_id: u16,
+    pub product_id: u16,
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeConfig {
@@ -88,6 +104,10 @@ pub struct RuntimeConfig {
     /// Optional read-only host folder exposed as a virtual FAT USB disk.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shared_directory: Option<PathBuf>,
+    #[serde(default)]
+    pub share_mode: ShareMode,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub usb_devices: Vec<UsbHostDevice>,
     pub tpm: Option<TpmConfig>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -291,15 +311,42 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
         if !directory.is_dir() {
             return Err(Error("Shared directory must be an existing folder".into()));
         }
+        match runtime.share_mode {
+            ShareMode::ReadonlyUsb => args.extend([
+                "-blockdev".into(),
+                json!({"driver":"vvfat", "node-name":"shared", "dir":text_path(&directory)?,
+                    "fat-type":16, "rw":false, "read-only":true})
+                .to_string(),
+                "-device".into(),
+                "usb-storage,drive=shared,removable=on".into(),
+            ]),
+            ShareMode::Virtio9p => {
+                // Escape QEMU key/value separators, rather than treating a path as options.
+                let directory = text_path(&directory)?.replace(',', ",,");
+                if directory.chars().any(char::is_control) {
+                    return Err(Error(
+                        "Shared path must not contain control characters".into(),
+                    ));
+                }
+                args.extend([
+                    "-fsdev".into(),
+                    format!("local,id=hostshare,path={directory},security_model=mapped-xattr"),
+                    "-device".into(),
+                    "virtio-9p-pci,disable-legacy=on,fsdev=hostshare,mount_tag=freelane".into(),
+                ]);
+            }
+        }
+    }
+    for device in &runtime.usb_devices {
         args.extend([
-            "-blockdev".into(),
-            json!({"driver":"vvfat", "node-name":"shared", "dir":text_path(&directory)?,
-                "fat-type":16, "rw":false, "read-only":true})
-            .to_string(),
             "-device".into(),
-            "usb-storage,drive=shared,removable=on".into(),
+            format!(
+                "usb-host,hostbus={},hostaddr={},vendorid=0x{:04x},productid=0x{:04x}",
+                device.bus, device.address, device.vendor_id, device.product_id
+            ),
         ]);
     }
+
     if runtime.guest_agent {
         let agent_socket = Path::new(socket).parent().unwrap().join("agent.sock");
         args.extend([
@@ -883,6 +930,8 @@ pub fn initialize_guest(
             network_device: NetworkDevice::Virtio,
             guest_agent: false,
             shared_directory: None,
+            share_mode: ShareMode::ReadonlyUsb,
+            usb_devices: Vec::new(),
             tpm: (guest_os == GuestOs::Windows).then(|| TpmConfig {
                 state: "tpm".into(),
                 binary: default_swtpm(),
