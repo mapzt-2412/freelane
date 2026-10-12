@@ -78,6 +78,33 @@ impl Launcher for WindowsLauncher {
         Ok(id)
     }
 }
+#[cfg(target_os = "linux")]
+pub struct LinuxLauncher;
+#[cfg(target_os = "linux")]
+impl Launcher for LinuxLauncher {
+    fn launch(&mut self, executable: &str, arguments: &[String]) -> io::Result<u32> {
+        let path = std::path::Path::new(executable);
+        if !path.is_absolute() || !path.is_file() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Use an absolute Linux executable file path",
+            ));
+        }
+        let mut child = std::process::Command::new(path)
+            .args(arguments)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()?;
+        let pid = child.id();
+        // Reap asynchronously: RPC must not wait for a long-lived GUI application.
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(pid)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -64,3 +64,15 @@ jobs:
         with:
           name: experimental-windows-arm64-agent
           path: target/guest-agent-arm64/
+  guest-agent-linux-arm64-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+      - run: bash scripts/build-linux-agent.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experimental-linux-arm64-agent
+          path: target/guest-agent-linux-arm64/
