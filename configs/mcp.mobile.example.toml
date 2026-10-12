@@ -1,0 +1,7 @@
+repository = ".."
+artifacts = "../target/mcp"
+job_timeout_seconds = 600
+# Register only actual prepared profiles. No device is created or booted at startup.
+[mobile_devices]
+android = "/absolute/path/to/mobile.android.toml"
+ios = "/absolute/path/to/mobile.ios.toml"

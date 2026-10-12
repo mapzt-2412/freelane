@@ -10,6 +10,16 @@ impl Language {
             return english;
         }
         match english {
+            "Android & iOS" => "Android & iOS",
+            "Mobile profile" => "Cấu hình thiết bị di động",
+            "Available devices" => "Thiết bị có sẵn",
+            "Open Simulator window" => "Mở cửa sổ Simulator",
+            "APK / Simulator .app path" => "Đường dẫn APK / .app cho Simulator",
+            "Install application" => "Cài ứng dụng",
+            "Android package/activity or iOS bundle ID" => "Package/activity Android hoặc bundle ID iOS",
+            "Start requested; refresh status to check boot completion." => "Đã yêu cầu khởi động; cập nhật trạng thái để kiểm tra boot xong.",
+            "iOS needs macOS/Xcode and Simulator-target apps; App Store IPA files are not supported." => "iOS cần macOS/Xcode và app build cho Simulator; không chạy IPA từ App Store.",
+            "Edit the profile file while stopped to change SDK, AVD, CPU, RAM or rendering. No automatic retry of app installs/launches." => "Dừng thiết bị trước khi sửa SDK, AVD, CPU, RAM hay đồ họa trong tệp cấu hình. Không tự gửi lại lệnh cài/mở app.",
             "Control Center" => "Trung tâm điều khiển",
             "Virtual machines" => "Máy ảo",
             "Add virtual machine" => "Thêm máy ảo",

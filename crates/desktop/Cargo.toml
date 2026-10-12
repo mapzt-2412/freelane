@@ -8,6 +8,6 @@ license = "MIT"
 [dependencies]
 freelane = { path = "../.." }
 eframe = { version = "0.36.2", default-features = false, features = ["glow", "x11", "default_fonts"] }
-image = { version = "0.25", default-features = false, features = ["pnm"] }
+image = { version = "0.25", default-features = false, features = ["pnm", "png"] }
 tempfile = "3"
 freelane-agent-protocol = { path = "../agent-protocol" }

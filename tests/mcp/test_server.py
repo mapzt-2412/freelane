@@ -50,6 +50,17 @@ class ServerTests(unittest.TestCase):
             time.sleep(0.01)
         self.fail("Job did not finish")
 
+    def test_mobile_registry_and_literal_application_paths(self):
+        self.cli_fixture()
+        (self.root / "mobile.toml").write_text('name="Android"\nplatform="android"\n')
+        self.config.write_text('repository="."\n[mobile_devices]\nphone="mobile.toml"\n')
+        self.server.close()
+        self.server=mcp.Server(self.config)
+        result=self.server.call("mobile_install",{"device":"phone","application":"/tmp/a & b.apk"})
+        self.assertEqual(json.loads(result["output"]),["mobile-install",str(self.root/"mobile.toml"),"/tmp/a & b.apk"])
+        with self.assertRaises(ValueError):self.server.call("mobile_control",{"device":"unregistered","action":"stop"})
+        with self.assertRaises(ValueError):self.server.call("mobile_control",{"device":"phone","action":"erase"})
+
     def test_stdio_initialize_notifications_and_tool_catalog(self):
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},

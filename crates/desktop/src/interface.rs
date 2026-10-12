@@ -211,6 +211,9 @@ impl Desktop {
                 {
                     self.open_dialog = true;
                 }
+                if ui.button(lang.text("Android & iOS")).clicked() {
+                    self.mobile_open = true;
+                }
                 ui.add_space(20.0);
                 ui.small(lang.text("Closing FreeLane leaves the VM running."));
                 ui.add_space(8.0);

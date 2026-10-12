@@ -41,6 +41,13 @@ def schema(properties=None, required=None):
 
 VM = {"type": "string", "minLength": 1, "maxLength": 64}
 TOOLS = [
+    ("mobile_control", "Control a registered Android AVD or Xcode iOS Simulator. Start is not boot readiness; iOS requires a Mac.",
+     schema({"device": VM, "action": {"type":"string","enum":["start","status","stop","devices","window"]}}, ["device","action"])),
+    ("mobile_capture", "Capture a genuine PNG from a registered emulator/simulator, not a live stream.", schema({"device":VM},["device"])),
+    ("mobile_install", "Install an APK or Simulator-target .app into the registered device. No App Store IPA support; no automatic retry.",
+     schema({"device":VM,"application":{"type":"string","minLength":1,"maxLength":4096}},["device","application"])),
+    ("mobile_launch", "Launch a literal Android package/activity or iOS bundle ID on the registered device. Inspect actual app behavior separately.",
+     schema({"device":VM,"application":{"type":"string","minLength":1,"maxLength":256}},["device","application"])),
     ("host_info", "Report host/tool paths and registered VM names; no credential values.", schema()),
     ("dev_run", "Start one fixed development task. Returns job ID, not a pass result. Poll dev_result.",
      schema({"task": {"type": "string", "enum": list(TASKS)}}, ["task"])),
@@ -182,7 +189,7 @@ class Server:
     def __init__(self, config_path):
         config_path = Path(config_path).resolve(strict=True)
         config = tomllib.loads(config_path.read_text())
-        if set(config) - {"repository", "artifacts", "job_timeout_seconds", "vms"}:
+        if set(config) - {"repository", "artifacts", "job_timeout_seconds", "vms", "mobile_devices"}:
             raise ValueError("Unknown MCP configuration setting")
         self.repo = (config_path.parent / config["repository"]).resolve(strict=True)
         if not (self.repo / "Cargo.toml").is_file():
@@ -197,6 +204,13 @@ class Server:
             validate(name, VM)
             if not path.is_file():
                 raise ValueError("Registered VM config must be a file")
+        self.mobile_devices = {name:(config_path.parent/path).resolve(strict=True) for name,path in config.get("mobile_devices",{}).items()}
+        for name,path in self.mobile_devices.items():
+            validate(name,VM)
+            if not path.is_file() or path.stat().st_size>1024*1024:
+                raise ValueError("Registered mobile profile must be a file under 1 MiB")
+            if tomllib.loads(path.read_text()).get("platform") not in ("android","ios"):
+                raise ValueError("Mobile profile must specify Android or iOS")
         self.jobs = {}
         self.lock = threading.Lock()
         self.supervisors = {}
@@ -217,6 +231,54 @@ class Server:
 
     def run_cli(self, command, vm, *args):
         return collect(self.spawn(self.cli(command, vm, *args)), 20)
+
+    def mobile_cli(self,command,device,*arguments):
+        if device not in self.mobile_devices:
+            raise ValueError("Mobile device is not registered")
+        binary=self.repo/"target/debug/freelane"
+        if not binary.is_file():
+            raise ValueError("Build the CLI first")
+        return [str(binary),command,str(self.mobile_devices[device]),*map(str,arguments)]
+
+    def call_mobile(self,name,arguments):
+        device=arguments["device"]
+        def run(command,*extra):
+            return collect(self.spawn(self.mobile_cli(command,device,*extra)),150 if command=="mobile-install" else 45)
+        if name=="mobile_control":
+            action=arguments["action"]
+            if action!="start":return run("mobile-"+action)
+            command=self.mobile_cli("mobile-start",device)
+            key="mobile:"+device
+            existing=self.supervisors.get(key)
+            if existing and existing.poll() is None:raise ValueError("Mobile supervisor is already running")
+            state=run("mobile-status")
+            if state["exit_code"]==0:
+                try:
+                    ready=json.loads(state["output"])
+                except json.JSONDecodeError:
+                    ready={}
+                if ready.get("platform")=="android" or ready.get("state")=="Booted":
+                    raise ValueError("Mobile device already running; inspect status")
+            self.artifacts.mkdir(parents=True,exist_ok=True,mode=0o700)
+            log_path=self.artifacts/(uuid.uuid4().hex+"-mobile-supervisor.log")
+            with log_path.open("xb") as log:
+                process=subprocess.Popen(command,cwd=self.repo,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            self.supervisors[key]=process
+            threading.Thread(target=process.wait,daemon=True).start()
+            return {"supervisor_pid":process.pid,"status":"starting","log":str(log_path),"next":"Poll mobile_control/status; client disconnect leaves the device running."}
+        if name=="mobile_install":return run("mobile-install",arguments["application"])
+        if name=="mobile_launch":return run("mobile-launch",arguments["application"])
+        self.mobile_cli("mobile-capture",device)
+        self.artifacts.mkdir(parents=True,exist_ok=True,mode=0o700)
+        path=self.artifacts/(uuid.uuid4().hex+".png")
+        result=run("mobile-capture",path)
+        if result["exit_code"]!=0:return result
+        if path.stat().st_size>8*1024*1024:raise ValueError("Mobile image exceeds 8 MiB; artifact retained")
+        data=path.read_bytes()
+        if not data.startswith(b"\x89PNG\r\n\x1a\n") or len(data)<33 or data[12:16]!=b"IHDR":raise ValueError("Mobile tool returned invalid PNG")
+        width,height=struct.unpack(">II",data[16:24])
+        if not 1<=width<=8192 or not 1<=height<=8192 or width*height*4>64*1024*1024:raise ValueError("Mobile PNG dimensions exceed decoding bounds")
+        return {"content":[{"type":"text","text":json.dumps({"artifact":str(path),"device":device})},{"type":"image","mimeType":"image/png","data":base64.b64encode(data).decode()}],"isError":False}
 
     def start_job(self, task):
         with self.lock:
@@ -251,7 +313,7 @@ class Server:
         validate(arguments, spec)
         if name == "host_info":
             return {"system": platform.system(), "architecture": platform.machine(),
-                    "repository": str(self.repo), "vms": list(self.vms),
+                    "repository": str(self.repo), "vms": list(self.vms), "mobile_devices":list(self.mobile_devices),
                     "tools": {tool: shutil.which(tool) for tool in ("cargo", "qemu-system-aarch64", "qemu-img", "swtpm")},
                     "native_mac": sys.platform == "darwin" and platform.machine() == "arm64"}
         if name == "dev_run":
@@ -262,6 +324,8 @@ class Server:
                 if job is None:
                     raise ValueError("Unknown job ID (job history is session-local)")
                 return {key: value for key, value in job.items() if key != "process"}
+        if name.startswith("mobile_"):
+            return self.call_mobile(name,arguments)
         vm = arguments["vm"]
         if name == "vm_start":
             command = self.cli("start", vm)

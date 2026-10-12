@@ -1,5 +1,6 @@
 mod i18n;
 mod interface;
+mod mobile_ui;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
 use freelane_agent_protocol::{Action, Outcome};
@@ -29,6 +30,9 @@ struct VmInfo {
 }
 enum Event {
     Loaded(VmInfo),
+    MobileLoaded(PathBuf, freelane::mobile::Profile),
+    MobileNotice(String),
+    MobileFrame(egui::ColorImage),
     Saved(VmInfo, String),
     Status(String),
     Frame(egui::ColorImage, bool),
@@ -38,6 +42,15 @@ type WorkResult = Result<Event, String>;
 
 #[derive(Default)]
 struct Desktop {
+    mobile_open: bool,
+    mobile_path: String,
+    mobile_profile: Option<(PathBuf, freelane::mobile::Profile)>,
+    mobile_application: String,
+    mobile_package: String,
+    mobile_notice: String,
+    mobile_texture: Option<egui::TextureHandle>,
+    mobile_child: Option<Child>,
+    mobile_errors: Option<Arc<Mutex<Vec<u8>>>>,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
     open_dialog: bool,
@@ -281,11 +294,25 @@ impl Desktop {
         }
     }
     fn receive(&mut self, ctx: &egui::Context) {
+        self.poll_mobile(ctx);
         if let Some(receiver) = &self.pending {
             match receiver.try_recv() {
                 Ok(result) => {
                     self.pending = None;
                     match result {
+                        Ok(Event::MobileLoaded(path, profile)) => {
+                            self.mobile_profile = Some((path, profile));
+                            self.mobile_texture = None;
+                            self.mobile_notice.clear();
+                        }
+                        Ok(Event::MobileNotice(notice)) => self.mobile_notice = notice,
+                        Ok(Event::MobileFrame(frame)) => {
+                            self.mobile_texture = Some(ctx.load_texture(
+                                "mobile-frame",
+                                frame,
+                                egui::TextureOptions::LINEAR,
+                            ))
+                        }
                         Ok(Event::Loaded(vm)) => {
                             self.settings = Some(vm.config.clone());
                             self.installer_path = vm
@@ -405,14 +432,18 @@ impl eframe::App for Desktop {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);
         self.draw(ui, &ctx);
+        self.mobile_ui(&ctx);
     }
 }
 fn main() -> eframe::Result {
     let mut paths = Vec::new();
+    let mut mobile_path = String::new();
     let mut language = Language::Vietnamese;
     let mut arguments = std::env::args().skip(1);
     while let Some(argument) = arguments.next() {
-        if argument == "--lang" {
+        if argument == "--mobile" {
+            mobile_path = arguments.next().unwrap_or_default();
+        } else if argument == "--lang" {
             language = match arguments.next().as_deref() {
                 Some("en") => Language::English,
                 Some("vi") => Language::Vietnamese,
@@ -455,6 +486,8 @@ fn main() -> eframe::Result {
             interface::install_style(&creation.egui_ctx);
             Ok(Box::new(Desktop {
                 draft_path: path,
+                mobile_open: !mobile_path.is_empty(),
+                mobile_path,
                 language,
                 library,
                 ..Default::default()

@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Client:
-    def __init__(self, config):
+    def __init__(self, config, response_timeout=30):
+        self.response_timeout = response_timeout
         self.process = subprocess.Popen(["bash", str(ROOT / "scripts/run-mcp.sh"), "--config", str(config)],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=ROOT)
         self.request_id = 0
@@ -28,7 +29,7 @@ class Client:
         message = {"jsonrpc": "2.0", "id": self.request_id, "method": method, "params": params}
         self.process.stdin.write((json.dumps(message) + "\n").encode())
         self.process.stdin.flush()
-        assert select.select([self.process.stdout], [], [], 30)[0], "MCP response deadline"
+        assert select.select([self.process.stdout], [], [], self.response_timeout)[0], "MCP response deadline"
         reply = json.loads(self.process.stdout.readline())
         assert reply["id"] == self.request_id and "error" not in reply, reply
         return reply["result"]
@@ -78,7 +79,7 @@ def main():
         client = Client(mcp_config)
         try:
             catalog = client.request("tools/list", {})
-            assert len(catalog["tools"]) == 10
+            assert len(catalog["tools"]) == 14
             assert client.data("host_info")["vms"] == ["uefi"]
             for task in ("test", "test_arm"):
                 job = client.data("dev_run", task=task)
