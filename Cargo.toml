@@ -1,0 +1,22 @@
+[package]
+name = "freelane"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99"
+description = "An experimental Windows-on-Apple-Silicon VM host"
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+serde_json = "1"
+fs2 = "0.4"
+getrandom = "0.4"
+ctrlc = { version = "3", features = ["termination"] }
+
+freelane-agent-protocol = { path = "crates/agent-protocol" }
+
+[workspace]
+members = ["crates/agent-protocol", "crates/guest-agent", "crates/desktop"]
+default-members = ["."]
+resolver = "2"

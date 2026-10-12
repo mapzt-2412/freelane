@@ -1,0 +1,5 @@
+/target/
+*.img
+*.qcow2
+*.iso
+*.vhdx

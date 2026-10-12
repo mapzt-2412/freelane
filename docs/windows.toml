@@ -1,0 +1,21 @@
+# Paths are relative to this configuration file; supply your own licensed images.
+name = "Windows 11 ARM"
+cpus = 4
+memory_mib = 4096
+disk = "windows.qcow2"
+installer = "windows-arm.iso"
+
+# Use private firmware/NVRAM/TPM files created by `freelane init`.
+[runtime]
+firmware = "firmware.fd"
+nvram = "nvram.fd"
+disk_format = "qcow2"
+accelerator = "hvf"
+binary = "qemu-system-aarch64"
+headless = false
+network = false
+guest_agent = false
+
+[runtime.tpm]
+state = "tpm"
+binary = "swtpm"

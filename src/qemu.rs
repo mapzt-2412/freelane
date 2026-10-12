@@ -1,0 +1,757 @@
+//! External QEMU backend. No firmware, OS images or drivers are bundled.
+use crate::{qmp::Qmp, Backend, Config, Error, Result};
+use fs2::FileExt;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::{
+    fs::{self, File, OpenOptions},
+    path::{Path, PathBuf},
+    process::{Child, Command, ExitStatus, Stdio},
+    time::{Duration, Instant},
+};
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
+pub enum Accelerator {
+    #[default]
+    Hvf,
+    Tcg,
+}
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum TcgThreading {
+    Single,
+    Multi,
+}
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+#[derive(Default)]
+pub enum DiskFormat {
+    Raw,
+    #[default]
+    Qcow2,
+    Vhdx,
+}
+impl DiskFormat {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Raw => "raw",
+            Self::Qcow2 => "qcow2",
+            Self::Vhdx => "vhdx",
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkDevice {
+    #[default]
+    Virtio,
+    Usb,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeConfig {
+    pub firmware: PathBuf,
+    pub nvram: PathBuf,
+    #[serde(default)]
+    pub disk_format: DiskFormat,
+    #[serde(default)]
+    pub accelerator: Accelerator,
+    /// Optional software-emulation diagnostic override; omitted uses QEMU's default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tcg_threading: Option<TcgThreading>,
+    /// Binary path or executable name; no shell parsing occurs.
+    #[serde(default = "default_binary")]
+    pub binary: PathBuf,
+    /// Use a local Cocoa/GTK display, or disable display for automated tests.
+    #[serde(default)]
+    pub headless: bool,
+    #[serde(default)]
+    pub network: bool,
+    #[serde(default)]
+    pub network_device: NetworkDevice,
+    #[serde(default)]
+    pub guest_agent: bool,
+    pub tpm: Option<TpmConfig>,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct TpmConfig {
+    pub state: PathBuf,
+    #[serde(default = "default_swtpm")]
+    pub binary: PathBuf,
+}
+fn default_swtpm() -> PathBuf {
+    "swtpm".into()
+}
+fn default_binary() -> PathBuf {
+    "qemu-system-aarch64".into()
+}
+fn canonical(base: &Path, path: &Path) -> Result<PathBuf> {
+    fs::canonicalize(base.join(path))
+        .map_err(|e| Error(format!("{}: {e}", base.join(path).display())))
+}
+fn text_path(path: &Path) -> Result<&str> {
+    path.to_str()
+        .ok_or_else(|| Error("QEMU paths must be valid UTF-8".into()))
+}
+fn file_block(node: &str, format: &str, path: &Path, readonly: bool) -> Result<String> {
+    Ok(json!({"driver":format,"node-name":node,"read-only":readonly,"file":{"driver":"file","filename":text_path(path)?}}).to_string())
+}
+
+/// Runtime files are keyed by canonical configuration path, rather than user-controlled VM name.
+pub fn runtime_dir(config: &Path) -> Result<PathBuf> {
+    let path = fs::canonicalize(config).map_err(|e| Error(e.to_string()))?;
+    let mut hash = 0xcbf29ce484222325u64;
+    use std::os::unix::ffi::OsStrExt;
+    for byte in path.as_os_str().as_bytes() {
+        hash = (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
+    }
+    // Short socket path avoids Unix sockaddr limits. Runtime state is ephemeral.
+    Ok(std::env::temp_dir().join(format!("freelane-{:016x}", hash)))
+}
+
+pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<String>> {
+    config.validate()?;
+    config.check_images(base)?;
+    let runtime = config.runtime.as_ref().ok_or_else(|| {
+        Error("Missing [runtime] settings (firmware, nvram and disk format)".into())
+    })?;
+    if runtime.accelerator == Accelerator::Hvf {
+        crate::require_supported_host()?;
+    }
+    let firmware = canonical(base, &runtime.firmware)?;
+    let nvram = canonical(base, &runtime.nvram)?;
+    let disk = canonical(base, &config.disk)?;
+    if firmware == nvram || firmware == disk || nvram == disk {
+        return Err(Error(
+            "Firmware, NVRAM and disk must be distinct files".into(),
+        ));
+    }
+    for image in [&firmware, &nvram] {
+        let metadata = fs::metadata(image).map_err(|e| Error(e.to_string()))?;
+        if !metadata.is_file() || metadata.len() == 0 {
+            return Err(Error(format!(
+                "{} must be a nonempty firmware file",
+                image.display()
+            )));
+        }
+    }
+    // Canonical paths alone do not detect hard links to shared writable images.
+    use std::os::unix::fs::MetadataExt;
+    let mut identities = std::collections::HashSet::new();
+    for image in [&firmware, &nvram, &disk]
+        .into_iter()
+        .chain(config.installer.iter())
+    {
+        let image = canonical(base, image)?;
+        let metadata = fs::metadata(&image).map_err(|e| Error(e.to_string()))?;
+        if !identities.insert((metadata.dev(), metadata.ino())) {
+            return Err(Error(
+                "Images must not alias the same underlying file".into(),
+            ));
+        }
+    }
+    // Prove writable files can be opened without truncating them; QEMU takes image locks.
+    for image in [&nvram, &disk] {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(image)
+            .map_err(|e| Error(format!("{} is not writable: {e}", image.display())))?;
+    }
+    let socket = text_path(socket)?;
+    if socket.contains(',') || socket.len() > 100 {
+        return Err(Error("Invalid QMP socket path".into()));
+    }
+    let (accel, cpu) = match runtime.accelerator {
+        Accelerator::Hvf => ("hvf", "host"),
+        Accelerator::Tcg => (
+            match runtime.tcg_threading {
+                None => "tcg",
+                Some(TcgThreading::Single) => "tcg,thread=single",
+                Some(TcgThreading::Multi) => "tcg,thread=multi",
+            },
+            "max",
+        ),
+    };
+    let mut args: Vec<String> = [
+        "-name",
+        &config.name,
+        "-machine",
+        "virt-10.0,gic-version=3,pflash0=firmware,pflash1=nvram",
+        "-accel",
+        accel,
+        "-cpu",
+        cpu,
+        "-smp",
+        &config.cpus.to_string(),
+        "-m",
+        &config.memory_mib.to_string(),
+        "-S",
+        "-qmp",
+        &format!("unix:{socket},server=on,wait=off"),
+        "-monitor",
+        "none",
+        "-serial",
+        &format!(
+            "file:{}",
+            Path::new(socket)
+                .parent()
+                .unwrap()
+                .join("serial.log")
+                .display()
+        ),
+        "-display",
+        if runtime.headless {
+            "none"
+        } else if cfg!(target_os = "macos") {
+            "cocoa"
+        } else {
+            "gtk"
+        },
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+    for (node, format, path, readonly) in [
+        ("firmware", "raw", &firmware, true),
+        ("nvram", "raw", &nvram, false),
+        ("disk", runtime.disk_format.name(), &disk, false),
+    ] {
+        args.extend([
+            "-blockdev".into(),
+            file_block(node, format, path, readonly)?,
+        ]);
+    }
+    args.extend(
+        [
+            "-device",
+            "nvme,drive=disk,serial=freelane-disk",
+            "-device",
+            "ramfb",
+            "-device",
+            "qemu-xhci",
+            "-device",
+            "usb-kbd",
+            "-device",
+            "usb-tablet",
+        ]
+        .into_iter()
+        .map(str::to_string),
+    );
+    if let Some(installer) = &config.installer {
+        let installer = canonical(base, installer)?;
+        if installer == disk || installer == nvram || installer == firmware {
+            return Err(Error(
+                "Installer must be distinct from writable images and firmware".into(),
+            ));
+        }
+        args.extend([
+            "-blockdev".into(),
+            file_block("installer", "raw", &installer, true)?,
+            "-device".into(),
+            "usb-bot,id=installusb".into(),
+            "-device".into(),
+            "scsi-cd,bus=installusb.0,drive=installer,bootindex=0".into(),
+        ]);
+    }
+    if runtime.guest_agent {
+        let agent_socket = Path::new(socket).parent().unwrap().join("agent.sock");
+        args.extend([
+            "-chardev".into(),
+            format!(
+                "socket,id=guestagent,path={},server=on,wait=off",
+                agent_socket.display()
+            ),
+            "-device".into(),
+            "virtio-serial-pci,disable-legacy=on".into(),
+            "-device".into(),
+            "virtserialport,chardev=guestagent,name=org.freelane.agent.0".into(),
+        ]);
+    }
+    if runtime.network {
+        args.extend(
+            [
+                "-netdev",
+                "user,id=net0",
+                "-device",
+                match runtime.network_device {
+                    NetworkDevice::Virtio => "virtio-net-pci,disable-legacy=on,netdev=net0",
+                    NetworkDevice::Usb => "usb-net,netdev=net0",
+                },
+            ]
+            .into_iter()
+            .map(str::to_string),
+        );
+    } else {
+        args.extend(["-nic".into(), "none".into()]);
+    }
+    if runtime.tpm.is_some() {
+        let tpm_socket = socket
+            .strip_suffix("qmp.sock")
+            .ok_or_else(|| Error("Unexpected QMP socket filename".into()))?
+            .to_owned()
+            + "tpm.sock";
+        args.extend([
+            "-chardev".into(),
+            format!("socket,id=tpmchar,path={tpm_socket}"),
+            "-tpmdev".into(),
+            "emulator,id=tpm0,chardev=tpmchar".into(),
+            "-device".into(),
+            "tpm-tis-device,tpmdev=tpm0".into(),
+        ]);
+    }
+    Ok(args)
+}
+
+pub struct QemuBackend {
+    base: PathBuf,
+    directory: PathBuf,
+    child: Option<Child>,
+    lock: Option<File>,
+    tpm_child: Option<Child>,
+    tpm_lock: Option<File>,
+}
+impl QemuBackend {
+    pub fn new(config_path: &Path) -> Result<Self> {
+        let config_path = fs::canonicalize(config_path).map_err(|e| Error(e.to_string()))?;
+        Ok(Self {
+            base: config_path.parent().unwrap().into(),
+            directory: runtime_dir(&config_path)?,
+            child: None,
+            lock: None,
+            tpm_child: None,
+            tpm_lock: None,
+        })
+    }
+    pub fn directory(&self) -> &Path {
+        &self.directory
+    }
+    pub fn poll(&mut self) -> Result<Option<ExitStatus>> {
+        self.child
+            .as_mut()
+            .ok_or_else(|| Error("QEMU has not started".into()))?
+            .try_wait()
+            .map_err(|e| Error(e.to_string()))
+    }
+    fn command(&mut self, command: &str) -> Result<()> {
+        Qmp::connect(&self.directory.join("qmp.sock"))?.execute(command, None)?;
+        Ok(())
+    }
+    fn cleanup(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        if let Some(mut child) = self.tpm_child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        self.tpm_lock.take();
+        // Hold the lock through socket cleanup, including failure paths.
+        if self.lock.is_some() {
+            let _ = fs::remove_file(self.directory.join("qmp.sock"));
+            let _ = fs::remove_file(self.directory.join("agent.sock"));
+            let _ = fs::remove_file(self.directory.join("tpm.sock"));
+        }
+        self.lock.take();
+    }
+    fn start_tpm(&mut self, config: &TpmConfig) -> Result<()> {
+        let state = canonical(&self.base, &config.state)?;
+        use std::os::unix::fs::MetadataExt;
+        let metadata = fs::metadata(&state).map_err(|e| Error(e.to_string()))?;
+        if !metadata.is_dir()
+            || metadata.mode() & 0o077 != 0
+            || metadata.uid()
+                != fs::metadata(&self.base)
+                    .map_err(|e| Error(e.to_string()))?
+                    .uid()
+        {
+            return Err(Error(
+                "TPM state must be a private directory owned by VM directory owner".into(),
+            ));
+        }
+        let state_text = text_path(&state)?;
+        if state_text.contains(',') {
+            return Err(Error("TPM state directory cannot contain commas".into()));
+        }
+        let lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(state.join(".freelane.lock"))
+            .map_err(|e| Error(e.to_string()))?;
+        lock.try_lock_exclusive()
+            .map_err(|_| Error("TPM state is in use by another VM".into()))?;
+        self.tpm_lock = Some(lock);
+        let socket = self.directory.join("tpm.sock");
+        let _ = fs::remove_file(&socket);
+        let log =
+            File::create(self.directory.join("swtpm.log")).map_err(|e| Error(e.to_string()))?;
+        let binary = if config.binary.components().count() > 1 {
+            self.base.join(&config.binary)
+        } else {
+            config.binary.clone()
+        };
+        self.tpm_child = Some(
+            Command::new(binary)
+                .args([
+                    "socket",
+                    "--tpm2",
+                    "--tpmstate",
+                    &format!("dir={state_text},mode=0600"),
+                    "--ctrl",
+                    &format!("type=unixio,path={}", socket.display()),
+                    "--flags",
+                    "not-need-init",
+                    "--terminate",
+                ])
+                .stdin(Stdio::null())
+                .stdout(log.try_clone().map_err(|e| Error(e.to_string()))?)
+                .stderr(log)
+                .spawn()
+                .map_err(|e| Error(format!("swtpm startup: {e}")))?,
+        );
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !socket.exists() {
+            if let Some(status) = self
+                .tpm_child
+                .as_mut()
+                .unwrap()
+                .try_wait()
+                .map_err(|e| Error(e.to_string()))?
+            {
+                return Err(Error(format!(
+                    "swtpm exited with {status}; see {}/swtpm.log",
+                    self.directory.display()
+                )));
+            }
+            if Instant::now() >= deadline {
+                return Err(Error("Timed out starting software TPM".into()));
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        Ok(())
+    }
+    fn prepare_inner(&mut self, config: &Config) -> Result<()> {
+        if self.child.is_some() {
+            return Err(Error("QEMU already prepared".into()));
+        }
+        let args = arguments(config, &self.base, &self.directory.join("qmp.sock"))?;
+        match fs::create_dir(&self.directory) {
+            Ok(()) => {
+                use std::os::unix::fs::PermissionsExt;
+                fs::set_permissions(&self.directory, fs::Permissions::from_mode(0o700))
+                    .map_err(|e| Error(e.to_string()))?;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(Error(e.to_string())),
+        }
+        use std::os::unix::fs::MetadataExt;
+        let metadata = fs::symlink_metadata(&self.directory).map_err(|e| Error(e.to_string()))?;
+        let own_uid = fs::metadata(&self.base)
+            .map_err(|e| Error(e.to_string()))?
+            .uid();
+        if !metadata.is_dir() || metadata.uid() != own_uid || metadata.mode() & 0o077 != 0 {
+            return Err(Error(
+                "Runtime directory must be a private directory owned by checkout owner".into(),
+            ));
+        }
+        let lock = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
+            .open(self.directory.join("lock"))
+            .map_err(|e| Error(e.to_string()))?;
+        lock.try_lock_exclusive()
+            .map_err(|_| Error("This VM is already running".into()))?;
+        self.lock = Some(lock);
+        let _ = fs::remove_file(self.directory.join("qmp.sock"));
+        let log =
+            File::create(self.directory.join("qemu.log")).map_err(|e| Error(e.to_string()))?;
+        if let Some(tpm) = &config.runtime.as_ref().unwrap().tpm {
+            self.start_tpm(tpm)?;
+        }
+        let binary = &config.runtime.as_ref().unwrap().binary;
+        let binary = if binary.components().count() > 1 {
+            self.base.join(binary)
+        } else {
+            binary.clone()
+        };
+        self.child = Some(
+            Command::new(binary)
+                .args(args)
+                .stdin(Stdio::null())
+                .stdout(log.try_clone().map_err(|e| Error(e.to_string()))?)
+                .stderr(log)
+                .spawn()
+                .map_err(|e| Error(format!("Could not start QEMU: {e}")))?,
+        );
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if let Some(status) = self.poll()? {
+                return Err(Error(format!(
+                    "QEMU exited during startup ({status}); see {}",
+                    self.directory.join("qemu.log").display()
+                )));
+            }
+            if self.directory.join("qmp.sock").exists() {
+                let mut qmp = Qmp::connect(&self.directory.join("qmp.sock"))?;
+                let status = qmp.execute("query-status", None)?;
+                if status["running"] != false {
+                    return Err(Error("QEMU was not started paused".into()));
+                }
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(Error("Timed out waiting for QEMU monitor".into()));
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+}
+impl Backend for QemuBackend {
+    fn prepare(&mut self, config: &Config) -> Result<()> {
+        if self.child.is_some() {
+            return Err(Error("QEMU already prepared".into()));
+        }
+        let result = self.prepare_inner(config);
+        if result.is_err() {
+            self.cleanup();
+        }
+        result
+    }
+    fn start(&mut self) -> Result<()> {
+        self.command("cont")
+    }
+    fn pause(&mut self) -> Result<()> {
+        self.command("stop")
+    }
+    fn resume(&mut self) -> Result<()> {
+        self.command("cont")
+    }
+    fn stop(&mut self) -> Result<()> {
+        self.command("quit")?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while self.poll()?.is_none() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        self.cleanup();
+        Ok(())
+    }
+}
+impl Drop for QemuBackend {
+    fn drop(&mut self) {
+        self.cleanup();
+    }
+}
+
+/// Send a chord using QEMU qcodes, without interpreting a monitor command string.
+pub fn send_keys(config: &Path, keys: &[String]) -> Result<()> {
+    if keys.is_empty()
+        || keys.len() > 8
+        || keys.iter().any(|key| {
+            key.is_empty()
+                || key.len() > 32
+                || !key
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        })
+    {
+        return Err(Error(
+            "Provide 1–8 QEMU qcodes (lowercase letters, digits, underscores)".into(),
+        ));
+    }
+    let mut qmp = Qmp::connect(&runtime_dir(config)?.join("qmp.sock"))?;
+    if qmp.execute("query-status", None)?["running"] != true {
+        return Err(Error("Guest must be running to send keys".into()));
+    }
+    let keys: Vec<_> = keys
+        .iter()
+        .map(|key| json!({"type":"qcode", "data":key}))
+        .collect();
+    qmp.execute("send-key", Some(json!({"keys":keys,"hold-time":30})))?;
+    // Allow QEMU's release timer to fire before a caller sends a repeated key.
+    // This is not an acknowledgment of the guest's UI action.
+    std::thread::sleep(Duration::from_millis(50));
+    Ok(())
+}
+
+/// Click the USB tablet using QEMU's normalized absolute coordinate range.
+pub fn click(config: &Path, x: u16, y: u16) -> Result<()> {
+    if x > 32767 || y > 32767 {
+        return Err(Error(
+            "Mouse coordinates must be between 0 and 32767".into(),
+        ));
+    }
+    let socket = runtime_dir(config)?.join("qmp.sock");
+    let mut qmp = Qmp::connect(&socket)?;
+    if qmp.execute("query-status", None)?["running"] != true {
+        return Err(Error("Guest must be running to send mouse input".into()));
+    }
+    let release = json!({"events": [
+        {"type":"btn", "data":{"down":false, "button":"left"}}
+    ]});
+    let result: Result<()> = (|| {
+        qmp.execute(
+            "input-send-event",
+            Some(json!({"events": [
+                {"type":"abs", "data":{"axis":"x", "value":x}},
+                {"type":"abs", "data":{"axis":"y", "value":y}},
+                {"type":"btn", "data":{"down":true, "button":"left"}}
+            ]})),
+        )?;
+        // Keep press/release in separate USB reports so the guest observes the click.
+        std::thread::sleep(Duration::from_millis(100));
+        qmp.execute("input-send-event", Some(release.clone()))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        // A lost acknowledgment leaves delivery uncertain. Release only:
+        // never replay the press or claim that the click succeeded.
+        if let Ok(mut recovery) = Qmp::connect(&socket) {
+            let _ = recovery.execute("input-send-event", Some(release));
+        }
+    }
+    result.map_err(|error| Error(format!("Mouse input failed: {error}. Delivery may be unknown; a button release was attempted. Check the guest before repeating the click.")))
+}
+
+/// Capture a PPM display frame. Never overwrite a user's existing output file.
+pub fn screenshot(config: &Path, output: &Path) -> Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+    if output.extension().and_then(|s| s.to_str()) != Some("ppm") {
+        return Err(Error("Screenshot output must have a .ppm extension".into()));
+    }
+    let output = std::env::current_dir()
+        .map_err(|e| Error(e.to_string()))?
+        .join(output);
+    let filename = text_path(&output)?;
+    let mut qmp = Qmp::connect(&runtime_dir(config)?.join("qmp.sock"))?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&output)
+        .map_err(|e| Error(format!("Screenshot {}: {e}", output.display())))?;
+    drop(file);
+    let result = qmp.execute(
+        "screendump",
+        Some(json!({"filename":filename,"format":"ppm"})),
+    );
+    if let Err(error) = result {
+        let _ = fs::remove_file(&output);
+        return Err(error);
+    }
+    Ok(())
+}
+
+pub fn control(config: &Path, action: &str) -> Result<serde_json::Value> {
+    let mut qmp = Qmp::connect(&runtime_dir(config)?.join("qmp.sock"))?;
+    let command = match action {
+        "status" => "query-status",
+        "pause" => "stop",
+        "resume" => "cont",
+        "shutdown" => "system_powerdown",
+        "stop" => "quit",
+        _ => {
+            return Err(Error(
+                "Control action: status | pause | resume | shutdown | stop".into(),
+            ))
+        }
+    };
+    qmp.execute(command, None)
+}
+
+/// Create a fresh sparse disk and private firmware variable store. Never reuse or overwrite a directory.
+pub fn initialize(
+    directory: &Path,
+    firmware: &Path,
+    template: &Path,
+    qemu_img: &Path,
+) -> Result<PathBuf> {
+    let firmware = fs::canonicalize(firmware).map_err(|e| Error(format!("Firmware: {e}")))?;
+    let template = fs::canonicalize(template).map_err(|e| Error(format!("NVRAM template: {e}")))?;
+    for path in [&firmware, &template] {
+        let metadata = fs::metadata(path).map_err(|e| Error(e.to_string()))?;
+        if !metadata.is_file() || metadata.len() == 0 {
+            return Err(Error(
+                "Firmware and NVRAM template must be nonempty regular files".into(),
+            ));
+        }
+    }
+    if firmware == template {
+        return Err(Error(
+            "Firmware and variable template must be distinct".into(),
+        ));
+    }
+    // create_dir is the no-overwrite boundary. Failed setup leaves a clearly incomplete directory.
+    fs::create_dir(directory).map_err(|e| {
+        Error(format!(
+            "Create new VM directory {}: {e}",
+            directory.display()
+        ))
+    })?;
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
+        .map_err(|e| Error(e.to_string()))?;
+    fs::copy(firmware, directory.join("firmware.fd")).map_err(|e| Error(e.to_string()))?;
+    fs::copy(template, directory.join("nvram.fd")).map_err(|e| Error(e.to_string()))?;
+    fs::set_permissions(
+        directory.join("nvram.fd"),
+        fs::Permissions::from_mode(0o600),
+    )
+    .map_err(|e| Error(e.to_string()))?;
+    let status = Command::new(qemu_img)
+        .args(["create", "-f", "qcow2"])
+        .arg(directory.join("windows.qcow2"))
+        .arg("64G")
+        .stdin(Stdio::null())
+        .status()
+        .map_err(|e| Error(format!("qemu-img: {e}; incomplete directory retained")))?;
+    if !status.success() {
+        return Err(Error(format!(
+            "qemu-img failed ({status}); incomplete directory retained"
+        )));
+    }
+    fs::create_dir(directory.join("tpm")).map_err(|e| Error(e.to_string()))?;
+    fs::set_permissions(directory.join("tpm"), fs::Permissions::from_mode(0o700))
+        .map_err(|e| Error(e.to_string()))?;
+    let config = Config {
+        name: "Windows 11 ARM".into(),
+        cpus: 4,
+        memory_mib: 4096,
+        disk: "windows.qcow2".into(),
+        installer: None,
+        runtime: Some(RuntimeConfig {
+            firmware: "firmware.fd".into(),
+            nvram: "nvram.fd".into(),
+            disk_format: DiskFormat::Qcow2,
+            accelerator: Accelerator::Hvf,
+            tcg_threading: None,
+            binary: default_binary(),
+            headless: false,
+            network: false,
+            network_device: NetworkDevice::Virtio,
+            guest_agent: false,
+            tpm: Some(TpmConfig {
+                state: "tpm".into(),
+                binary: default_swtpm(),
+            }),
+        }),
+    };
+    let path = directory.join("vm.toml");
+    let serialized = toml::to_string_pretty(&config).map_err(|e| Error(e.to_string()))?;
+    use std::io::Write;
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .map_err(|e| Error(e.to_string()))?
+        .write_all(serialized.as_bytes())
+        .map_err(|e| Error(e.to_string()))?;
+    Ok(path)
+}

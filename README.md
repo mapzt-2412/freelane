@@ -2,17 +2,17 @@
 
 ### Windows on Mac. Free & Open Source.
 
-**A Rust-based alternative to Parallels Desktop for Apple Silicon — built around an ambitious goal: smooth Windows gaming with less overhead.**
+**A Rust-based alternative to Parallels Desktop for Apple Silicon — built around an ambitious goal: broad Windows application support with less overhead.**
 
 No subscription. Open code. Performance claims backed by measurements.
 
-> **Project status: early development.** FreeLane is not a usable Windows virtual machine yet. Windows boot, accelerated graphics, game compatibility, and seamless app windows are milestones to build and verify. No performance advantage over Parallels has been demonstrated.
+> **Project status: early development.** FreeLane is not ready for everyday Windows use yet. Windows 11 ARM has reached its installed desktop in Audit Mode under Linux software emulation. Verified 7-Zip x86, x64 and ARM64 created, tested and extracted archives with matching source bytes in an installed Audit trial; older extracted x86 data also matched after reboot. An earlier unexpected Windows kernel crash remains under investigation. Normal user setup, stable guest operation, native Mac runtime, accelerated graphics, game compatibility, and seamless app windows still require implementation or verification. No performance advantage over Parallels has been demonstrated.
 
 ## Why FreeLane?
 
-Running Windows on a Mac should have a free, open-source option designed with Apple Silicon in mind. FreeLane aims to make that option practical: a small host application, a Rust virtualization core, and a clear path from a working Windows ARM guest to playable games.
+Running Windows on a Mac should have a free, open-source option designed with Apple Silicon in mind. FreeLane aims to make that option practical: a small host application, a Rust virtualization core, and a clear path from a working Windows ARM guest to reliable everyday applications and, later, playable games.
 
-The first target is **Apple M1**. Gaming comes first; a lightweight interface and convenient desktop integration follow a proven engine.
+The first target is **Apple M1**. Installing Windows and validating application compatibility come first. Accelerated graphics and gaming require a separate proven driver and rendering path.
 
 ## What we are building
 
@@ -38,7 +38,7 @@ The design is provisional. Feasibility experiments should decide the architectur
 - **Graphics:** an early research track for a Windows ARM virtual GPU driver and a macOS rendering backend; DirectX-to-Metal translation is a possibility to investigate.
 - **Integration:** guest tools for application launch, clipboard, shared folders, and later individual-window presentation.
 
-Windows support requires much more than starting a virtual CPU: firmware, interrupts, timers, storage, input, networking, and compatible guest drivers all need implementation or suitable existing components. The engine and dependencies are not selected yet.
+Windows support requires much more than starting a virtual CPU: firmware, interrupts, timers, storage, input, networking, and compatible guest drivers all need implementation or suitable existing components. The first experimental baseline uses a separately installed QEMU VMM, managed by Rust. This choice supplies a device model and HVF backend; it does not settle the Windows graphics architecture.
 
 **Graphics is the highest-risk milestone.** Apple GPU passthrough is not assumed. A graphics prototype must demonstrate a viable driver and rendering path before gaming promises become product claims.
 
@@ -58,9 +58,43 @@ These are deliverables, not release-date promises. CPU and graphics experiments 
 
 ## Build and try
 
-There is no installer, runnable VM, or supported build procedure yet. Build commands and host requirements will be added alongside the first verified implementation.
+FreeLane now has a Rust CLI and an experimental QEMU-backed ARM VM runner: sparse disk creation, private firmware/NVRAM and TPM state, basic display/input, and VM controls. Linux integration tests execute ARM guest code and boot UEFI under software emulation. Installed Windows ARM Audit testing exercised three architectures of 7-Zip and a Notepad save/close/reopen workload. **Normal user setup, everyday stability, Mac HVF runtime, accelerated Windows graphics and performance advantages remain unverified.**
 
-Until then, this repository documents the intended scope. Do not expect Windows boot or playable games from the initial foundation.
+Install the pinned Rust 1.99.0 toolchain, then run from the repository root:
+
+```sh
+cargo build --locked --workspace
+cargo test --locked --workspace
+cargo run --locked -- doctor
+```
+
+Try the experimental desktop manager after building the workspace:
+
+```sh
+cargo run --locked -p freelane-desktop -- /absolute/path/to/vm.toml
+```
+
+It opens existing VM configurations, controls their lifecycle and displays snapshots, with optional refresh every five seconds and mouse clicks on the displayed snapshot. Start, pause, resume, and closing the manager while keeping the VM alive have been exercised on Linux. Display snapshots are still images; interactive guest input uses QEMU's native window. See [desktop instructions](docs/desktop.md).
+
+Follow [build and VM instructions](docs/development.md) for QEMU/firmware prerequisites, VM creation, startup and real ARM/UEFI integration tests. `doctor` exits unsuccessfully on unsupported native hosts, including Linux. Linux remains useful for portable and TCG tests.
+
+The separate native Hypervisor.framework diagnostic on macOS Apple Silicon creates and destroys an empty VM:
+
+```sh
+cargo build --locked --workspace
+codesign --force --sign - --entitlements scripts/macos-hypervisor.entitlements.plist target/debug/freelane
+./target/debug/freelane probe-hypervisor
+```
+
+This native probe still needs hardware validation and does not execute a guest. See [implementation status](docs/implementation.md) and [dependency decisions](docs/dependencies.md) for the current boundaries. An experimental [Windows guest agent](docs/guest-agent.md) has answered ping and launched actual Notepad/7-Zip windows through virtio serial in WinPE and the installed Audit desktop. The FreeLane GUI received the installed guest's ping and opened Notepad; editing used diagnostic keyboard controls, and saving/closing/reopening retained its text. Normal user integration remains unverified. No Windows installer or proprietary driver is bundled.
+
+## Recorded desktop test
+
+This is an actual Linux cloud capture of FreeLane controlling installed Windows ARM under TCG, with a guest ping response and a persisted 7-Zip archive open. It is a recorded correctness test, not a live preview or a native Mac performance result.
+
+![FreeLane manager connected to installed Windows ARM and displaying 7-Zip](docs/assets/installed-guest-connection.png)
+
+The same installed session saved and reopened a Notepad document. See [test evidence and known failures](docs/test-evidence.md) for the images, configurations and limits of these results.
 
 ## How we will measure performance
 
@@ -77,6 +111,8 @@ Publish:
 Report failures alongside successes. No invented FPS numbers or projected memory savings.
 
 ## Compatibility boundaries
+
+See the [application compatibility evidence](docs/compatibility.md) for passed experiments and pending runtime checks.
 
 - Windows ARM's x86/x64 translation affects game compatibility and performance independently of the VM core.
 - Kernel drivers and anti-cheat may prevent games from running. FreeLane will not promise universal game support or anti-cheat bypasses.
@@ -97,7 +133,7 @@ Before adding a dependency, record its license, maintenance status, supported pl
 
 ## License and Windows
 
-An open-source license for FreeLane will be selected and included before code is released for reuse. This README does not itself grant a software license.
+FreeLane's own Rust code and documentation are available under the [MIT license](LICENSE). Separately installed QEMU, firmware, TPM software and other dependencies retain their own licenses; see [dependency decisions](docs/dependencies.md).
 
 FreeLane's intended free pricing applies to the host application. Users must obtain Windows and any games separately and comply with their licenses. Windows images, proprietary drivers, and game files will not be bundled without appropriate redistribution rights.
 

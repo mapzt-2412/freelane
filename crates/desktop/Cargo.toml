@@ -1,0 +1,13 @@
+[package]
+name = "freelane-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.99"
+license = "MIT"
+
+[dependencies]
+freelane = { path = "../.." }
+eframe = { version = "0.36.2", default-features = false, features = ["glow", "x11", "default_fonts"] }
+image = { version = "0.25", default-features = false, features = ["pnm"] }
+tempfile = "3"
+freelane-agent-protocol = { path = "../agent-protocol" }
