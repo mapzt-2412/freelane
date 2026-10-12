@@ -1,0 +1,26 @@
+{
+  "tag": "v0.1.0-preview.2",
+  "source_commit": "9c5272e2f0665eb1ef975589350ee3f0414f5ec1",
+  "release_url": "https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2",
+  "workflow_url": "https://github.com/puma2k/freelane/actions/runs/38277664939",
+  "native_mac_packaging_job": "114906995209",
+  "native_mac_packaging_result": "success",
+  "native_checks": [
+    "hdiutil verify",
+    "read-only DMG mount",
+    "codesign deep strict verification of mounted app",
+    "mounted plist lint",
+    "mounted desktop ARM64 architecture",
+    "Applications shortcut target",
+    "START-HERE.md present",
+    "unmount"
+  ],
+  "independent_download": {
+    "name": "FreeLane-0.1.0-9c5272e2f066-macos-arm64.dmg",
+    "bytes": 9902357,
+    "sha256": "a44491e65978a5b87b239236f7cf5138a687772859927f9604f6f6578c8eb511",
+    "checksum": "passed",
+    "udif_footer": "passed"
+  },
+  "native_mac_guest_runtime_verified": false
+}

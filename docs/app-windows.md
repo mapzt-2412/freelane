@@ -6,7 +6,7 @@ This is a first integration path, not Parallels Coherence parity. The viewer use
 
 ## Download this revision
 
-[Published prerelease with Mac and Windows agent ZIPs](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.1). Earlier [Mac build](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64`. [Windows ARM64 agent](https://github.com/puma2k/freelane/actions/runs/38272833003#artifacts): `experimental-windows-arm64-agent`. Both packaging/upload jobs passed; sign in to GitHub to download. The broader second workflow has failed MCP steps, so its overall red status must not be described as a complete CI pass. [Build evidence](evidence/app-window-release-build.json) records these separately.
+[Published prerelease with Mac and Windows agent ZIPs](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2). Earlier [Mac build](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64`. [Windows ARM64 agent](https://github.com/puma2k/freelane/actions/runs/38272833003#artifacts): `experimental-windows-arm64-agent`. Both packaging/upload jobs passed; sign in to GitHub to download. The broader second workflow has failed MCP steps, so its overall red status must not be described as a complete CI pass. [Build evidence](evidence/app-window-release-build.json) records these separately.
 
 ## Prepare Windows
 
