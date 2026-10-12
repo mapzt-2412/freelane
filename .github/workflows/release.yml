@@ -23,7 +23,9 @@ jobs:
           toolchain: 1.99.0
           targets: aarch64-apple-darwin
       - name: Build, ad-hoc sign, verify and package
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p target
           if bash scripts/build-macos-release.sh 2>&1 | tee target/macos-release-build.log; then
             echo 'Mac package checks passed'
