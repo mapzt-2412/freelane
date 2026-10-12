@@ -61,7 +61,7 @@ The example PID is a protocol illustration, not a test result. Ping responds wit
 
 Run `cargo test --locked --workspace` to include the shared protocol and guest request-handler suites. The QEMU UEFI test verifies that the configured virtio-serial channel is attached and its socket is cleaned up; it does not contain a Windows driver or execute the Windows agent. `cargo check --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc` checks the Windows ARM64 branch but does not link an executable or run it.
 
-Clipboard, shared-folder access, guest service installation, application-window integration and save/restore are still outstanding.
+Clipboard, agent-mediated shared-folder access, guest service installation, application-window integration and save/restore are still outstanding. A separate [read-only USB host-folder transfer](sharing.md) does not use the agent.
 
 ## Real transport and app evidence
 

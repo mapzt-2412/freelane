@@ -12,7 +12,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone)]
 struct VmInfo {
+    config: Config,
+    original: String,
     path: PathBuf,
     name: String,
     cpus: u16,
@@ -23,6 +26,7 @@ struct VmInfo {
 }
 enum Event {
     Loaded(VmInfo),
+    Saved(VmInfo, String),
     Status(String),
     Frame(egui::ColorImage, bool),
     Notice(String),
@@ -31,6 +35,10 @@ type WorkResult = Result<Event, String>;
 
 #[derive(Default)]
 struct Desktop {
+    settings_open: bool,
+    settings: Option<Config>,
+    installer_path: String,
+    shared_path: String,
     draft_path: String,
     app_path: String,
     app_arguments: String,
@@ -87,6 +95,8 @@ impl Desktop {
             };
             Ok(Event::Loaded(VmInfo {
                 path,
+                config: config.clone(),
+                original: text,
                 name: config.name,
                 guest_os: config.guest_os,
                 cpus: config.cpus,
@@ -98,6 +108,105 @@ impl Desktop {
                     .is_some_and(|runtime| runtime.guest_agent),
             }))
         });
+    }
+    fn save_settings(&mut self, ctx: &egui::Context) {
+        let (Some(vm), Some(mut config)) = (self.vm.clone(), self.settings.clone()) else {
+            return;
+        };
+        config.installer = (!self.installer_path.trim().is_empty())
+            .then(|| PathBuf::from(self.installer_path.trim()));
+        if let Some(runtime) = config.runtime.as_mut() {
+            runtime.shared_directory = (!self.shared_path.trim().is_empty())
+                .then(|| PathBuf::from(self.shared_path.trim()));
+        }
+        self.work(ctx, move || {
+            let backup =
+                qemu::save_config(&vm.path, &vm.original, &config).map_err(|e| e.to_string())?;
+            let mut updated = vm;
+            updated.original = std::fs::read_to_string(&updated.path).map_err(|e| e.to_string())?;
+            updated.name = config.name.clone();
+            updated.cpus = config.cpus;
+            updated.memory = config.memory_mib;
+            updated.guest_agent = config.runtime.as_ref().is_some_and(|r| r.guest_agent);
+            updated.acceleration = match config.runtime.as_ref().map(|r| r.accelerator) {
+                Some(qemu::Accelerator::Hvf) => "Hardware (HVF; requires Apple Silicon)",
+                Some(qemu::Accelerator::Tcg) => {
+                    "Software emulation (TCG; see settings for threading)"
+                }
+                None => "Runtime not configured",
+            };
+            updated.config = config;
+            Ok(Event::Saved(
+                updated,
+                format!(
+                    "Settings saved for next start. Backup: {}",
+                    backup.display()
+                ),
+            ))
+        });
+    }
+    fn settings_ui(&mut self, ctx: &egui::Context) {
+        if !self.settings_open {
+            return;
+        }
+        let mut open = true;
+        let mut save = false;
+        egui::Window::new("Virtual machine settings").open(&mut open)
+            .default_width(580.0)
+            .default_height(640.0).resizable(true).show(ctx, |ui| {
+            egui::ScrollArea::vertical().max_height(570.0).show(ui, |ui| {
+                let Some(config) = self.settings.as_mut() else { return };
+                ui.label("Changes apply on the next start. Shut down the VM before saving.");
+                ui.separator();
+                ui.heading("Compute resources");
+                ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut config.name); });
+                ui.add(egui::Slider::new(&mut config.cpus, 1..=64).text("Virtual CPUs"));
+                ui.horizontal(|ui| { ui.label("RAM (MiB)"); ui.add(egui::DragValue::new(&mut config.memory_mib).range(2048..=1_048_576).speed(256)); });
+                ui.small("CPU and RAM are allocated to the guest. GPU sharing and physical USB passthrough are not implemented.");
+                ui.separator();
+                ui.heading("Storage & host files");
+                ui.label(format!("Guest disk: {}", config.disk.display()));
+                ui.label("Installer / CD image (blank to detach)");
+                ui.add(egui::TextEdit::singleline(&mut self.installer_path).desired_width(f32::INFINITY).hint_text("/path/to/installer.iso"));
+                ui.label("Host folder: read-only USB disk (blank to disable)");
+                ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY).hint_text("/path/to/files-to-share"));
+                ui.small("Windows and Ubuntu see a FAT USB volume. Use a small dedicated folder (under 504 MiB); do not change its files while the VM runs. No guest writes or automatic two-way sync.");
+                if let Some(runtime) = config.runtime.as_mut() {
+                    ui.separator(); ui.heading("Acceleration & devices");
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut runtime.accelerator, qemu::Accelerator::Hvf, "Mac hardware · HVF");
+                        ui.selectable_value(&mut runtime.accelerator, qemu::Accelerator::Tcg, "Software · TCG");
+                    });
+                    if runtime.accelerator == qemu::Accelerator::Hvf { runtime.tcg_threading = None; }
+                    else { ui.horizontal_wrapped(|ui| {
+                        ui.label("TCG threads");
+                        ui.selectable_value(&mut runtime.tcg_threading, None, "Default");
+                        ui.selectable_value(&mut runtime.tcg_threading, Some(qemu::TcgThreading::Single), "Single");
+                        ui.selectable_value(&mut runtime.tcg_threading, Some(qemu::TcgThreading::Multi), "Multi");
+                    }); }
+                    ui.checkbox(&mut runtime.network, "Guest network · NAT, no forwarded host ports");
+                    if runtime.network {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label("Network adapter");
+                            ui.selectable_value(&mut runtime.network_device, qemu::NetworkDevice::Virtio, "Virtio PCI");
+                            ui.selectable_value(&mut runtime.network_device, qemu::NetworkDevice::Usb, "USB network");
+                        });
+                    }
+                    ui.checkbox(&mut runtime.headless, "Headless · hide native QEMU window");
+                    ui.checkbox(&mut runtime.guest_agent, "Guest agent channel · agent installation required");
+                    ui.checkbox(&mut runtime.serial_console, "Private serial console socket");
+                    ui.small("TPM, firmware and disk controller are preserved. Network drivers must exist inside the guest.");
+                }
+                ui.separator();
+                if ui.add_enabled(self.pending.is_none() && self.child.is_none(), egui::Button::new("Save settings & create backup").fill(egui::Color32::from_rgb(52, 105, 177))).clicked() { save = true; }
+                ui.small("Saving rewrites TOML formatting; the original file is backed up. Active VMs and conflicting file edits are rejected.");
+                if !self.notice.is_empty() { ui.label(&self.notice); }
+            });
+        });
+        self.settings_open = open;
+        if save {
+            self.save_settings(ctx);
+        }
     }
     fn control(&mut self, ctx: &egui::Context, action: &'static str) {
         let Some(vm) = &self.vm else { return };
@@ -233,6 +342,20 @@ impl Desktop {
                     self.pending = None;
                     match result {
                         Ok(Event::Loaded(vm)) => {
+                            self.settings = Some(vm.config.clone());
+                            self.installer_path = vm
+                                .config
+                                .installer
+                                .as_ref()
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_default();
+                            self.shared_path = vm
+                                .config
+                                .runtime
+                                .as_ref()
+                                .and_then(|r| r.shared_directory.as_ref())
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_default();
                             self.vm = Some(vm);
                             self.texture = None;
                             self.auto_display = false;
@@ -240,6 +363,14 @@ impl Desktop {
                             self.notice.clear();
                             self.status = "Not checked".into();
                             self.control(ctx, "status");
+                        }
+                        Ok(Event::Saved(vm, notice)) => {
+                            self.vm = Some(vm);
+                            self.notice = notice;
+                            self.settings_open = false;
+                            self.status = "Not checked".into();
+                            self.texture = None;
+                            self.auto_display = false;
                         }
                         Ok(Event::Status(status)) => {
                             self.status = status;
@@ -312,8 +443,17 @@ impl eframe::App for Desktop {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);
+        self.settings_ui(&ctx);
         egui::Panel::top("header").show(ui, |ui| {
-            ui.heading("FreeLane");
+            ui.horizontal(|ui| {
+                ui.colored_label(
+                    egui::Color32::from_rgb(115, 196, 255),
+                    egui::RichText::new("FreeLane").size(26.0).strong(),
+                );
+                ui.label(
+                    egui::RichText::new("ARM64 LAB").color(egui::Color32::from_rgb(178, 147, 255)),
+                );
+            });
             ui.label("Windows and Ubuntu on your desktop · experimental VM manager");
             ui.add_space(12.0);
             ui.horizontal(|ui| {
@@ -348,7 +488,9 @@ impl eframe::App for Desktop {
                 ui.label(match vm.guest_os { GuestOs::Ubuntu => "Ubuntu · ARM64", GuestOs::Windows => "Windows · ARM64" });
                 ui.collapsing("Configuration path", |ui| { ui.label(vm.path.display().to_string()); });
                 ui.label(format!("{} CPUs · {:.1} GiB RAM", vm.cpus, vm.memory as f64 / 1024.0));
-                ui.label(format!("Last observed status: {}", self.status));
+                let color = if self.status == "running" { egui::Color32::from_rgb(105, 220, 166) } else if self.status == "paused" { egui::Color32::from_rgb(255, 199, 104) } else { egui::Color32::from_rgb(166, 184, 208) };
+                ui.colored_label(color, format!("Last observed: {}", self.status));
+                if ui.add_enabled(self.pending.is_none(), egui::Button::new("⚙ VM settings")).clicked() { self.notice.clear(); self.settings_open = true; }
                 ui.small(format!("Configured acceleration: {}", vm.acceleration));
                 let busy = self.pending.is_some();
                 ui.horizontal_wrapped(|ui| {
@@ -438,7 +580,17 @@ fn main() -> eframe::Result {
             ..Default::default()
         },
         Box::new(move |creation| {
+            creation.egui_ctx.set_theme(egui::Theme::Dark);
             creation.egui_ctx.global_style_mut(|style| {
+                style.visuals.panel_fill = egui::Color32::from_rgb(18, 25, 39);
+                style.visuals.window_fill = egui::Color32::from_rgb(25, 34, 51);
+                style.visuals.extreme_bg_color = egui::Color32::from_rgb(12, 18, 30);
+                style.visuals.selection.bg_fill = egui::Color32::from_rgb(57, 105, 178);
+                style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(37, 53, 77);
+                style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(37, 53, 77);
+                style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(55, 89, 130);
+                style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(55, 89, 130);
+                style.visuals.override_text_color = Some(egui::Color32::from_rgb(222, 232, 247));
                 style.spacing.item_spacing = egui::vec2(10.0, 10.0);
                 style.spacing.button_padding = egui::vec2(12.0, 7.0);
             });
