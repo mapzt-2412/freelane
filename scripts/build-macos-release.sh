@@ -48,8 +48,8 @@ codesign --force --sign - --entitlements scripts/macos-hypervisor.entitlements.p
 codesign --force --sign - "$app/Contents/MacOS/freelane-desktop"
 codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
-lipo -verify_arch arm64 "$app/Contents/MacOS/freelane"
-lipo -verify_arch arm64 "$app/Contents/MacOS/freelane-desktop"
+lipo "$app/Contents/MacOS/freelane" -verify_arch arm64
+lipo "$app/Contents/MacOS/freelane-desktop" -verify_arch arm64
 # Exercise actual release CLI parsing; an offline mobile plan needs no emulator.
 "$app/Contents/MacOS/freelane" mobile-plan "$repo_dir/configs/mobile.ios.example.toml" > "$package_dir/ios-plan-check.json"
 cp README.md README.vi.md LICENSE "$package_dir/"
