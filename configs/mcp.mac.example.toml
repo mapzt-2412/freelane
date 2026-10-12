@@ -1,0 +1,7 @@
+# Copy to a local ignored config and replace the VM path before use.
+repository = ".."
+artifacts = "../target/mcp"
+job_timeout_seconds = 600
+
+[vms]
+windows = "/Users/YOUR_USER/FreeLaneVMs/windows/vm.toml"

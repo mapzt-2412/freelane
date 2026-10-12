@@ -96,6 +96,10 @@ This is an actual Linux cloud capture of FreeLane controlling installed Windows 
 
 The same installed session saved and reopened a Notepad document. See [test evidence and known failures](docs/test-evidence.md) for the images, configurations and limits of these results.
 
+## Vibe coding with VM tests
+
+An experimental [stdio MCP server](docs/mcp.md) connects development tasks and registered VM controls to Codex, Cursor and Claude clients. It can run build/test jobs, report actual outcomes, start/control a VM, return real PNG screenshots and call the Windows agent. Python 3.11+ is required; the server uses only the standard library. A real Linux stdio/QEMU test passed. Client configuration and native Mac setup are documented separately; no client or remote Mac connection is automatically provisioned.
+
 ## How we will measure performance
 
 Compare FreeLane and Parallels on the **same Mac, macOS, Windows build, vCPU count, guest RAM, game version, resolution, and graphics settings**. Record warm-up, workload duration, power conditions, and repeated runs.

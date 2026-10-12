@@ -13,5 +13,6 @@ This is an engineering baseline, not a license approval for a packaged release. 
 | getrandom | Fresh nonzero host request IDs across processes | MIT/Apache-2.0; platform OS randomness, version locked. | Correlation IDs are not authentication or a driver capability. |
 | fs2 | Host-side file locks | MIT/Apache-2.0. Small older crate; failures are propagated and real concurrent-launch tests exercise its use. | Host locks do not substitute for guest filesystem consistency. |
 | ctrlc | SIGINT/SIGTERM/SIGHUP cleanup | MIT/Apache-2.0. Platform dependencies retained in Cargo.lock. | A forced host stop does not perform a guest shutdown. |
+| Python 3.11+ standard library | Optional stdio MCP server and client configuration generator on Linux/macOS | Separately installed Python runtime retains its PSF license; no pip or MCP SDK dependency is added. | Wraps the existing host CLI, not a Windows driver or remote machine provider. |
 
 Sources: upstream QEMU documentation at https://www.qemu.org/docs/master/system/arm/virt.html and installed Debian `copyright` files for `qemu-system-arm`, `qemu-efi-aarch64`, `swtpm` and `libtpms0`. Signed Debian repository metadata and package checksums were used for the Linux installation. TLS, signature and checksum verification were not disabled.
