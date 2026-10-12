@@ -42,3 +42,7 @@ cargo build --locked --release --workspace
 ```
 
 This produces Linux executables under `target/release/`; they cannot run on Mac. The experimental cloud archive includes CLI/desktop/host agent, docs, configs and notices, while QEMU and mobile SDKs remain separate. Desktop execution needs graphical libraries/session. Its Linux runtime uses explicit TCG software emulation, without a Mac/HVF performance claim.
+# Publishing a preview
+
+Pushing a new `v*-preview.*` tag runs the release workflow. Both native Mac packaging and Windows ARM64 agent packaging must succeed before the publish job verifies their SHA256 files and creates a GitHub prerelease with ZIPs and checksums. Only that job receives `contents: write`. Main-branch builds continue to upload Actions artifacts without creating releases. Release notes are maintained in `docs/release-notes-preview.md`.
+

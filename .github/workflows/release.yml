@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*-preview.*']
     paths:
       - '.github/workflows/release.yml'
       - 'scripts/build-macos-release.sh'
@@ -46,3 +47,52 @@ jobs:
             target/packages/*.zip.sha256
           if-no-files-found: error
           retention-days: 30
+  windows-agent:
+    name: Windows ARM64 agent package
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+      - run: bash scripts/build-windows-agent.sh
+      - name: Package agent and notices
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/install-windows-agent.ps1 target/guest-agent-arm64/
+          mkdir -p target/packages
+          package="FreeLane-${GITHUB_REF_NAME}-windows-arm64-agent.zip"
+          (cd target/guest-agent-arm64 && zip -r "../packages/$package" .)
+          (cd target/packages && sha256sum "$package" > "$package.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FreeLane-release-windows-arm64-agent
+          path: target/packages/*
+          if-no-files-found: error
+  publish:
+    name: Publish experimental GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [macos-arm64, windows-agent]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: FreeLane-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify checksums and publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd release-assets && for checksum in *.sha256; do sha256sum --check "$checksum"; done)
+          gh release create "$GITHUB_REF_NAME" release-assets/*.zip release-assets/*.sha256 \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
+            --title "FreeLane $GITHUB_REF_NAME — Apple Silicon preview" \
+            --notes-file docs/release-notes-preview.md
