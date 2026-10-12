@@ -4,6 +4,7 @@ Goal: a free, open-source alternative to Parallels for Windows applications and 
 
 ## Implemented and exercised on Linux
 
+- Optional standard-library Python stdio MCP server for fixed build/test jobs and named VM controls, real PNG captures and guest-agent requests. Real stdio/UEFI startup, pause/resume, input requests and disconnect/adoption passed; the official MCP SDK also negotiated and exercised tools successfully. Configuration is provided for Codex, Cursor and Claude; their actual UI connections, Windows operations through MCP and native Mac remain separate checks. See [MCP setup](mcp.md).
 - Native egui desktop manager: open existing configurations, start/status/pause/resume/power controls and bounded display snapshots, guest connection checks and literal app launch requests. Optional five-second display refresh and snapshot mouse clicks are implemented; actual installed Windows Terminal minimize/restore was observed. Linux GUI lifecycle checks start a real VM, pause/resume it, and verify that closing the manager leaves it running. Continuous video, keyboard forwarding and seamless app windows remain unimplemented.
 - Rust CLI, strict TOML VM configuration, CPU/memory bounds and lifecycle boundaries.
 - External QEMU backend with explicit HVF (Apple Silicon) or TCG (software) acceleration. HVF never silently falls back to TCG. Optional single/multi TCG threading supports concurrency diagnostics without changing guest CPU/RAM; single-threaded UEFI boot passed, Windows stability remains under investigation.

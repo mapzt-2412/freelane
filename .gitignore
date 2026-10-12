@@ -3,3 +3,6 @@
 *.qcow2
 *.iso
 *.vhdx
+__pycache__/
+*.pyc
+configs/*.local.toml

@@ -1,0 +1,8 @@
+# Start with: bash scripts/run-mcp.sh --config configs/mcp.cloud.example.toml
+repository = ".."
+artifacts = "../target/mcp"
+job_timeout_seconds = 600
+
+# Explicitly registered existing VM; start is never automatic.
+[vms]
+windows = "/workspace/windows-secure-preview/vm.toml"
