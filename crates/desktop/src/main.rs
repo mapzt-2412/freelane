@@ -1,6 +1,9 @@
+mod i18n;
+mod interface;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
 use freelane_agent_protocol::{Action, Outcome};
+use i18n::Language;
 use std::{
     io::Read,
     path::{Path, PathBuf},
@@ -35,6 +38,11 @@ type WorkResult = Result<Event, String>;
 
 #[derive(Default)]
 struct Desktop {
+    language: Language,
+    library: Vec<(PathBuf, String, GuestOs)>,
+    open_dialog: bool,
+    view: interface::View,
+    settings_tab: interface::SettingsTab,
     settings_open: bool,
     settings: Option<Config>,
     installer_path: String,
@@ -144,99 +152,6 @@ impl Desktop {
                 ),
             ))
         });
-    }
-    fn settings_ui(&mut self, ctx: &egui::Context) {
-        if !self.settings_open {
-            return;
-        }
-        let mut open = true;
-        let mut save = false;
-        egui::Window::new("Virtual machine settings").open(&mut open)
-            .default_width(580.0)
-            .default_height(640.0).resizable(true).show(ctx, |ui| {
-            egui::ScrollArea::vertical().max_height(570.0).show(ui, |ui| {
-                let Some(config) = self.settings.as_mut() else { return };
-                ui.label("Changes apply on the next start. Shut down the VM before saving.");
-                ui.separator();
-                ui.heading("Compute resources");
-                ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut config.name); });
-                ui.add(egui::Slider::new(&mut config.cpus, 1..=64).text("Virtual CPUs"));
-                ui.horizontal(|ui| { ui.label("RAM (MiB)"); ui.add(egui::DragValue::new(&mut config.memory_mib).range(2048..=1_048_576).speed(256)); });
-                ui.small("CPU and RAM are allocated to the guest. GPU passthrough is unavailable with the current Apple Silicon backend.");
-                ui.separator();
-                ui.heading("Storage & host files");
-                ui.label(format!("Guest disk: {}", config.disk.display()));
-                ui.label("Installer / CD image (blank to detach)");
-                ui.add(egui::TextEdit::singleline(&mut self.installer_path).desired_width(f32::INFINITY).hint_text("/path/to/installer.iso"));
-                ui.label("Host folder (blank to disable)");
-                ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY).hint_text("/path/to/files-to-share"));
-                if let Some(runtime) = config.runtime.as_mut() {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.selectable_value(&mut runtime.share_mode, qemu::ShareMode::ReadonlyUsb, "Read-only USB · all guests");
-                        ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| {
-                            ui.selectable_value(&mut runtime.share_mode, qemu::ShareMode::Virtio9p, "Live read/write · Ubuntu");
-                        });
-                    });
-                    match runtime.share_mode {
-                        qemu::ShareMode::ReadonlyUsb => { ui.small("FAT volume under 504 MiB. Keep source files unchanged while the VM runs; copy into the guest to edit."); }
-                        qemu::ShareMode::Virtio9p => {
-                            ui.small("Live host filesystem: guest writes change host files. Share a dedicated folder. Requires the Ubuntu 9p driver and a guest mount.");
-                            ui.label("Ubuntu: sudo mount -t 9p -o trans=virtio,version=9p2000.L freelane /mnt/freelane");
-                        }
-                    }
-                }
-                if let Some(runtime) = config.runtime.as_mut() {
-                    ui.separator(); ui.heading("Acceleration & devices");
-                    ui.horizontal(|ui| {
-                        ui.selectable_value(&mut runtime.accelerator, qemu::Accelerator::Hvf, "Mac hardware · HVF");
-                        ui.selectable_value(&mut runtime.accelerator, qemu::Accelerator::Tcg, "Software · TCG");
-                    });
-                    if runtime.accelerator == qemu::Accelerator::Hvf { runtime.tcg_threading = None; }
-                    else { ui.horizontal_wrapped(|ui| {
-                        ui.label("TCG threads");
-                        ui.selectable_value(&mut runtime.tcg_threading, None, "Default");
-                        ui.selectable_value(&mut runtime.tcg_threading, Some(qemu::TcgThreading::Single), "Single");
-                        ui.selectable_value(&mut runtime.tcg_threading, Some(qemu::TcgThreading::Multi), "Multi");
-                    }); }
-                    ui.checkbox(&mut runtime.network, "Guest network · NAT, no forwarded host ports");
-                    if runtime.network {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label("Network adapter");
-                            ui.selectable_value(&mut runtime.network_device, qemu::NetworkDevice::Virtio, "Virtio PCI");
-                            ui.selectable_value(&mut runtime.network_device, qemu::NetworkDevice::Usb, "USB network");
-                        });
-                    }
-                    ui.checkbox(&mut runtime.headless, "Headless · hide native QEMU window");
-                    ui.checkbox(&mut runtime.guest_agent, "Guest agent channel · agent installation required");
-                    ui.checkbox(&mut runtime.serial_console, "Private serial console socket");
-                    ui.separator(); ui.heading("Physical USB devices");
-                    ui.small("Use scripts/list-usb.py to inspect host bus/address before starting. Addresses may change after reconnection. QEMU needs libusb and OS access; a captured device becomes unavailable to host apps.");
-                    let mut remove = None;
-                    for (index, device) in runtime.usb_devices.iter_mut().enumerate() {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.label("Bus"); ui.add(egui::DragValue::new(&mut device.bus).range(1..=255));
-                            ui.label("Address"); ui.add(egui::DragValue::new(&mut device.address).range(1..=127));
-                            ui.label("Vendor"); ui.add(egui::DragValue::new(&mut device.vendor_id).hexadecimal(4, false, true));
-                            ui.label("Product"); ui.add(egui::DragValue::new(&mut device.product_id).hexadecimal(4, false, true));
-                            if ui.button("Remove").clicked() { remove = Some(index); }
-                        });
-                    }
-                    if let Some(index) = remove { runtime.usb_devices.remove(index); }
-                    if ui.add_enabled(runtime.usb_devices.len() < 16, egui::Button::new("Add USB device")).clicked() {
-                        runtime.usb_devices.push(qemu::UsbHostDevice { bus: 1, address: 1, vendor_id: 0, product_id: 0 });
-                    }
-                    ui.small("TPM, firmware and disk controller are preserved. Network drivers must exist inside the guest.");
-                }
-                ui.separator();
-                if ui.add_enabled(self.pending.is_none() && self.child.is_none(), egui::Button::new("Save settings & create backup").fill(egui::Color32::from_rgb(52, 105, 177))).clicked() { save = true; }
-                ui.small("Saving rewrites TOML formatting; the original file is backed up. Active VMs and conflicting file edits are rejected.");
-                if !self.notice.is_empty() { ui.label(&self.notice); }
-            });
-        });
-        self.settings_open = open;
-        if save {
-            self.save_settings(ctx);
-        }
     }
     fn control(&mut self, ctx: &egui::Context, action: &'static str) {
         let Some(vm) = &self.vm else { return };
@@ -386,6 +301,16 @@ impl Desktop {
                                 .and_then(|r| r.shared_directory.as_ref())
                                 .map(|p| p.display().to_string())
                                 .unwrap_or_default();
+                            if let Some(entry) =
+                                self.library.iter_mut().find(|entry| entry.0 == vm.path)
+                            {
+                                entry.1 = vm.name.clone();
+                                entry.2 = vm.guest_os;
+                            } else {
+                                self.library
+                                    .push((vm.path.clone(), vm.name.clone(), vm.guest_os));
+                            }
+                            self.open_dialog = false;
                             self.vm = Some(vm);
                             self.texture = None;
                             self.auto_display = false;
@@ -395,6 +320,12 @@ impl Desktop {
                             self.control(ctx, "status");
                         }
                         Ok(Event::Saved(vm, notice)) => {
+                            if let Some(entry) =
+                                self.library.iter_mut().find(|entry| entry.0 == vm.path)
+                            {
+                                entry.1 = vm.name.clone();
+                                entry.2 = vm.guest_os;
+                            }
                             self.vm = Some(vm);
                             self.notice = notice;
                             self.settings_open = false;
@@ -473,134 +404,45 @@ impl eframe::App for Desktop {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);
-        self.settings_ui(&ctx);
-        egui::Panel::top("header").show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.colored_label(
-                    egui::Color32::from_rgb(115, 196, 255),
-                    egui::RichText::new("FreeLane").size(26.0).strong(),
-                );
-                ui.label(
-                    egui::RichText::new("ARM64 LAB").color(egui::Color32::from_rgb(178, 147, 255)),
-                );
-            });
-            ui.label("Windows and Ubuntu on your desktop · experimental VM manager");
-            ui.add_space(12.0);
-            ui.horizontal(|ui| {
-                ui.label("VM file");
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.draft_path)
-                        .desired_width((ui.available_width() - 115.0).max(100.0)),
-                );
-                if ui
-                    .add_enabled(
-                        self.pending.is_none()
-                            && self.child.is_none()
-                            && !self.draft_path.trim().is_empty(),
-                        egui::Button::new("Open VM"),
-                    )
-                    .clicked()
-                {
-                    self.open(&ctx);
-                }
-            });
-            ui.add_space(8.0);
-        });
-        egui::Panel::left("controls")
-            .default_size(330.0)
-            .size_range(280.0..=420.0)
-            .resizable(true)
-            .show(ui, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.separator();
-            if let Some(vm) = &self.vm {
-                ui.heading(&vm.name);
-                ui.label(match vm.guest_os { GuestOs::Ubuntu => "Ubuntu · ARM64", GuestOs::Windows => "Windows · ARM64" });
-                ui.collapsing("Configuration path", |ui| { ui.label(vm.path.display().to_string()); });
-                ui.label(format!("{} CPUs · {:.1} GiB RAM", vm.cpus, vm.memory as f64 / 1024.0));
-                let color = if self.status == "running" { egui::Color32::from_rgb(105, 220, 166) } else if self.status == "paused" { egui::Color32::from_rgb(255, 199, 104) } else { egui::Color32::from_rgb(166, 184, 208) };
-                ui.colored_label(color, format!("Last observed: {}", self.status));
-                if ui.add_enabled(self.pending.is_none(), egui::Button::new("⚙ VM settings")).clicked() { self.notice.clear(); self.settings_open = true; }
-                ui.small(format!("Configured acceleration: {}", vm.acceleration));
-                let busy = self.pending.is_some();
-                ui.horizontal_wrapped(|ui| {
-                    if ui.add_enabled(!busy && self.child.is_none() && self.status != "running" && self.status != "paused", egui::Button::new("Start")).clicked() { self.start(); }
-                    for (label, action) in [("Refresh status", "status"), ("Pause", "pause"), ("Resume", "resume"), ("Shutdown", "shutdown"), ("Force stop", "stop")] {
-                        if ui.add_enabled(!busy, egui::Button::new(label)).clicked() { self.control(&ctx, action); }
-                    }
-                    if ui.add_enabled(!busy, egui::Button::new("Refresh display")).clicked() { self.capture(&ctx, true); }
-                });
-            }
-            if self.vm.is_some() && ui.checkbox(&mut self.auto_display, "Refresh display every 5 seconds").changed() {
-                self.display_at = None;
-                ctx.request_repaint();
-            }
-            if let Some(vm) = &self.vm {
-                let configured = vm.guest_agent;
-                let enabled = configured && self.pending.is_none();
-                ui.separator();
-                ui.heading("Guest applications");
-                ui.vertical(|ui| {
-                    let ubuntu = self.vm.as_ref().is_some_and(|vm| vm.guest_os == GuestOs::Ubuntu);
-                    ui.label(if ubuntu { "Ubuntu app (absolute path)" } else { "Windows app (.exe path)" });
-                    ui.add(egui::TextEdit::singleline(&mut self.app_path)
-                        .desired_width(f32::INFINITY).hint_text(if ubuntu { "/usr/bin/gedit" } else { r"C:\Windows\System32\notepad.exe" }));
-                    if ui.add_enabled(enabled, egui::Button::new("Check guest connection")).clicked() {
-                        self.guest_request(&ctx, false);
-                    }
-                    if ui.add_enabled(enabled && !self.app_path.trim().is_empty(), egui::Button::new("Launch app")).clicked() {
-                        self.guest_request(&ctx, true);
-                    }
-                });
-                ui.collapsing("Arguments (one per line)", |ui| {
-                    ui.add(egui::TextEdit::multiline(&mut self.app_arguments).desired_width(f32::INFINITY).desired_rows(2));
-                });
-                if !configured {
-                    ui.small("Enable the guest agent in VM settings and run it in the guest's interactive session to launch apps.");
-                }
-            }
-            if self.pending.is_some() { ui.spinner(); }
-            if !self.notice.is_empty() { ui.label(&self.notice); }
-            if self.vm.is_none() {
-                ui.heading("Choose a virtual machine");
-                ui.label("Open an existing vm.toml above to view its resources and controls.");
-                ui.add_space(8.0);
-                ui.small("Create Windows or Ubuntu ARM64 profiles with the FreeLane CLI.");
-            }
-            ui.separator();
-            ui.small("Shutdown requests guest powerdown. Force stop can lose unsaved data.");
-            ui.small("Closing FreeLane leaves the VM running.");
-            });
-        });
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.heading("Guest display");
-            ui.small("Snapshots · optional refresh every 5 seconds");
-            ui.add_space(10.0);
-            let display_height = (ui.available_height() - 50.0).max(100.0);
-            egui::ScrollArea::both().max_height(display_height).show(ui, |ui| {
-                if let Some(texture) = &self.texture {
-                    let frame = ui.add(egui::Image::new(texture).max_size(egui::vec2(ui.available_width(), display_height - 8.0)).sense(egui::Sense::click()));
-                    if frame.clicked() && self.pending.is_none() {
-                        if let Some(point) = frame.interact_pointer_pos() {
-                            let x = ((point.x - frame.rect.left()) / frame.rect.width() * 32767.0).clamp(0.0, 32767.0).round() as u16;
-                            let y = ((point.y - frame.rect.top()) / frame.rect.height() * 32767.0).clamp(0.0, 32767.0).round() as u16;
-                            self.click(&ctx, x, y);
-                        }
-                    }
-                } else {
-                    ui.centered_and_justified(|ui| {
-                        ui.label("No display snapshot yet\nStart your VM, then choose Refresh display.");
-                    });
-                }
-            });
-            ui.separator();
-            ui.small("Click a display snapshot to send mouse input. Use the VM's native display for keyboard input and interactive apps.");
-
-        });
+        self.draw(ui, &ctx);
     }
 }
 fn main() -> eframe::Result {
-    let path = std::env::args().nth(1).unwrap_or_default();
+    let mut paths = Vec::new();
+    let mut language = Language::Vietnamese;
+    let mut arguments = std::env::args().skip(1);
+    while let Some(argument) = arguments.next() {
+        if argument == "--lang" {
+            language = match arguments.next().as_deref() {
+                Some("en") => Language::English,
+                Some("vi") => Language::Vietnamese,
+                _ => {
+                    eprintln!("Use --lang vi or --lang en");
+                    std::process::exit(2);
+                }
+            };
+        } else {
+            paths.push(argument);
+        }
+    }
+    let path = paths.first().cloned().unwrap_or_default();
+    let mut library = Vec::new();
+    for entry in paths {
+        if let Ok(path) = std::fs::canonicalize(&entry) {
+            if std::fs::metadata(&path).is_ok_and(|m| m.len() <= 1024 * 1024) {
+                if let Ok(text) = std::fs::read_to_string(&path) {
+                    if let Ok(config) = Config::parse(&text) {
+                        if !library
+                            .iter()
+                            .any(|entry: &(PathBuf, String, GuestOs)| entry.0 == path)
+                        {
+                            library.push((path, config.name, config.guest_os));
+                        }
+                    }
+                }
+            }
+        }
+    }
     eframe::run_native(
         "FreeLane",
         eframe::NativeOptions {
@@ -610,22 +452,11 @@ fn main() -> eframe::Result {
             ..Default::default()
         },
         Box::new(move |creation| {
-            creation.egui_ctx.set_theme(egui::Theme::Dark);
-            creation.egui_ctx.global_style_mut(|style| {
-                style.visuals.panel_fill = egui::Color32::from_rgb(18, 25, 39);
-                style.visuals.window_fill = egui::Color32::from_rgb(25, 34, 51);
-                style.visuals.extreme_bg_color = egui::Color32::from_rgb(12, 18, 30);
-                style.visuals.selection.bg_fill = egui::Color32::from_rgb(57, 105, 178);
-                style.visuals.widgets.inactive.bg_fill = egui::Color32::from_rgb(37, 53, 77);
-                style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(37, 53, 77);
-                style.visuals.widgets.hovered.bg_fill = egui::Color32::from_rgb(55, 89, 130);
-                style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(55, 89, 130);
-                style.visuals.override_text_color = Some(egui::Color32::from_rgb(222, 232, 247));
-                style.spacing.item_spacing = egui::vec2(10.0, 10.0);
-                style.spacing.button_padding = egui::vec2(12.0, 7.0);
-            });
+            interface::install_style(&creation.egui_ctx);
             Ok(Box::new(Desktop {
                 draft_path: path,
+                language,
+                library,
                 ..Default::default()
             }))
         }),
