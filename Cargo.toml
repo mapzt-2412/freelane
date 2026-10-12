@@ -3,7 +3,7 @@ name = "freelane"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.99"
-description = "An experimental Windows-on-Apple-Silicon VM host"
+description = "An experimental Windows and Ubuntu ARM VM host for Apple Silicon"
 license = "MIT"
 
 [dependencies]

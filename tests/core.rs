@@ -1,4 +1,18 @@
-use freelane::{Backend, Config, Error, Result, State, Vm};
+use freelane::{Backend, Config, Error, GuestOs, Result, State, Vm};
+#[test]
+fn guest_os_preserves_legacy_windows_and_accepts_only_supported_profiles() {
+    let legacy = "name='VM'\ncpus=4\nmemory_mib=4096\ndisk='disk.qcow2'";
+    assert_eq!(Config::parse(legacy).unwrap().guest_os, GuestOs::Windows);
+    let ubuntu = Config::parse(&format!("{legacy}\nguest_os='ubuntu'")).unwrap();
+    assert_eq!(ubuntu.guest_os, GuestOs::Ubuntu);
+    assert_eq!(
+        Config::parse(&toml::to_string(&ubuntu).unwrap())
+            .unwrap()
+            .guest_os,
+        GuestOs::Ubuntu
+    );
+    assert!(Config::parse(&format!("{legacy}\nguest_os='other'")).is_err());
+}
 fn config() -> Config {
     Config::parse("name='Windows'\ncpus=4\nmemory_mib=4096\ndisk='windows.vhdx'").unwrap()
 }

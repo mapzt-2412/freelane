@@ -1,4 +1,4 @@
-use freelane::{qemu, Backend, Config, Error, Result};
+use freelane::{qemu, Backend, Config, Error, GuestOs, Result};
 use std::{
     env,
     path::Path,
@@ -23,7 +23,7 @@ fn run() -> Result<()> {
                 Ok(output) if output.status.success() => println!("{}", String::from_utf8_lossy(&output.stdout).lines().next().unwrap_or("QEMU found")),
                 _ => println!("QEMU missing: install QEMU before using start"),
             }
-            println!("Windows installation and hardware acceleration: not yet verified\nAccelerated Windows graphics: not implemented");
+            println!("Guest boot and hardware acceleration require runtime verification on this host\nAccelerated guest graphics: not implemented");
             freelane::require_supported_host()
         }
         [command] if command == "probe-hypervisor" => {
@@ -74,6 +74,16 @@ fn run() -> Result<()> {
             println!("Created {} with a sparse 64 GiB disk. Add your licensed Windows ARM ISO as installer in vm.toml before installation.", path.display());
             Ok(())
         }
+        [command, directory, firmware, template, guest] if command == "init" => {
+            let guest_os = match guest.as_str() {
+                "windows" => GuestOs::Windows,
+                "ubuntu" => GuestOs::Ubuntu,
+                _ => return Err(Error("Guest OS must be windows or ubuntu".into())),
+            };
+            let path = qemu::initialize_guest(Path::new(directory), Path::new(firmware), Path::new(template), Path::new("qemu-img"), guest_os)?;
+            println!("Created {} with a sparse 64 GiB disk. Add a matching ARM64 installer image as installer in vm.toml.", path.display());
+            Ok(())
+        }
         [command, path] if command == "plan" => {
             let config = load(path)?;
             let base = Path::new(path).parent().unwrap_or(Path::new("."));
@@ -105,7 +115,7 @@ fn run() -> Result<()> {
             if command == "shutdown" { println!("Guest powerdown requested; completion is not guaranteed."); }
             Ok(())
         }
-        _ => Err(Error("Usage: freelane doctor | probe-hypervisor | init <new-dir> <firmware.fd> <vars-template.fd> | agent-ping <config.toml> | launch <config.toml> <absolute-Windows-exe> [args...] | screenshot <config.toml> <new-output.ppm> | send-key <config.toml> <qcode> [qcodes...] | click <config.toml> <x:0..32767> <y:0..32767> | benchmark <frame_ms.csv> | validate <config.toml> | plan <config.toml> | start <config.toml> | status|pause|resume|shutdown|stop <config.toml>".into())),
+        _ => Err(Error("Usage: freelane doctor | probe-hypervisor | init <new-dir> <firmware.fd> <vars-template.fd> [windows|ubuntu] | agent-ping <config.toml> | launch <config.toml> <absolute-guest-executable> [args...] | screenshot <config.toml> <new-output.ppm> | send-key <config.toml> <qcode> [qcodes...] | click <config.toml> <x:0..32767> <y:0..32767> | benchmark <frame_ms.csv> | validate <config.toml> | plan <config.toml> | start <config.toml> | status|pause|resume|shutdown|stop <config.toml>".into())),
     }
 }
 fn main() {

@@ -1,5 +1,5 @@
 //! External QEMU backend. No firmware, OS images or drivers are bundled.
-use crate::{qmp::Qmp, Backend, Config, Error, Result};
+use crate::{qmp::Qmp, Backend, Config, Error, GuestOs, Result};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -673,6 +673,16 @@ pub fn initialize(
     template: &Path,
     qemu_img: &Path,
 ) -> Result<PathBuf> {
+    initialize_guest(directory, firmware, template, qemu_img, GuestOs::Windows)
+}
+
+pub fn initialize_guest(
+    directory: &Path,
+    firmware: &Path,
+    template: &Path,
+    qemu_img: &Path,
+    guest_os: GuestOs,
+) -> Result<PathBuf> {
     let firmware = fs::canonicalize(firmware).map_err(|e| Error(format!("Firmware: {e}")))?;
     let template = fs::canonicalize(template).map_err(|e| Error(format!("NVRAM template: {e}")))?;
     for path in [&firmware, &template] {
@@ -705,9 +715,13 @@ pub fn initialize(
         fs::Permissions::from_mode(0o600),
     )
     .map_err(|e| Error(e.to_string()))?;
+    let (name, disk) = match guest_os {
+        GuestOs::Windows => ("Windows 11 ARM", "windows.qcow2"),
+        GuestOs::Ubuntu => ("Ubuntu ARM64", "ubuntu.qcow2"),
+    };
     let status = Command::new(qemu_img)
         .args(["create", "-f", "qcow2"])
-        .arg(directory.join("windows.qcow2"))
+        .arg(directory.join(disk))
         .arg("64G")
         .stdin(Stdio::null())
         .status()
@@ -721,10 +735,11 @@ pub fn initialize(
     fs::set_permissions(directory.join("tpm"), fs::Permissions::from_mode(0o700))
         .map_err(|e| Error(e.to_string()))?;
     let config = Config {
-        name: "Windows 11 ARM".into(),
+        name: name.into(),
+        guest_os,
         cpus: 4,
         memory_mib: 4096,
-        disk: "windows.qcow2".into(),
+        disk: disk.into(),
         installer: None,
         runtime: Some(RuntimeConfig {
             firmware: "firmware.fd".into(),
@@ -737,7 +752,7 @@ pub fn initialize(
             network: false,
             network_device: NetworkDevice::Virtio,
             guest_agent: false,
-            tpm: Some(TpmConfig {
+            tpm: (guest_os == GuestOs::Windows).then(|| TpmConfig {
                 state: "tpm".into(),
                 binary: default_swtpm(),
             }),

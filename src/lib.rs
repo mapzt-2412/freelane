@@ -11,11 +11,21 @@ use std::{fmt, path::PathBuf};
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub name: String,
+    #[serde(default)]
+    pub guest_os: GuestOs,
     pub cpus: u16,
     pub memory_mib: u64,
     pub disk: PathBuf,
     pub installer: Option<PathBuf>,
     pub runtime: Option<qemu::RuntimeConfig>,
+}
+
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GuestOs {
+    #[default]
+    Windows,
+    Ubuntu,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -510,14 +510,35 @@ fn foreground_cli_can_be_controlled_and_stops_on_signal() {
 #[test]
 #[ignore = "requires QEMU, qemu-img, swtpm, mtools, xorriso, aarch64-unknown-uefi and firmware paths"]
 fn installer_cdrom_executes_arm64_efi_application() {
+    installer_profile_boot(freelane::GuestOs::Windows);
+}
+
+#[test]
+#[ignore = "requires QEMU, qemu-img, mtools, xorriso, aarch64-unknown-uefi and firmware paths"]
+fn ubuntu_profile_boots_efi_installer_without_tpm() {
+    installer_profile_boot(freelane::GuestOs::Ubuntu);
+}
+
+fn installer_profile_boot(guest_os: freelane::GuestOs) {
     let temp = Workspace::new("media");
     let firmware = PathBuf::from(std::env::var_os("FREELANE_TEST_FIRMWARE").unwrap());
     let nvram = PathBuf::from(std::env::var_os("FREELANE_TEST_NVRAM").unwrap());
-    let config_path =
-        qemu::initialize(&temp.0.join("vm"), &firmware, &nvram, Path::new("qemu-img")).unwrap();
+    let config_path = qemu::initialize_guest(
+        &temp.0.join("vm"),
+        &firmware,
+        &nvram,
+        Path::new("qemu-img"),
+        guest_os,
+    )
+    .unwrap();
     let iso = installer_iso(&temp.0);
     let iso_before = fs::read(&iso).unwrap();
     let mut config = Config::parse(&fs::read_to_string(&config_path).unwrap()).unwrap();
+    assert_eq!(config.guest_os, guest_os);
+    if guest_os == freelane::GuestOs::Ubuntu {
+        assert_eq!(config.disk.to_str().unwrap(), "ubuntu.qcow2");
+        assert!(config.runtime.as_ref().unwrap().tpm.is_none());
+    }
     config.cpus = 1;
     config.runtime.as_mut().unwrap().accelerator = qemu::Accelerator::Tcg;
     config.runtime.as_mut().unwrap().headless = true;
@@ -540,6 +561,14 @@ fn installer_cdrom_executes_arm64_efi_application() {
         std::thread::sleep(Duration::from_millis(100));
     }
     let mut qmp = Qmp::connect(&backend.directory().join("qmp.sock")).unwrap();
+    if guest_os == freelane::GuestOs::Ubuntu {
+        assert!(qmp
+            .execute("query-tpm", None)
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty());
+    }
     let blocks = qmp.execute("query-block", None).unwrap();
     let cd = blocks
         .as_array()

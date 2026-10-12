@@ -27,7 +27,7 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     request.validate().map_err(|e| Error(e.to_string()))?;
     let mut stream = UnixStream::connect(socket).map_err(|e| {
         Error(format!(
-            "Guest agent unavailable: {e}; enable guest_agent and start the Windows guest agent"
+            "Guest agent unavailable: {e}; enable guest_agent and start the agent in the guest session"
         ))
     })?;
     stream
