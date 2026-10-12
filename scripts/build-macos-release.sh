@@ -70,6 +70,24 @@ for name in subprocess.check_output(['git', 'ls-files', '-z', '--', 'docs', 'con
     shutil.copy2(path, target)
 PY
 cargo metadata --locked --format-version 1 --filter-platform aarch64-apple-darwin > "$package_dir/cargo-dependencies.json"
+python3 - "$package_dir" "$(rustc --print sysroot)" <<'PY'
+from pathlib import Path
+import json, shutil, sys
+package = Path(sys.argv[1])
+notices = package / 'notices'
+notices.mkdir()
+for name in ['COPYRIGHT.html', 'COPYRIGHT-library.html']:
+    shutil.copy2(Path(sys.argv[2]) / 'share/doc/rust' / name, notices / ('Rust-' + name))
+metadata = json.loads((package / 'cargo-dependencies.json').read_text())
+for dependency in metadata['packages']:
+    source = Path(dependency['manifest_path']).parent
+    for pattern in ['LICENSE*', 'COPYING*', 'NOTICE*']:
+        for path in source.glob(pattern):
+            if path.is_file() and not path.is_symlink():
+                target = notices / (dependency['name'] + '-' + dependency['version']) / path.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, target)
+PY
 printf '%s\n' "$revision" > "$package_dir/REVISION.txt"
 archive="$repo_dir/target/packages/$package_name.zip"
 test ! -e "$archive"
