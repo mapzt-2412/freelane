@@ -44,6 +44,13 @@ impl DiskFormat {
 }
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum DiskDevice {
+    #[default]
+    Nvme,
+    Virtio,
+}
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum NetworkDevice {
     #[default]
     Virtio,
@@ -57,6 +64,8 @@ pub struct RuntimeConfig {
     #[serde(default)]
     pub disk_format: DiskFormat,
     #[serde(default)]
+    pub disk_device: DiskDevice,
+    #[serde(default)]
     pub accelerator: Accelerator,
     /// Optional software-emulation diagnostic override; omitted uses QEMU's default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -67,6 +76,9 @@ pub struct RuntimeConfig {
     /// Use a local Cocoa/GTK display, or disable display for automated tests.
     #[serde(default)]
     pub headless: bool,
+    /// Opt-in private local UART socket for interactive headless guest diagnostics.
+    #[serde(default)]
+    pub serial_console: bool,
     #[serde(default)]
     pub network: bool,
     #[serde(default)]
@@ -194,15 +206,6 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
         &format!("unix:{socket},server=on,wait=off"),
         "-monitor",
         "none",
-        "-serial",
-        &format!(
-            "file:{}",
-            Path::new(socket)
-                .parent()
-                .unwrap()
-                .join("serial.log")
-                .display()
-        ),
         "-display",
         if runtime.headless {
             "none"
@@ -215,6 +218,24 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
     .into_iter()
     .map(str::to_string)
     .collect();
+    let directory = Path::new(socket).parent().unwrap();
+    if runtime.serial_console {
+        args.extend([
+            "-chardev".into(),
+            format!(
+                "socket,id=serialconsole,path={},server=on,wait=off,logfile={}",
+                directory.join("console.sock").display(),
+                directory.join("serial.log").display()
+            ),
+            "-serial".into(),
+            "chardev:serialconsole".into(),
+        ]);
+    } else {
+        args.extend([
+            "-serial".into(),
+            format!("file:{}", directory.join("serial.log").display()),
+        ]);
+    }
     for (node, format, path, readonly) in [
         ("firmware", "raw", &firmware, true),
         ("nvram", "raw", &nvram, false),
@@ -228,7 +249,12 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
     args.extend(
         [
             "-device",
-            "nvme,drive=disk,serial=freelane-disk",
+            match runtime.disk_device {
+                DiskDevice::Nvme => "nvme,drive=disk,serial=freelane-disk",
+                DiskDevice::Virtio => {
+                    "virtio-blk-pci,disable-legacy=on,drive=disk,serial=freelane-disk,bootindex=1"
+                }
+            },
             "-device",
             "ramfb",
             "-device",
@@ -354,6 +380,7 @@ impl QemuBackend {
         if self.lock.is_some() {
             let _ = fs::remove_file(self.directory.join("qmp.sock"));
             let _ = fs::remove_file(self.directory.join("agent.sock"));
+            let _ = fs::remove_file(self.directory.join("console.sock"));
             let _ = fs::remove_file(self.directory.join("tpm.sock"));
         }
         self.lock.take();
@@ -471,6 +498,7 @@ impl QemuBackend {
             .map_err(|_| Error("This VM is already running".into()))?;
         self.lock = Some(lock);
         let _ = fs::remove_file(self.directory.join("qmp.sock"));
+        let _ = fs::remove_file(self.directory.join("console.sock"));
         let log =
             File::create(self.directory.join("qemu.log")).map_err(|e| Error(e.to_string()))?;
         if let Some(tpm) = &config.runtime.as_ref().unwrap().tpm {
@@ -745,10 +773,16 @@ pub fn initialize_guest(
             firmware: "firmware.fd".into(),
             nvram: "nvram.fd".into(),
             disk_format: DiskFormat::Qcow2,
+            disk_device: if guest_os == GuestOs::Ubuntu {
+                DiskDevice::Virtio
+            } else {
+                DiskDevice::Nvme
+            },
             accelerator: Accelerator::Hvf,
             tcg_threading: None,
             binary: default_binary(),
             headless: false,
+            serial_console: false,
             network: false,
             network_device: NetworkDevice::Virtio,
             guest_agent: false,

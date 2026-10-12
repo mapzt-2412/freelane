@@ -10,6 +10,7 @@ installer = "ubuntu-server-arm64.iso"
 firmware = "firmware.fd"
 nvram = "nvram.fd"
 disk_format = "qcow2"
+disk_device = "virtio"
 accelerator = "hvf"
 binary = "qemu-system-aarch64"
 headless = false

@@ -6,6 +6,40 @@ use std::{
 };
 static NEXT: AtomicU64 = AtomicU64::new(0);
 #[test]
+fn serial_console_is_opt_in_private_and_keeps_a_uart_log() {
+    let images = Images::new();
+    let mut config = images.config();
+    let socket = images.0.join("qmp.sock");
+    let default = qemu::arguments(&config, &images.0, &socket).unwrap();
+    assert!(!default.iter().any(|arg| arg.contains("console.sock")));
+    config.runtime.as_mut().unwrap().serial_console = true;
+    let args = qemu::arguments(&config, &images.0, &socket).unwrap();
+    assert!(args.iter().any(|arg| arg == "chardev:serialconsole"));
+    assert!(args
+        .iter()
+        .any(|arg| arg.starts_with("socket,id=serialconsole,path=")
+            && arg.contains("console.sock")
+            && arg.contains("logfile=")
+            && arg.contains("serial.log")));
+    assert!(!args.iter().any(|arg| arg.starts_with("tcp:")));
+}
+#[test]
+fn ubuntu_virtio_storage_is_explicit_and_windows_retains_nvme() {
+    let images = Images::new();
+    let mut config = images.config();
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    assert!(args
+        .iter()
+        .any(|s| s == "nvme,drive=disk,serial=freelane-disk"));
+    config.runtime.as_mut().unwrap().disk_device = qemu::DiskDevice::Virtio;
+    let parsed = Config::parse(&toml::to_string(&config).unwrap()).unwrap();
+    let args = qemu::arguments(&parsed, &images.0, &images.0.join("qmp.sock")).unwrap();
+    assert!(args.iter().any(
+        |s| s == "virtio-blk-pci,disable-legacy=on,drive=disk,serial=freelane-disk,bootindex=1"
+    ));
+    assert!(!args.iter().any(|s| s.starts_with("nvme,")));
+}
+#[test]
 fn tcg_threading_is_explicit_and_preserves_guest_resources() {
     let images = Images::new();
     let mut config = images.config();

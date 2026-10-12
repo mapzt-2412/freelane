@@ -538,6 +538,7 @@ fn installer_profile_boot(guest_os: freelane::GuestOs) {
     if guest_os == freelane::GuestOs::Ubuntu {
         assert_eq!(config.disk.to_str().unwrap(), "ubuntu.qcow2");
         assert!(config.runtime.as_ref().unwrap().tpm.is_none());
+        config.runtime.as_mut().unwrap().serial_console = true;
     }
     config.cpus = 1;
     config.runtime.as_mut().unwrap().accelerator = qemu::Accelerator::Tcg;
@@ -580,6 +581,7 @@ fn installer_profile_boot(guest_os: freelane::GuestOs) {
     assert_eq!(cd["inserted"]["ro"], true);
     drop(qmp);
     backend.stop().unwrap();
+    assert!(!backend.directory().join("console.sock").exists());
     assert_eq!(
         fs::read(&iso).unwrap(),
         iso_before,
