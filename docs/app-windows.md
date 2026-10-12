@@ -53,7 +53,7 @@ When launching a stopped VM from Finder/Dock, the supervisor retains the inherit
 - Select the desired visible window for the launched PID; refresh the list for dialogs in the same process.
 - Click inside the captured image to send a mapped primary click and focus the host image.
 - Type after focusing the image, or use **Gửi chữ** to send up to 1024 UTF-8 bytes to the guest window's focused control. Enter/Tab/navigation/Delete/Backspace/Escape are supported.
-- Use **Chụp lại** or periodic refresh. Errors stop automatic refresh; inspect before sending another mutation.
+- Use **Chụp lại** or periodic refresh. An acknowledged guest capture timeout gets one read-only retry after a one-second pause. Other errors, or a second timeout, stop automatic refresh; pending unsent input is canceled and its count is reported. Inspect before sending another mutation.
 
 Every guest window target includes HWND, PID and process creation time. The agent revalidates these before acting, so a recycled handle/PID is refused. Frames are bound to the selected identity, preventing late captures from a previously selected window from being displayed as another app. Input messages are delivered to that window/child control rather than injected globally. Delivery acceptance does not prove that an application used the input.
 
@@ -82,3 +82,15 @@ After the live guest session interrupted, the genuine captured Notepad JPEG was 
 ![Host viewer rendering the recorded Windows client frame through a labeled replay fixture](assets/windows-app-viewer-replay.png)
 
 An explicit `freelane-desktop --app profile.toml --pid PID` can attach to the specified guest process without another launch; use a fresh verified PID, not a PID retained across reboot.
+
+## Resumed live Windows acceptance
+
+The previously interrupted input check was completed in a new Windows Audit session under Linux TCG. The new agent returned a real Notepad client frame, accepted a targeted click/text request and returned another frame visibly containing `FreeLane live window test 2026`. The Linux host viewer then attached to that verified PID through the real virtio channel. A host UI text submission visibly inserted `ui verified` into Notepad. Closing the viewer left both the guest window and VM running.
+
+Periodic refresh encountered a guest capture timeout. The viewer now retries that acknowledged read-only snapshot once after one second; persistent timeout and transport failures stop refresh, with no input replay. A read-only fixture verified exactly two captures before stopping on persistent timeouts. The updated viewer still refreshed the genuine guest frame after a 20-second observation. These checks establish this narrow input/display path; they do not establish smooth video or sustained stability.
+
+![Real Windows client after targeted input](assets/windows-app-input.jpg)
+
+![Host viewer connected to the real Windows agent after host UI text entry](assets/windows-app-viewer-live.png)
+
+[Live acceptance evidence](evidence/windows-app-live-acceptance.json) records the scope. This remains an Audit-session Linux test, without normal-user Startup installer or native Mac/Dock runtime validation. The snapshot retry change is on `main`; the earlier `preview.2` DMG predates it.

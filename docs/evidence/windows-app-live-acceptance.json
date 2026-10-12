@@ -1,0 +1,48 @@
+{
+  "result": "passed for scoped cloud acceptance",
+  "platform": "Installed Windows 11 ARM Audit session under Linux QEMU TCG; host viewer on authenticated Linux Xvfb",
+  "source_commit": "73c63662bc77810d74d9d87e2b47312531820c94",
+  "agent_asset": "FreeLane-v0.1.0-preview.1-windows-arm64-agent.zip",
+  "target": {
+    "created": 134362937543288241,
+    "handle": 66040,
+    "pid": 4044
+  },
+  "rpc_input": {
+    "payload": "FreeLane live window test 2026",
+    "delivery": "accepted",
+    "visual_after_input": "passed: text observed in genuine Notepad client JPEG"
+  },
+  "host_ui_input": {
+    "payload": " ui verified ",
+    "visual_after_input": "passed: text observed in genuine client frame and live host viewer",
+    "keyboard_test_setup": "Xvfb has no window manager; explicit focus set on owned host viewer before keyboard injection"
+  },
+  "host_viewer_live": true,
+  "host_viewer_attach_mode": "explicit PID; no additional launch",
+  "viewer_close_preserves_guest_window_and_vm": true,
+  "original_refresh_issue": "Guest-reported two-second PrintWindow timeout stopped periodic refresh",
+  "snapshot_retry_change": "One read-only retry after one second only for the acknowledged guest capture timeout; transport errors and mutations never retried",
+  "persistent_timeout_fixture": "Exactly two read-only capture requests then refresh stopped; no mutation accepted",
+  "updated_viewer_observation": "Periodic refresh still enabled and current guest frame visible after 20 seconds; not a long-duration stability or performance claim",
+  "local_validation": {
+    "rust_tests_with_symlink_temp": 59,
+    "python_mcp_tests_with_symlink_temp": 11,
+    "workspace_clippy": "passed",
+    "desktop_build": "passed",
+    "mac_arm64_desktop_cross_check": "passed"
+  },
+  "ci_remaining": "macos-14 Rust tests and arm-emulation still failed in run 38279685576; macOS Python, formatter and clippy steps passed",
+  "normal_user_test": false,
+  "native_mac_dock_runtime_test": false,
+  "images": {
+    "docs/assets/windows-app-input.jpg": "a8b24b517ced5dd430f39ad8e94b6917c873693bc1e9b51382f368112703a82b",
+    "docs/assets/windows-app-viewer-live.png": "b81f6ff9bde40ad2fc9956421441a08fdea14a5e9245857f102fe0e43d2fd9ea"
+  },
+  "cleanup": {
+    "original_vm_config_restored_exactly": true,
+    "powerdown_requested": true,
+    "supervisor_exit_code": 0,
+    "qcow2_offline_check": "passed: no errors"
+  }
+}
