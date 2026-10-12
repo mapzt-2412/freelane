@@ -1,0 +1,39 @@
+{
+  "platform": "Installed Windows 11 ARM Audit guest under Linux TCG",
+  "opened": {
+    "agent_socket": "/tmp/freelane-ae1c4009c60dd98a/agent.sock",
+    "mode": "window snapshots; not a live video stream",
+    "pid": 6456,
+    "windows": [
+      {
+        "target": {
+          "created": 134362738583530513,
+          "handle": 131418,
+          "pid": 6456
+        },
+        "title": "Untitled - Notepad"
+      }
+    ]
+  },
+  "capture_before": {
+    "width": 640,
+    "height": 366,
+    "jpeg_sha256": "1f6ea1517afc4161789119b2d9c75f7bf758d291f8baee5e8abc24612f288acf"
+  },
+  "click": {
+    "status": "window_input_accepted"
+  },
+  "text": {
+    "status": "window_input_accepted"
+  },
+  "payload": "FreeLane separate window test",
+  "mac_dock_runtime_test": false,
+  "normal_user_test": false,
+  "capture_after_pending": true,
+  "result": "partial: capture passed; input delivery accepted; after-input visual check interrupted",
+  "window_pixels_verified": "Notepad client area, blank edit pane and status bar; no desktop/taskbar",
+  "visual_input_verified": false,
+  "live_host_viewer_test": false,
+  "process_interruption": "Cloud session processes ended before the after-input capture",
+  "agent_binary_sha256": "36c0bba41c0932bd4f95a717f0a56cb009f5080d547af63da6b63a96336fcdf5"
+}

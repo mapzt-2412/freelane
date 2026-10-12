@@ -34,7 +34,7 @@ Xem [bằng chứng Windows](docs/test-evidence.md), [Ubuntu](docs/ubuntu-test-e
 - Điều khiển thiết bị mobile, cài/mở ứng dụng và chụp khung hình PNG thật.
 - CLI và **14 công cụ MCP stdio** cho build/test, điều khiển VM/mobile, chụp ảnh và gửi yêu cầu tới guest.
 
-UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật định kỳ. Video liên tục và chuyển tiếp bàn phím chưa hoàn tất; dùng cửa sổ backend để tương tác. Đã có cấu hình chọn USB vật lý nhưng chưa kiểm thử phần cứng. Chia sẻ thư mục hai chiều cho Windows, tăng tốc 3D/Metal, passthrough GPU Apple, clipboard và cửa sổ app liền mạch còn đang phát triển.
+UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật định kỳ. Video VM liên tục và chuyển tiếp bàn phím đầy đủ chưa hoàn tất; dùng cửa sổ backend để tương tác desktop. Đã có [viewer app Windows riêng và launcher Dock](docs/app-windows.md) dạng thử nghiệm: ảnh chụp, click/chữ/phím điều hướng và agent mới. Đã có cấu hình chọn USB vật lý nhưng chưa kiểm thử phần cứng. Chia sẻ thư mục hai chiều cho Windows, tăng tốc 3D/Metal, passthrough GPU Apple, clipboard và truyền cửa sổ kiểu Coherence bằng video còn đang phát triển.
 
 ## Tải bản thử nghiệm
 

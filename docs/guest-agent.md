@@ -44,7 +44,7 @@ cargo run --locked -- agent-ping /absolute/path/to/vm.toml
 cargo run --locked -- launch /absolute/path/to/vm.toml 'C:\Windows\System32\notepad.exe' 'C:\Users\User\Documents\notes.txt'
 ```
 
-Launch uses an absolute `.exe` path and a literal argument list via Windows process creation. It does not automatically wrap commands in `cmd.exe` or PowerShell. The returned PID means process creation succeeded, not that its UI opened or stayed healthy. Child stdin/stdout/stderr are disconnected from the agent protocol; console output and interactive terminal sessions are not streamed. Apps still render inside the VM display; individual Mac windows are not implemented.
+Launch uses an absolute `.exe` path and a literal argument list via Windows process creation. It does not automatically wrap commands in `cmd.exe` or PowerShell. The returned PID means process creation succeeded, not that its UI opened or stayed healthy. Child stdin/stdout/stderr are disconnected from the agent protocol; console output and interactive terminal sessions are not streamed. Apps render in Windows. An optional [separate-window snapshot viewer and Dock launcher](app-windows.md) can present ordinary Win32 client windows on the host with an updated agent.
 
 A host response timeout leaves execution outcome unknown. The client does not automatically retry launch requests, which could otherwise open a second process.
 
@@ -61,7 +61,7 @@ The example PID is a protocol illustration, not a test result. Ping responds wit
 
 Run `cargo test --locked --workspace` to include the shared protocol and guest request-handler suites. The QEMU UEFI test verifies that the configured virtio-serial channel is attached and its socket is cleaned up; it does not contain a Windows driver or execute the Windows agent. `cargo check --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc` checks the Windows ARM64 branch but does not link an executable or run it.
 
-Clipboard, agent-mediated shared-folder access, guest service installation, application-window integration and save/restore are still outstanding. A separate [read-only USB host-folder transfer](sharing.md) does not use the agent.
+Clipboard, agent-mediated shared-folder access, guest service installation, live Coherence-style video and save/restore are still outstanding. The experimental snapshot window extension is described in [app windows](app-windows.md). A separate [read-only USB host-folder transfer](sharing.md) does not use the agent.
 
 ## Real transport and app evidence
 
