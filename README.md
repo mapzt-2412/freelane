@@ -2,103 +2,125 @@
 
 English · [Tiếng Việt](README.vi.md)
 
-An experimental, open-source VM manager for **Windows 11 ARM and Ubuntu ARM64**, targeting **macOS on Apple Silicon**. It also integrates **Android Emulator and Xcode iOS Simulator** for mobile development.
+**An open-source VM and mobile simulator manager for Mac Apple Silicon, built with Rust.**
 
-FreeLane uses Rust to manage a separately installed QEMU backend. It provides a desktop manager, CLI and stdio MCP server for development and VM testing. The long-term goal is a free alternative to Parallels Desktop; everyday reliability, universal application support and a performance advantage have **not** been demonstrated.
+Manage **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** and **Xcode iOS Simulator** through a Vietnamese/English desktop interface, CLI and MCP tools for development and testing.
 
-## Current status
+FreeLane is experimental. Its long-term goal is a free alternative to Parallels Desktop. Current runtime evidence comes from Linux cloud testing; native Mac execution, everyday reliability and a performance advantage still need validation.
 
-Runtime evidence below comes from **Linux cloud software emulation (TCG)**. macOS ARM64 compilation has been checked; running the desktop and guests with Mac hardware acceleration (HVF) still requires testing on a real Mac.
+![FreeLane desktop control center](docs/assets/desktop-manager.png)
 
-| Component | Implemented or observed | Remaining validation |
+*Actual Vietnamese UI on Linux Xvfb, showing an Ubuntu-profile EFI test guest.*
+
+## Platforms and current status
+
+| Platform | Backend and capabilities | Verified scope / limits |
 | --- | --- | --- |
-| VM management | Windows/Ubuntu profiles, disk initialization, private firmware state, start/status/pause/resume/shutdown | Native Mac runtime and everyday reliability |
-| Desktop manager | Light control center, VM library, Vietnamese/English, editable VM settings, guest display snapshots, mouse clicks, optional five-second refresh, guest app requests | Native Mac GUI; continuous video and keyboard forwarding are not implemented |
-| Windows 11 ARM | Installed Audit desktop; 7-Zip x86/x64/ARM64 archive checks; Notepad save/close/reopen | Normal user setup, stability and application coverage; an earlier kernel crash remains unresolved |
-| Ubuntu ARM64 | Ubuntu Server 24.04.5 cloud image; unprivileged agent; file/copy/gzip/ZIP checks; exact data retained after reboot | Ubuntu Desktop, GUI apps, networking and native Mac execution |
-| Mobile devices | Android AVD/ADB and Xcode Simulator profiles; desktop/CLI/MCP install, launch and PNG capture | Android software-cloud System UI ANR; native Mac Android and iOS runtime unverified; iOS needs Simulator `.app` builds |
-| MCP | Real stdio/QEMU tests, development jobs, VM controls, PNG capture and guest ping/launch | Configuration in each editor; no remote Mac is automatically provisioned |
-| Graphics and integration | Basic display plus Ubuntu Virtio GPU 2D scanout, literal executable launch and read-only USB file transfer, live Ubuntu 9p read/write sharing and physical USB selectors | Windows two-way sharing, physical USB hardware validation, GPU acceleration, games, clipboard and seamless app windows |
+| Windows 11 ARM | QEMU ARM VM, lifecycle controls, display capture, optional guest agent | Installed Audit desktop; selected 7-Zip x86/x64/ARM64 and Notepad tests. An earlier kernel crash remains unresolved; normal user setup and wider app compatibility need testing. |
+| Ubuntu ARM64 | QEMU ARM VM, virtio storage, optional agent, live 9p folder sharing, Virtio GPU 2D | Ubuntu Server 24.04.5 cloud image; file/archive checks and persistence after reboot. Ubuntu Desktop and native Mac runtime remain unverified. |
+| Android | Official SDK Emulator/ADB; start/stop/status, APK install, activity launch and PNG capture | AOSP Android 10 x86 on Linux software emulation. App checks passed after manual recovery from a System UI ANR; sustained stability and Mac acceleration remain unverified. |
+| iOS | Apple Xcode Simulator; device controls, Simulator `.app` install, bundle launch and PNG capture | Requires Mac, Xcode and an installed Simulator runtime. Adapter compilation and argument tests passed; native operation remains unverified. App Store IPA files are unsupported. |
 
-Ubuntu Server was deployed from an official preinstalled cloud image with NoCloud provisioning, **not** installed through the graphical Ubuntu installer. A process-start response only confirms that the guest started a process; it does not prove that an application works.
+Windows/Ubuntu use separately installed QEMU. Android/iOS use their official SDK backends. On Apple Silicon, prepare a matching ARM64 Android AVD. iOS applications must be built for Simulator.
 
-See [test evidence](docs/test-evidence.md), [application compatibility](docs/compatibility.md) and [Ubuntu instructions](docs/ubuntu.md) for configurations, results and known limits.
+See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-test-evidence.md) and [mobile setup and evidence](docs/mobile.md).
+
+## Features
+
+- Desktop VM library, resource cards, settings and Vietnamese/English language selection.
+- CPU, RAM, acceleration, network, media, display, guest-agent and USB configuration.
+- Read-only USB folder transfer for Windows/Ubuntu; live read/write 9p sharing for Ubuntu.
+- Ubuntu Virtio GPU **2D** display, with a real ARM Linux scanout test.
+- Mobile device controls, app installation/launch and actual PNG snapshots.
+- CLI and **14 stdio MCP tools** for fixed build/test jobs, registered VM/mobile controls, captures and guest requests.
+
+The desktop displays snapshots, with optional refresh for desktop VMs. Continuous video and keyboard forwarding are pending; use backend native windows for interactive input. Physical USB selectors are implemented but need hardware testing. Windows two-way folder sharing, accelerated 3D/Metal, Apple GPU passthrough, clipboard and seamless app windows remain pending.
 
 ## Build
 
-Use the pinned **Rust 1.99.0** toolchain. VM execution also needs QEMU 10.0+, matching AArch64 EDK2 firmware, and swtpm for the Windows profile. Linux desktop builds need the platform development libraries described in [dependency documentation](docs/dependencies.md). Python 3.11+ is required only for MCP tooling.
+Use the pinned **Rust 1.99.0** toolchain:
 
 ```sh
 cargo build --locked --workspace
-cargo test --locked --workspace
-cargo fmt --all --check
-cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-The ordinary test command skips six opt-in QEMU integration tests. [Development instructions](docs/development.md) explain their prerequisites and execution. `freelane doctor` intentionally rejects Linux as a native host; Linux remains usable for explicit TCG testing.
+Install the dependencies needed for your workflow:
 
-## Create and open a VM
+| Workflow | Prerequisites |
+| --- | --- |
+| Windows/Ubuntu VM | QEMU 10.0+, matching AArch64 EDK2 code/variable firmware; Windows also needs swtpm, Secure Boot firmware with Microsoft keys and a Windows ARM installer |
+| Android | Android Studio SDK, Emulator, recent Platform Tools and a prepared AVD matching your host |
+| iOS | macOS, full Xcode, Simulator runtime and an available device UUID |
+| MCP | Python 3.11+; client runs the server on the machine owning the SDKs/VMs |
 
-Supply matching ARM64 firmware code and variable-template files. Windows needs Secure Boot capable firmware with Microsoft keys and a user-supplied Windows ARM installer. `init` creates a new directory with a sparse 64 GiB disk and refuses to overwrite an existing directory.
+Linux desktop builds require the libraries in [dependencies](docs/dependencies.md). There is no packaged one-click Mac installer yet. Windows, SDKs and proprietary applications are obtained separately under their respective licenses.
+
+## Windows and Ubuntu
+
+Create a new VM directory with matching firmware paths:
 
 ```sh
-# Windows is the default profile.
 ./target/debug/freelane init /absolute/path/to/windows-vm /absolute/path/to/code.fd /absolute/path/to/vars.fd windows
-
-# Ubuntu selects modern virtio storage and does not require a TPM.
 ./target/debug/freelane init /absolute/path/to/ubuntu-vm /absolute/path/to/code.fd /absolute/path/to/vars.fd ubuntu
-
-./target/debug/freelane-desktop /absolute/path/to/ubuntu-vm/vm.toml
 ```
 
-Before starting, configure the guest media in `vm.toml` using the [Windows setup guide](docs/development.md) or [Ubuntu setup guide](docs/ubuntu.md). Initialization alone does not install an operating system. Profiles default to HVF for Apple Silicon; Linux testing requires explicitly selecting `accelerator = "tcg"`. Networking defaults to off.
+`init` creates a sparse 64 GiB disk and private firmware state; it refuses an existing directory. Configure installation media before booting. Follow [Windows setup](docs/development.md) or [Ubuntu setup](docs/ubuntu.md); creating a profile does not install the OS. The recorded Ubuntu deployment uses an official preinstalled Server cloud image with NoCloud provisioning.
 
-The desktop library lists configurations supplied at startup or opened during the session. Select a card or use **Add virtual machine** to load a file. Editing the dialog path does not change the active VM until it is opened. The main view shows resources and last observed status; Details contains acceleration information. The display area shows captured frames, rather than live video. Use QEMU's native window for keyboard input. Closing the manager leaves its VM running; prefer guest shutdown before force stop, which can lose unsaved data.
+```sh
+./target/debug/freelane-desktop /absolute/path/to/windows-vm/vm.toml /absolute/path/to/ubuntu-vm/vm.toml --lang vi
+```
 
-See [desktop instructions](docs/desktop.md) and [guest-agent setup](docs/guest-agent.md). The optional agent launches an absolute Windows `.exe` or Linux executable with literal arguments; it must be installed and running inside the guest.
+Select a library card or **Add virtual machine**. **Settings** groups hardware, graphics, files and devices; save while stopped. Profiles default to HVF on Apple Silicon. Linux testing requires explicitly selecting `accelerator = "tcg"`; networking defaults to off.
 
-Use **Settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network adapter, native display, guest-agent channel, serial console and installer media. Settings are saved only while the VM is stopped, with a backup and conflict detection. Folder modes include **read-only USB FAT** for either guest and **live read/write virtio-9p** for Ubuntu. A real ARM Linux guest verified file changes in both directions. Physical USB selectors are implemented but need actual hardware testing. Windows read/write sharing and Apple GPU passthrough remain unavailable. See [sharing limits and setup](docs/sharing.md).
-
-The redesigned control center below records a disposable Ubuntu-profile **EFI fixture** on Linux Xvfb, with its genuine firmware frame. It is not an installed Ubuntu desktop or a native Mac run. Vietnamese is the default; switch languages in the top-right menu or pass `--lang en`. See [virtual GPU evidence and limits](docs/graphics.md) for the actual 2D implementation; 3D/Metal/Windows graphics acceleration is not implemented.
-
-![FreeLane desktop manager with resizable sidebar](docs/assets/desktop-manager.png)
+Closing the manager leaves the VM running. Request guest shutdown and verify exit before moving disks or saving a cloud snapshot. See [desktop controls](docs/desktop.md), [guest agent](docs/guest-agent.md), [sharing](docs/sharing.md) and [graphics](docs/graphics.md).
 
 ## Android and iOS
 
-Prepare a matching AVD in Android Studio, or an iOS Simulator device with Xcode on Mac, then load its [mobile profile](docs/mobile.md) in **Android & iOS**. Android APK install/launch/capture was observed on Linux software emulation after manual recovery from a System UI ANR; this is not a stability claim. iOS supports Simulator-target `.app` builds and requires Mac/Xcode; App Store IPA files are not supported.
+Copy a mobile profile and fill in existing SDK/device details:
+
+- [Android example](configs/mobile.android.example.toml): SDK root, AVD name, CPU/RAM and acceleration/rendering choices.
+- [iOS example](configs/mobile.ios.example.toml): exact available Simulator UUID and optional Xcode developer directory.
 
 ```sh
 ./target/debug/freelane-desktop --mobile /absolute/path/to/mobile.toml
 ```
 
-[Setup, CLI/MCP commands and actual test evidence](docs/mobile.md).
+Click **Open / Mở** in **Android & iOS**, then start, inspect, install, launch or capture. Mobile configuration and controls operate separately from Windows/Ubuntu VMs.
 
-## Vibe coding and MCP
+![Actual FreeLane mobile panel with Android app capture](docs/assets/mobile-manager.png)
 
-The [stdio MCP server](docs/mcp.md) exposes fixed development tasks and registered VM controls to compatible clients, including Codex, Cursor and Claude. It reports actual job outcomes, captures real PNG frames and supports both Windows and Ubuntu guest requests. It uses Python's standard library and does not expose an HTTP server or an arbitrary shell tool.
+*Linux cloud capture after manual recovery from a System UI ANR. The cloud has no KVM; software emulation remains slow and unstable. This is not a native Mac or iOS run.*
 
-Follow the MCP guide to register VM paths and generate your client's configuration. Client settings and remote environments are not installed automatically.
+[Mobile guide](docs/mobile.md) includes CLI commands, APK testing, the reproducible Linux fixture and the unrecovered failure alongside the successful observation after recovery.
 
-## Recorded guest tests
+## Vibe coding with MCP
 
-These are genuine captures from Linux TCG testing, not native Mac performance results.
+Connect compatible stdio clients such as **Codex, Cursor or Claude** to FreeLane's standard-library Python server. Register existing VM and mobile profile paths in trusted local configuration, then generate a client configuration:
 
-**Installed Windows ARM:** FreeLane received a guest ping and displayed 7-Zip with a persisted archive open. This image records the earlier manager layout.
+```sh
+python3 scripts/mcp-client-config.py --client codex --config /absolute/path/to/mcp.local.toml
+# Use --client cursor or --client claude for JSON configuration.
+```
 
-![Earlier FreeLane manager connected to installed Windows ARM](docs/assets/installed-guest-connection.png)
+The generator prints configuration for you to merge into existing settings. The server executes fixed development jobs, reports actual exit codes/timeouts and returns genuine captures. It does not provision remote Macs or automatically configure editors. Cloud paths only work when the MCP process runs in that cloud workspace.
 
-**Ubuntu Server ARM64:** the console login screen from the installed cloud-image guest. This is a server console, not Ubuntu Desktop.
+See [MCP connection guide](docs/mcp.md) and [mobile registry example](configs/mcp.mobile.example.toml).
 
-![Ubuntu Server ARM64 console](docs/assets/ubuntu-server-login.png)
+## Validation and next steps
 
-[Baseline and post-reboot reports](docs/evidence/ubuntu-after-reboot.json) record the Ubuntu storage checks. [Windows evidence](docs/test-evidence.md) includes the archive and saved Notepad tests, alongside failures and scope limits.
+```sh
+cargo test --locked --workspace
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+python3 -m unittest discover -s tests/mcp -v
+```
 
-## Direction
+The latest recorded Linux run passed **54 portable Rust tests**, **11 Python MCP tests** and **six separately invoked real QEMU integration tests**. Ordinary `cargo test` ignores the six QEMU tests; [development instructions](docs/development.md) describe their prerequisites. macOS ARM64 cross-compilation checks passed; they do not establish native execution. Mobile runtime evidence has the limits described above.
 
-Next priorities are native Apple Silicon validation, reliable guest setup and shutdown, wider application checks, and a proven accelerated graphics path. Performance work must use repeatable measurements on the same hardware and guest configuration. There are currently no verified FPS, memory-saving or Parallels comparison claims. See [implementation status](docs/implementation.md) and [benchmark instructions](docs/development.md).
+Priorities are native Apple Silicon testing, reliable setup/shutdown, Android stability, actual iOS Simulator validation and accelerated graphics. Universal app support and faster-than-Parallels performance have not been demonstrated. [Implementation status](docs/implementation.md) and [compatibility notes](docs/compatibility.md) track the remaining work.
 
 ## License
 
-FreeLane source and documentation use the [MIT license](LICENSE). The bundled UI font retains its [DejaVu license](crates/desktop/assets/DejaVu-LICENSE.txt). QEMU, firmware, TPM software and other dependencies retain their own licenses; see [dependency decisions](docs/dependencies.md). Users obtain Windows and proprietary applications separately under their respective licenses.
+FreeLane source and documentation use the [MIT license](LICENSE). The bundled font retains its [DejaVu license](crates/desktop/assets/DejaVu-LICENSE.txt). QEMU, firmware, TPM software and SDKs retain their own licenses.
 
-FreeLane is independent and is not affiliated with Apple, Microsoft, Canonical or Parallels.
+FreeLane is independent and is not affiliated with Apple, Microsoft, Google, Canonical or Parallels.
