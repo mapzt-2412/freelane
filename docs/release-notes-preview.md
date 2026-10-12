@@ -1,6 +1,6 @@
 FreeLane experimental preview for Apple Silicon Macs (macOS 14 or newer).
 
-- Download the `macos-arm64.zip`, extract it and open `FreeLane.app`.
+- Download the `macos-arm64.dmg`, open it and drag `FreeLane.app` onto the `Applications` shortcut. Eject the disk image and open FreeLane from Applications. The ZIP remains available as an alternative.
 - For Windows app windows, also download the Windows ARM64 agent ZIP and install the updated agent inside the guest using the included per-user installer. See `docs/app-windows.md` in the Mac package.
 - SHA256 files accompany both packages.
 

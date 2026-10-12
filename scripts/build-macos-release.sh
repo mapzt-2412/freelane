@@ -112,3 +112,33 @@ test ! -e "$archive"
 ditto -c -k --sequesterRsrc --keepParent "$package_dir" "$archive"
 (cd "$repo_dir/target/packages" && shasum -a 256 "$package_name.zip" > "$package_name.zip.sha256")
 echo "Experimental Apple Silicon package: $archive"
+# Finder installation: drag the signed app onto the Applications shortcut.
+dmg="$repo_dir/target/packages/$package_name.dmg"
+test ! -e "$dmg"
+dmg_stage="$(mktemp -d "$repo_dir/target/dmg-stage.XXXXXX")"
+dmg_mount="$(mktemp -d "$repo_dir/target/dmg-mount.XXXXXX")"
+dmg_attached=false
+cleanup_dmg() {
+  if [ "$dmg_attached" = true ]; then
+    hdiutil detach "$dmg_mount" || return 1
+  fi
+  rm -rf "$dmg_stage" "$dmg_mount"
+}
+trap cleanup_dmg EXIT
+ditto "$package_dir" "$dmg_stage"
+ln -s /Applications "$dmg_stage/Applications"
+hdiutil create -volname FreeLane -srcfolder "$dmg_stage" -format UDZO -fs HFS+ "$dmg"
+hdiutil verify "$dmg"
+hdiutil attach "$dmg" -readonly -nobrowse -mountpoint "$dmg_mount"
+dmg_attached=true
+codesign --verify --deep --strict "$dmg_mount/FreeLane.app"
+plutil -lint "$dmg_mount/FreeLane.app/Contents/Info.plist"
+lipo "$dmg_mount/FreeLane.app/Contents/MacOS/freelane-desktop" -verify_arch arm64
+test "$(readlink "$dmg_mount/Applications")" = /Applications
+test -f "$dmg_mount/START-HERE.md"
+hdiutil detach "$dmg_mount"
+dmg_attached=false
+cleanup_dmg
+trap - EXIT
+(cd "$repo_dir/target/packages" && shasum -a 256 "$package_name.dmg" > "$package_name.dmg.sha256")
+echo "Verified Apple Silicon disk image: $dmg"

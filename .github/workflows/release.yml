@@ -45,6 +45,8 @@ jobs:
           path: |
             target/packages/*.zip
             target/packages/*.zip.sha256
+            target/packages/*.dmg
+            target/packages/*.dmg.sha256
           if-no-files-found: error
           retention-days: 30
   windows-agent:
@@ -92,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           (cd release-assets && for checksum in *.sha256; do sha256sum --check "$checksum"; done)
-          gh release create "$GITHUB_REF_NAME" release-assets/*.zip release-assets/*.sha256 \
+          gh release create "$GITHUB_REF_NAME" release-assets/*.zip release-assets/*.dmg release-assets/*.sha256 \
             --repo "$GITHUB_REPOSITORY" --verify-tag --prerelease \
             --title "FreeLane $GITHUB_REF_NAME — Apple Silicon preview" \
             --notes-file docs/release-notes-preview.md
