@@ -23,7 +23,19 @@ jobs:
           toolchain: 1.99.0
           targets: aarch64-apple-darwin
       - name: Build, ad-hoc sign, verify and package
-        run: bash scripts/build-macos-release.sh
+        run: |
+          mkdir -p target
+          if bash scripts/build-macos-release.sh 2>&1 | tee target/macos-release-build.log; then
+            echo 'Mac package checks passed'
+          else
+            python3 - <<'PY'
+          from pathlib import Path
+          message = '\n'.join(Path('target/macos-release-build.log').read_text(errors='replace').splitlines()[-25:])
+          message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Mac release failure::' + message)
+          PY
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: FreeLane-experimental-macos-arm64
