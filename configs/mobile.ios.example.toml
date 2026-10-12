@@ -1,0 +1,7 @@
+# Requires a real Mac, Xcode and an installed iOS Simulator runtime.
+# Copy the device UUID from: xcrun simctl list devices available
+name = "iOS Simulator"
+platform = "ios"
+[ios]
+device_udid = "00000000-0000-0000-0000-000000000000"
+# developer_dir = "/Applications/Xcode.app/Contents/Developer"

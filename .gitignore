@@ -6,6 +6,7 @@
 __pycache__/
 *.pyc
 configs/*.local.toml
+*.mobile.lock
 
 # Private VM settings backups and interrupted atomic saves
 *.toml.backup-*

@@ -16,6 +16,25 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, path, rest @ ..] if command.starts_with("mobile-") => {
+            let path = std::fs::canonicalize(path).map_err(|e| Error(e.to_string()))?;
+            let profile = freelane::mobile::load(&path)?;
+            let base = path.parent().unwrap();
+            match (command.as_str(), rest) {
+                ("mobile-plan", []) => println!("{}", serde_json::to_string_pretty(&profile.start_plan(base)?).map_err(|e| Error(e.to_string()))?),
+                ("mobile-start", []) => freelane::mobile::start(&profile, base, &path)?,
+                ("mobile-devices", []) => println!("{}", profile.devices(base)?),
+                ("mobile-status", []) => println!("{}", profile.status(base)?),
+                ("mobile-wait", []) => { profile.wait(base)?; println!("Operating system boot completion confirmed; application behavior requires separate checks"); },
+                ("mobile-stop", []) => println!("{}", profile.control(base, "stop")?),
+                ("mobile-window", []) => println!("{}", profile.control(base, "window")?),
+                ("mobile-install", [application]) => println!("{}", profile.install(base, Path::new(application))?),
+                ("mobile-launch", [application]) => println!("{}", profile.launch(base, application)?),
+                ("mobile-capture", [output]) => { profile.capture(base, Path::new(output))?; println!("Saved mobile PNG: {output}"); },
+                _ => return Err(Error("Use mobile-plan|devices|start|status|wait|stop|window <profile.toml>, or mobile-install|launch|capture <profile.toml> <application/output>".into())),
+            }
+            Ok(())
+        }
         [command] if command == "doctor" => {
             println!("Host: {} / {}", env::consts::OS, env::consts::ARCH);
             println!("Apple Silicon native acceleration host: {}", freelane::supported_host());

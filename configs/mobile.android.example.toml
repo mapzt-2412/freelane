@@ -1,0 +1,15 @@
+# Prepare an AVD with Android Studio for your host architecture first.
+name = "Android"
+platform = "android"
+[android]
+sdk_root = "/absolute/path/to/Android/sdk"
+avd = "Your_AVD_Name"
+console_port = 5554
+cpus = 2
+memory_mib = 2048
+acceleration = "hardware"
+gpu = "auto"
+headless = false
+# Optional custom SDK user/AVD locations:
+# avd_home = "/absolute/path/to/avds"
+# user_home = "/absolute/path/to/android-user-home"
