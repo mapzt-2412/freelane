@@ -46,6 +46,9 @@ impl Config {
     }
     pub fn validate(&self) -> Result<()> {
         if let Some(runtime) = &self.runtime {
+            if runtime.graphics == qemu::Graphics::Virtio2d && self.guest_os != GuestOs::Ubuntu {
+                return Err(Error("Virtio 2D graphics requires Ubuntu; a supported Windows ARM GPU driver is not available in FreeLane".into()));
+            }
             if runtime
                 .shared_directory
                 .as_ref()

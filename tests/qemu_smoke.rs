@@ -539,6 +539,7 @@ fn installer_profile_boot(guest_os: freelane::GuestOs) {
         assert_eq!(config.disk.to_str().unwrap(), "ubuntu.qcow2");
         assert!(config.runtime.as_ref().unwrap().tpm.is_none());
         config.runtime.as_mut().unwrap().serial_console = true;
+        config.runtime.as_mut().unwrap().graphics = qemu::Graphics::Virtio2d;
     }
     config.cpus = 1;
     config.runtime.as_mut().unwrap().accelerator = qemu::Accelerator::Tcg;

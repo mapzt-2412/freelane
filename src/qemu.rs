@@ -42,6 +42,14 @@ impl DiskFormat {
         }
     }
 }
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Graphics {
+    #[default]
+    Ramfb,
+    /// Virtio GPU scanout/2D for Linux guests; no GL/Metal/3D claim.
+    Virtio2d,
+}
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiskDevice {
@@ -92,6 +100,8 @@ pub struct RuntimeConfig {
     /// Use a local Cocoa/GTK display, or disable display for automated tests.
     #[serde(default)]
     pub headless: bool,
+    #[serde(default)]
+    pub graphics: Graphics,
     /// Opt-in private local UART socket for interactive headless guest diagnostics.
     #[serde(default)]
     pub serial_console: bool,
@@ -267,6 +277,12 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
         args.extend([
             "-blockdev".into(),
             file_block(node, format, path, readonly)?,
+        ]);
+    }
+    if runtime.graphics == Graphics::Virtio2d {
+        args.extend([
+            "-device".into(),
+            "virtio-gpu-pci,id=freelane-gpu,disable-legacy=on".into(),
         ]);
     }
     args.extend(
@@ -925,6 +941,7 @@ pub fn initialize_guest(
             tcg_threading: None,
             binary: default_binary(),
             headless: false,
+            graphics: Graphics::Ramfb,
             serial_console: false,
             network: false,
             network_device: NetworkDevice::Virtio,

@@ -344,3 +344,28 @@ fn physical_usb_requires_exact_bounded_selectors_without_duplicates() {
     config.runtime.as_mut().unwrap().usb_devices[0].vendor_id = 0;
     assert!(config.validate().is_err());
 }
+
+#[test]
+fn virtio_gpu_is_explicit_linux_only_and_preserves_basic_firmware_display() {
+    let images = Images::new();
+    let mut config = images.config();
+    let socket = images.0.join("qmp.sock");
+    let original = qemu::arguments(&config, &images.0, &socket).unwrap();
+    assert!(!original.iter().any(|arg| arg.starts_with("virtio-gpu")));
+    config.runtime.as_mut().unwrap().graphics = qemu::Graphics::Virtio2d;
+    assert!(config.validate().is_err());
+    config.guest_os = freelane::GuestOs::Ubuntu;
+    let args = qemu::arguments(&config, &images.0, &socket).unwrap();
+    assert!(args
+        .iter()
+        .any(|arg| arg == "virtio-gpu-pci,id=freelane-gpu,disable-legacy=on"));
+    assert!(args.iter().any(|arg| arg == "ramfb"));
+    assert!(!args
+        .iter()
+        .any(|arg| arg.contains("gl=on") || arg.contains("virgl")));
+    let roundtrip = Config::parse(&toml::to_string(&config).unwrap()).unwrap();
+    assert_eq!(
+        roundtrip.runtime.unwrap().graphics,
+        qemu::Graphics::Virtio2d
+    );
+}
