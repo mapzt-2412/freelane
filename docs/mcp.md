@@ -67,15 +67,15 @@ These examples require the client process to run on that Linux machine. For a re
 | Tool | Purpose |
 | --- | --- |
 | `host_info` | Host architecture, tool paths, repository and registered VM names |
-| `dev_run` | Start one fixed task: build, test, test_arm, lint, format_check, check_mac or build_agent |
+| `dev_run` | Start one fixed task: build, test, test_arm, lint, format_check, check_mac, build_agent or build_linux_agent |
 | `dev_result` | Poll a session-local job ID; running/passed/failed/timed_out, actual exit code and bounded output tail |
 | `vm_start` | Request one independent foreground CLI supervisor for a registered VM; returns starting, not readiness |
 | `vm_control` | Status, pause, resume or request clean guest shutdown |
 | `vm_capture` | Actual PNG display as an MCP image plus the retained artifact path |
 | `vm_keys` | One physical QEMU key chord; layout-dependent, not arbitrary text |
 | `vm_click` | Primary mouse click using normalized coordinates 0-32767 |
-| `guest_ping` | Check an already running interactive Windows guest agent |
-| `guest_launch` | One absolute Windows .exe plus literal arguments; inspect its actual window afterward |
+| `guest_ping` | Check an already running interactive Windows or Ubuntu guest agent |
+| `guest_launch` | One absolute Windows .exe or Ubuntu executable path selected by registered guest_os, plus literal arguments; inspect its actual behavior afterward |
 
 For a coding loop, ask the client to call `host_info`, run `dev_run` with `task="test"`, then poll `dev_result` until completion. Inspect failures, edit code through the client's normal editor tools, and rerun the relevant fixed task. MCP deliberately has no generic shell or file-edit tool; the coding client's existing repository tools do that work.
 

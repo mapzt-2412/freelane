@@ -30,6 +30,7 @@ TASKS = {
     "format_check": ["cargo", "fmt", "--all", "--check"],
     "check_mac": ["cargo", "check", "--locked", "--workspace", "--exclude", "freelane-guest-agent", "--target", "aarch64-apple-darwin"],
     "build_agent": ["bash", "scripts/build-windows-agent.sh"],
+    "build_linux_agent": ["bash", "scripts/build-linux-agent.sh"],
 }
 
 
@@ -57,9 +58,9 @@ TOOLS = [
     ("vm_click", "Send a primary click at normalized guest coordinates 0-32767. Inspect the capture for the actual effect.",
      schema({"vm": VM, "x": {"type": "integer", "minimum": 0, "maximum": 32767},
              "y": {"type": "integer", "minimum": 0, "maximum": 32767}}, ["vm", "x", "y"])),
-    ("guest_ping", "Ping the interactive Windows agent through the registered VM's virtio channel.",
+    ("guest_ping", "Ping the interactive Windows or Ubuntu agent through the registered VM's virtio channel.",
      schema({"vm": VM}, ["vm"])),
-    ("guest_launch", "Request one Windows .exe launch with literal arguments. Never automatically retry a timeout; PID is not proof of a healthy app window.",
+    ("guest_launch", "Request one Windows .exe or Ubuntu absolute executable launch with literal arguments, based on registered guest_os. Never automatically retry a timeout; PID is not proof of a healthy app window.",
      schema({"vm": VM, "executable": {"type": "string", "minLength": 1, "maxLength": 4096},
              "arguments": {"type": "array", "maxItems": 128,
                            "items": {"type": "string", "maxLength": 4096}}}, ["vm", "executable"])),
@@ -305,8 +306,17 @@ class Server:
         if name == "guest_ping":
             return self.run_cli("agent-ping", vm)
         executable = arguments["executable"]
-        if not ntpath.isabs(executable) or ntpath.splitext(executable)[1].lower() != ".exe":
-            raise ValueError("Use an absolute Windows .exe path")
+        if vm not in self.vms:
+            raise ValueError("VM is not registered")
+        guest_os = tomllib.loads(self.vms[vm].read_text()).get("guest_os", "windows")
+        if guest_os == "ubuntu":
+            if not executable.startswith("/"):
+                raise ValueError("Use an absolute Ubuntu executable path")
+        elif guest_os == "windows":
+            if not ntpath.isabs(executable) or ntpath.splitext(executable)[1].lower() != ".exe":
+                raise ValueError("Use an absolute Windows .exe path")
+        else:
+            raise ValueError("Unsupported guest_os in VM configuration")
         result = self.run_cli("launch", vm, executable, *arguments.get("arguments", []))
         result["next"] = "Inspect the actual app window. On a timeout execution may be unknown; do not automatically retry."
         return result

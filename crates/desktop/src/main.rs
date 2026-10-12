@@ -1,5 +1,5 @@
 use eframe::egui;
-use freelane::{agent, qemu, Config};
+use freelane::{agent, qemu, Config, GuestOs};
 use freelane_agent_protocol::{Action, Outcome};
 use std::{
     io::Read,
@@ -18,6 +18,7 @@ struct VmInfo {
     cpus: u16,
     memory: u64,
     guest_agent: bool,
+    guest_os: GuestOs,
     acceleration: &'static str,
 }
 enum Event {
@@ -87,6 +88,7 @@ impl Desktop {
             Ok(Event::Loaded(VmInfo {
                 path,
                 name: config.name,
+                guest_os: config.guest_os,
                 cpus: config.cpus,
                 memory: config.memory_mib,
                 acceleration,
@@ -161,7 +163,7 @@ impl Desktop {
             let notice = match agent::request(&path, action) {
                 Ok(response) => match response.outcome {
                     Outcome::Pong { os, arch } => format!("Guest responded: {os} / {arch}"),
-                    Outcome::Launched { pid } => format!("Windows reported process started (PID {pid}). Check its guest window."),
+                    Outcome::Launched { pid } => format!("Guest reported process started (PID {pid}). Check its guest window."),
                     Outcome::Failed { message } => format!("Guest request failed: {message}"),
                 },
                 Err(error) => {
@@ -306,7 +308,7 @@ impl eframe::App for Desktop {
         self.receive(&ctx);
         egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("FreeLane");
-            ui.label("Windows on your desktop · experimental VM manager");
+            ui.label("Windows and Ubuntu on your desktop · experimental VM manager");
             ui.add_space(12.0);
             ui.horizontal(|ui| {
                 ui.label("VM file");
@@ -337,9 +339,10 @@ impl eframe::App for Desktop {
                 let enabled = configured && self.pending.is_none();
                 ui.separator();
                 ui.horizontal(|ui| {
-                    ui.label("Windows app (.exe path)");
+                    let ubuntu = self.vm.as_ref().is_some_and(|vm| vm.guest_os == GuestOs::Ubuntu);
+                    ui.label(if ubuntu { "Ubuntu app (absolute path)" } else { "Windows app (.exe path)" });
                     ui.add(egui::TextEdit::singleline(&mut self.app_path)
-                        .desired_width(420.0).hint_text(r"C:\Windows\System32\notepad.exe"));
+                        .desired_width(420.0).hint_text(if ubuntu { "/usr/bin/gedit" } else { r"C:\Windows\System32\notepad.exe" }));
                     if ui.add_enabled(enabled, egui::Button::new("Check guest connection")).clicked() {
                         self.guest_request(&ctx, false);
                     }
@@ -351,7 +354,7 @@ impl eframe::App for Desktop {
                     ui.add(egui::TextEdit::multiline(&mut self.app_arguments).desired_rows(2));
                 });
                 if !configured {
-                    ui.small("Enable the guest agent in VM settings and run it inside Windows to launch apps.");
+                    ui.small("Enable the guest agent in VM settings and run it in the guest's interactive session to launch apps.");
                 }
             }
             if self.pending.is_some() { ui.spinner(); }

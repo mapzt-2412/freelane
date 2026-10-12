@@ -110,6 +110,16 @@ class ServerTests(unittest.TestCase):
             with self.subTest(name=name, args=args), self.assertRaises(ValueError):
                 self.server.call(name, args)
 
+    def test_ubuntu_launch_uses_registered_profile_and_literal_linux_path(self):
+        self.cli_fixture()
+        (self.root / "vm.toml").write_text('guest_os="ubuntu"\n')
+        result = self.server.call("guest_launch", {"vm": "test", "executable": "/usr/bin/gedit", "arguments": ["a & b.txt"]})
+        self.assertEqual(json.loads(result["output"])[2:], ["/usr/bin/gedit", "a & b.txt"])
+        with self.assertRaises(ValueError):
+            self.server.call("guest_launch", {"vm": "test", "executable": "C:\\app.exe"})
+        with self.assertRaises(ValueError):
+            self.server.call("guest_launch", {"vm": "test", "executable": "gedit"})
+
     def test_job_keeps_failure_exit_and_bounded_output(self):
         command = [sys.executable, "-c", "import sys; print('x'*40000); print('FINAL_MARKER'); sys.exit(23)"]
         with patch.dict(mcp.TASKS, {"test": command}):

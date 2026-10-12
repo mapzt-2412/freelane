@@ -1,5 +1,6 @@
 # Paths are relative to this configuration file; supply your own licensed images.
 name = "Windows 11 ARM"
+guest_os = "windows"
 cpus = 4
 memory_mib = 4096
 disk = "windows.qcow2"

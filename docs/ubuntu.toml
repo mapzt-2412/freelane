@@ -1,0 +1,17 @@
+# Paths are relative to this config. Create private files with `freelane init ... ubuntu`.
+name = "Ubuntu ARM64"
+guest_os = "ubuntu"
+cpus = 4
+memory_mib = 4096
+disk = "ubuntu.qcow2"
+installer = "ubuntu-server-arm64.iso"
+
+[runtime]
+firmware = "firmware.fd"
+nvram = "nvram.fd"
+disk_format = "qcow2"
+accelerator = "hvf"
+binary = "qemu-system-aarch64"
+headless = false
+network = false
+guest_agent = false

@@ -83,7 +83,7 @@ rustup target add aarch64-unknown-uefi
 cargo test --locked --test qemu_smoke -- --ignored
 ```
 
-Without these prerequisites, the five QEMU integration tests are explicitly ignored in the ordinary test command. They must be run separately to validate the backend. They execute an ARM guest, boot a locally built EFI guest from CD-ROM, boot UEFI with default and single-threaded TCG, and run a shell command through USB keyboard input under TCG. These tests do not boot Windows. Set `FREELANE_TEST_SCREENSHOT` to an output path to retain the UEFI test screenshot.
+Without these prerequisites, the six QEMU integration tests are explicitly ignored in the ordinary test command. They must be run separately to validate the backend. They execute an ARM guest, boot a locally built EFI guest from CD-ROM with Windows and Ubuntu VM profiles, boot UEFI with default and single-threaded TCG, and run a shell command through USB keyboard input under TCG. These tests do not boot Windows or Ubuntu kernels. Set `FREELANE_TEST_SCREENSHOT` to an output path to retain the UEFI test screenshot. See [Ubuntu setup](ubuntu.md) for actual installation and Linux guest-agent instructions.
 
 For a software-emulation concurrency diagnostic, set `tcg_threading = "single"` or `"multi"` under `[runtime]` with `accelerator = "tcg"`. Omitting it preserves QEMU's default. This setting does not change guest CPU count or memory and is rejected with HVF. Single-threaded TCG is a diagnostic option, not a verified Windows crash fix or a performance improvement. Change it only after a clean guest shutdown.
 

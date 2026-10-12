@@ -1,0 +1,8 @@
+# Copy to configs/mcp.multi.local.toml and enter both existing VM paths.
+repository = ".."
+artifacts = "../target/mcp"
+job_timeout_seconds = 600
+
+[vms]
+windows = "/absolute/path/to/windows/vm.toml"
+ubuntu = "/absolute/path/to/ubuntu/vm.toml"

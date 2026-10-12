@@ -1,8 +1,10 @@
 # FreeLane
 
-### Windows on Mac. Free & Open Source.
+### Windows and Ubuntu on Mac. Free & Open Source.
 
 **A Rust-based alternative to Parallels Desktop for Apple Silicon — built around an ambitious goal: broad Windows application support with less overhead.**
+
+Ubuntu ARM64 is also a guest target. VM profiles, Linux guest-agent support and OS-aware desktop/MCP controls are implemented; [Ubuntu installation and runtime validation](docs/ubuntu.md) are still pending.
 
 No subscription. Open code. Performance claims backed by measurements.
 
