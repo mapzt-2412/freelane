@@ -16,12 +16,16 @@ The optional app controls use the same bounded guest-agent protocol as the CLI. 
 
 ## Settings and appearance
 
-The blue/purple dark theme uses colored status text and a resizable controls sidebar. **VM settings** edits name, virtual CPU count, RAM in MiB, acceleration, TCG threading, NAT and network adapter, headless display, guest agent, UART console, installer image and read-only host folder. Firmware, TPM, guest disk and disk controller are preserved. Paths may be absolute or relative to the configuration directory. Clearing media/share paths detaches them on the next start.
+The blue/purple dark theme uses colored status text and a resizable controls sidebar. **VM settings** edits name, virtual CPU count, RAM in MiB, acceleration, TCG threading, NAT and network adapter, headless display, guest agent, UART console, installer image, folder sharing mode and physical USB bus/address/vendor/product selectors. Firmware, TPM, guest disk and disk controller are preserved. Paths may be absolute or relative to the configuration directory. Clearing media/share paths detaches them on the next start.
 
 Save creates a private backup beside `vm.toml`, validates the configuration/device plan and atomically replaces the file. TOML comments and formatting are retained in the backup, rather than in the rewritten file. The VM's runtime lock prevents saving while it is active, including when another manager started it. Changed on-disk text is rejected so the user can reopen it first. Changes take effect at the next start; device hot-plug is not implemented.
 
-See [host file sharing](sharing.md) for the USB FAT limits and guest behavior. Physical GPU/USB passthrough and two-way folder synchronization are not implemented.
+See [host file sharing](sharing.md) for the USB FAT limits and guest behavior. Ubuntu live read/write sharing and QEMU physical USB selectors are implemented. Windows read/write integration, physical USB hardware verification and GPU passthrough remain outstanding.
 
 The GUI was exercised on authenticated Linux Xvfb: a disposable Ubuntu profile was opened, its name and host share path were changed through the settings form, Save was clicked, and the actual file and original backup were independently checked. The guest remained powered off for this UI check. The earlier responsive layout was also inspected at 1200 × 820 and 800 × 600. [Manager capture](assets/desktop-manager.png) and [settings capture](assets/desktop-settings.png) show the real GUI, not mockups. Native Mac GUI execution still requires hardware validation.
 
 Validation for these settings/sharing changes passed 44 portable Rust tests, two real QEMU EFI media/profile tests with the shared USB volume, workspace build, format/Clippy and the macOS ARM64 desktop cross-check. The other four opt-in QEMU tests were not rerun for this change. Installed guest mounting and native Mac execution remain unverified.
+
+The read/write mode was selected and saved through the real GUI into a disposable Ubuntu configuration, then independently verified on disk. [Sharing/USB settings capture](assets/desktop-sharing.png) shows the actual form; no USB device was attached. The separate ARM Linux fixture verified live two-way filesystem changes as kernel-confirmed UID 1000. Its result is documented in sharing.md.
+
+Latest sharing/USB checks: 46 portable Rust tests, workspace build, format, Clippy and macOS ARM64 desktop cross-check passed; the two EFI media/profile tests also passed. The separate Linux 9p fixture passed with live read/write/create/rename/delete checks and native poweroff. Four other opt-in QEMU tests were not rerun. USB inventory returned no physical devices; no physical USB or Mac GPU claim is made.

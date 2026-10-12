@@ -162,15 +162,29 @@ impl Desktop {
                 ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut config.name); });
                 ui.add(egui::Slider::new(&mut config.cpus, 1..=64).text("Virtual CPUs"));
                 ui.horizontal(|ui| { ui.label("RAM (MiB)"); ui.add(egui::DragValue::new(&mut config.memory_mib).range(2048..=1_048_576).speed(256)); });
-                ui.small("CPU and RAM are allocated to the guest. GPU sharing and physical USB passthrough are not implemented.");
+                ui.small("CPU and RAM are allocated to the guest. GPU passthrough is unavailable with the current Apple Silicon backend.");
                 ui.separator();
                 ui.heading("Storage & host files");
                 ui.label(format!("Guest disk: {}", config.disk.display()));
                 ui.label("Installer / CD image (blank to detach)");
                 ui.add(egui::TextEdit::singleline(&mut self.installer_path).desired_width(f32::INFINITY).hint_text("/path/to/installer.iso"));
-                ui.label("Host folder: read-only USB disk (blank to disable)");
+                ui.label("Host folder (blank to disable)");
                 ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY).hint_text("/path/to/files-to-share"));
-                ui.small("Windows and Ubuntu see a FAT USB volume. Use a small dedicated folder (under 504 MiB); do not change its files while the VM runs. No guest writes or automatic two-way sync.");
+                if let Some(runtime) = config.runtime.as_mut() {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.selectable_value(&mut runtime.share_mode, qemu::ShareMode::ReadonlyUsb, "Read-only USB · all guests");
+                        ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| {
+                            ui.selectable_value(&mut runtime.share_mode, qemu::ShareMode::Virtio9p, "Live read/write · Ubuntu");
+                        });
+                    });
+                    match runtime.share_mode {
+                        qemu::ShareMode::ReadonlyUsb => { ui.small("FAT volume under 504 MiB. Keep source files unchanged while the VM runs; copy into the guest to edit."); }
+                        qemu::ShareMode::Virtio9p => {
+                            ui.small("Live host filesystem: guest writes change host files. Share a dedicated folder. Requires the Ubuntu 9p driver and a guest mount.");
+                            ui.label("Ubuntu: sudo mount -t 9p -o trans=virtio,version=9p2000.L freelane /mnt/freelane");
+                        }
+                    }
+                }
                 if let Some(runtime) = config.runtime.as_mut() {
                     ui.separator(); ui.heading("Acceleration & devices");
                     ui.horizontal(|ui| {
@@ -195,6 +209,22 @@ impl Desktop {
                     ui.checkbox(&mut runtime.headless, "Headless · hide native QEMU window");
                     ui.checkbox(&mut runtime.guest_agent, "Guest agent channel · agent installation required");
                     ui.checkbox(&mut runtime.serial_console, "Private serial console socket");
+                    ui.separator(); ui.heading("Physical USB devices");
+                    ui.small("Use scripts/list-usb.py to inspect host bus/address before starting. Addresses may change after reconnection. QEMU needs libusb and OS access; a captured device becomes unavailable to host apps.");
+                    let mut remove = None;
+                    for (index, device) in runtime.usb_devices.iter_mut().enumerate() {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label("Bus"); ui.add(egui::DragValue::new(&mut device.bus).range(1..=255));
+                            ui.label("Address"); ui.add(egui::DragValue::new(&mut device.address).range(1..=127));
+                            ui.label("Vendor"); ui.add(egui::DragValue::new(&mut device.vendor_id).hexadecimal(4, false, true));
+                            ui.label("Product"); ui.add(egui::DragValue::new(&mut device.product_id).hexadecimal(4, false, true));
+                            if ui.button("Remove").clicked() { remove = Some(index); }
+                        });
+                    }
+                    if let Some(index) = remove { runtime.usb_devices.remove(index); }
+                    if ui.add_enabled(runtime.usb_devices.len() < 16, egui::Button::new("Add USB device")).clicked() {
+                        runtime.usb_devices.push(qemu::UsbHostDevice { bus: 1, address: 1, vendor_id: 0, product_id: 0 });
+                    }
                     ui.small("TPM, firmware and disk controller are preserved. Network drivers must exist inside the guest.");
                 }
                 ui.separator();

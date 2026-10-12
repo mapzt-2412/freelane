@@ -1,22 +1,99 @@
-# Host files and virtual hardware
+# Host files and physical USB
 
-Open **VM settings** in the desktop manager, enter a host folder path, then save while the VM is shut down. On the next start, QEMU exposes that folder as a removable, read-only USB storage device containing a FAT16 filesystem. This uses ordinary USB storage rather than a special shared-folder guest agent.
+VM settings now offers two folder-sharing modes and explicit USB device selectors. Changes apply on the next start; save while the VM is shut down. Clearing the folder path disables its share. Relative paths resolve from the configuration directory.
 
-The equivalent TOML setting is optional and off by default:
+## Read-only USB folder: Windows and Ubuntu
+
+This remains the default and preserves existing configurations. QEMU exposes the folder as a removable, read-only FAT16 USB storage device, without a special guest sharing agent.
 
 ```toml
 [runtime]
 shared_directory = "/absolute/path/to/files-to-share"
+share_mode = "readonly_usb"
 ```
 
-Add this field to your existing `[runtime]` table; keep its other required fields. Relative paths resolve from the VM configuration directory. Removing the field or clearing the GUI textbox disables the share. The source must be an existing directory.
+Add these fields to your existing runtime table. Use a dedicated folder with content comfortably below the approximately 504 MiB virtual volume capacity. QEMU's virtual FAT backend has filesystem/name constraints and may reject incompatible contents at startup. Keep source files unchanged while the VM runs; restart to expose changed content. Guest writes are disabled. Copy files into the guest disk to edit them.
 
-Use a small dedicated transfer folder with total content comfortably below the virtual volume's approximately **504 MiB** capacity. QEMU's virtual FAT backend has filesystem/name constraints and may reject incompatible contents at startup. It is not suitable for large installers, disk images or a whole home directory. Do not modify the folder or its files while the VM is running; shut down and restart to expose a changed set of files. Guest writes are disabled; copy files from the volume into the guest's own disk to edit them.
+Windows should see ordinary USB storage in File Explorer. Ubuntu can identify its partition with `lsblk -f` and mount it read-only. Installed guest automount remains unverified. Real Windows-profile and Ubuntu-profile EFI tests attached this volume, QMP reported it as removable/read-only, and mtools extracted the exact fixture text from its FAT image.
 
-Windows should see the device through its USB storage driver and File Explorer. Ubuntu can inspect it with `lsblk -f` and mount its partition read-only, using the device identified by that command (device names are not fixed). A desktop environment may mount removable media automatically. Mounting and reading the volume inside installed Windows/Ubuntu have not yet been verified.
+## Live read/write folder: Ubuntu
 
-Validation currently covers real QEMU attachment during Windows-profile and Ubuntu-profile EFI boot tests, QMP reporting the volume as removable/read-only, unchanged host fixture bytes, and extracting the exact fixture text from the virtual FAT image with mtools. These checks do not establish installed guest automount or filesystem compatibility for arbitrary host folders.
+Select **Live read/write · Ubuntu** in Settings:
 
-The installer textbox separately attaches an existing ISO as a read-only CD device. Clearing it detaches that media on the next start; this also affects NoCloud seed media if that is your configured installer path.
+```toml
+[runtime]
+shared_directory = "/absolute/path/to/shared-work"
+share_mode = "virtio9p"
+```
 
-CPU count and RAM are guest resource allocations. NAT networking, network adapter selection, display and guest-agent settings control existing virtual devices. FreeLane does not currently forward physical USB devices, share the host GPU, synchronize folders in both directions, or share the clipboard. These require separate backend and guest integration work.
+This exports a live virtio-9p filesystem. Both sides access the same files; guest edits change host files immediately. This is not a background copying/synchronization service and does not resolve concurrent editing conflicts. It does not use the FAT volume or its capacity limit. Use a dedicated folder; the host filesystem must support the xattrs required by QEMU's `mapped-xattr` security model.
+
+Inside Ubuntu, create and mount the share:
+
+```sh
+sudo mkdir -p /mnt/freelane
+sudo mount -t 9p -o trans=virtio,version=9p2000.L,cache=none freelane /mnt/freelane
+```
+
+Guest and host user IDs may differ, especially on macOS. If the guest user cannot write, set the guest-visible owner through the mounted filesystem:
+
+```sh
+sudo chown "$(id -u):$(id -g)" /mnt/freelane
+```
+
+The mapped-xattr backend stores guest ownership in extended attributes while host filesystem operations use the QEMU host account. Guest root provisioning/mount permissions must be available; FreeLane does not silently grant its agent sudo access. The Ubuntu cloud lab's agent account has only narrow lifecycle sudo permissions, so this mount requires a provisioning change or an authorized administrative session. Unmount before guest shutdown if necessary. File contents are ordinary host files; POSIX guest metadata is represented in xattrs.
+
+Windows profiles reject `virtio9p`: this project does not have a compatible Windows ARM 9p sharing driver. Two-way Windows sharing remains outstanding and needs a separate supported backend, such as an authenticated SMB or virtio-fs integration. Existing read-only transfer is unchanged.
+
+### Actual read/write verification
+
+[The committed report](evidence/9p-bidirectional.json) records a real ARM64 Linux initramfs using Ubuntu's 6.8.0-142 kernel and matching 9p modules extracted from the previously verified Ubuntu cloud image. A static Rust fixture mounts the device, starts a worker with kernel-confirmed UID 1000, and tests:
+
+- Host file read by guest and a subsequent host edit observed without reboot.
+- Guest-created file read by host with exact bytes.
+- Guest rename/delete reflected in the host directory.
+- Native guest poweroff after completion.
+
+The test obtains filesystem/device arguments from FreeLane's production planner, including a comma and option-like text in the host path. It is not a full installed Ubuntu session or a native Mac test. Reproduce with a trusted ARM64 kernel and its matching uncompressed modules (`netfs.ko`, `9pnet.ko`, `9pnet_virtio.ko`, `9p.ko`):
+
+```sh
+cargo build --locked --workspace
+rustup target add aarch64-unknown-linux-musl
+python3 tests/share_9p_real.py --kernel /path/to/kernel --modules /path/to/modules --output /path/to/result.json
+```
+
+The source image hash and signature verification are documented in [Ubuntu evidence](ubuntu.md). The report records kernel/module hashes. Fixtures and kernel inputs are not bundled into a release; the test is opt-in and requires QEMU. No signing or TLS verification was disabled to obtain its inputs.
+
+## Physical USB device forwarding
+
+Settings accepts bus/address and hexadecimal vendor/product IDs, creating exact QEMU `usb-host` selectors. Inspect devices on the actual host first:
+
+```sh
+python3 scripts/list-usb.py
+# Optional if libusb is outside its normal search path:
+python3 scripts/list-usb.py --library /path/to/libusb-1.0.dylib
+```
+
+The helper uses libusb without claiming, detaching or resetting devices. QEMU must also include libusb/usb-host support. On Mac, obtain QEMU/libusb from a trusted package manager; on Linux, give your user access to the specific USB device using your distribution's normal device rules. FreeLane does not change device permissions or run QEMU as root.
+
+Example selectors (replace all values with an actual inventory entry):
+
+```toml
+[[runtime.usb_devices]]
+bus = 2
+address = 3
+vendor_id = 0x1234
+product_id = 0xabcd
+```
+
+IDs default to no attached devices; GUI entries with an unset vendor ID cannot be saved. Duplicate bus/address pairs, wildcard bus/address values and more than 16 selectors are rejected. QEMU requires all configured selectors to match. A device captured by QEMU is unavailable to host applications until released. Addresses may change after reconnection, so inspect again before starting. Guest device drivers and host access are required. A configured selector is not evidence that hardware was attached; a missing device may be awaited by QEMU.
+
+The local libusb inventory returned an empty list when run with host inspection access: this cloud has no USB hardware to test. Argument validation and persistence are tested, but physical device transfer, unplug/replug, and native Mac behavior remain unverified. Do not infer successful hardware forwarding from a VM start response.
+
+## GPU boundary
+
+GPU passthrough is not implemented. The current Apple Silicon QEMU/HVF backend has no host GPU assignment path; HVF accelerates guest CPUs. QEMU's Linux VFIO PCI assignment requires a suitable Linux host, IOMMU setup and assignable hardware, and cannot be used as a macOS Apple GPU setting. The cloud machine supplies neither an Apple Silicon Mac nor an assignable test GPU.
+
+A virtual GPU and graphics translation path is separate engineering work, including Windows ARM guest-driver support. FreeLane does not label its basic display, HVF, or USB forwarding as GPU passthrough.
+
+The installer textbox separately attaches an ISO/NoCloud seed as read-only CD media. Clipboard and seamless application windows remain separate integration work.

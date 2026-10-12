@@ -15,7 +15,7 @@ Runtime evidence below comes from **Linux cloud software emulation (TCG)**. macO
 | Windows 11 ARM | Installed Audit desktop; 7-Zip x86/x64/ARM64 archive checks; Notepad save/close/reopen | Normal user setup, stability and application coverage; an earlier kernel crash remains unresolved |
 | Ubuntu ARM64 | Ubuntu Server 24.04.5 cloud image; unprivileged agent; file/copy/gzip/ZIP checks; exact data retained after reboot | Ubuntu Desktop, GUI apps, networking and native Mac execution |
 | MCP | Real stdio/QEMU tests, development jobs, VM controls, PNG capture and guest ping/launch | Configuration in each editor; no remote Mac is automatically provisioned |
-| Graphics and integration | Basic QEMU display, literal executable launch and opt-in read-only host folder as USB FAT media | Accelerated graphics, games, clipboard, two-way folder sync and seamless app windows |
+| Graphics and integration | Basic QEMU display, literal executable launch and read-only USB file transfer, live Ubuntu 9p read/write sharing and physical USB selectors | Windows two-way sharing, physical USB hardware validation, GPU acceleration, games, clipboard and seamless app windows |
 
 Ubuntu Server was deployed from an official preinstalled cloud image with NoCloud provisioning, **not** installed through the graphical Ubuntu installer. A process-start response only confirms that the guest started a process; it does not prove that an application works.
 
@@ -54,7 +54,7 @@ The desktop's **Open VM** loads the selected configuration. Editing the path doe
 
 See [desktop instructions](docs/desktop.md) and [guest-agent setup](docs/guest-agent.md). The optional agent launches an absolute Windows `.exe` or Linux executable with literal arguments; it must be installed and running inside the guest.
 
-Use **VM settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network adapter, native display, guest-agent channel, serial console and installer media. Settings are saved only while the VM is stopped, with a backup and conflict detection. The host folder option exposes a small folder as a **read-only USB FAT volume**; it is not two-way synchronization or physical-device passthrough. See [sharing limits and setup](docs/sharing.md).
+Use **VM settings** to change CPU count, RAM, HVF/TCG, TCG threading, NAT/network adapter, native display, guest-agent channel, serial console and installer media. Settings are saved only while the VM is stopped, with a backup and conflict detection. Folder modes include **read-only USB FAT** for either guest and **live read/write virtio-9p** for Ubuntu. A real ARM Linux guest verified file changes in both directions. Physical USB selectors are implemented but need actual hardware testing. Windows read/write sharing and Apple GPU passthrough remain unavailable. See [sharing limits and setup](docs/sharing.md).
 
 The updated manager below has a disposable Ubuntu profile loaded while the guest is powered off; no guest frame is shown.
 
