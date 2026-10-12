@@ -11,7 +11,8 @@ permissions:
 jobs:
   macos-arm64:
     name: Mac Apple Silicon app
-    runs-on: macos-15-arm64
+    # GitHub's current macos-15 label is Apple Silicon (runner-images catalog).
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
