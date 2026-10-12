@@ -49,7 +49,7 @@ pub enum DiskDevice {
     Nvme,
     Virtio,
 }
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkDevice {
     #[default]
@@ -85,6 +85,9 @@ pub struct RuntimeConfig {
     pub network_device: NetworkDevice,
     #[serde(default)]
     pub guest_agent: bool,
+    /// Optional read-only host folder exposed as a virtual FAT USB disk.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared_directory: Option<PathBuf>,
     pub tpm: Option<TpmConfig>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -283,6 +286,20 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
             "scsi-cd,bus=installusb.0,drive=installer,bootindex=0".into(),
         ]);
     }
+    if let Some(directory) = &runtime.shared_directory {
+        let directory = canonical(base, directory)?;
+        if !directory.is_dir() {
+            return Err(Error("Shared directory must be an existing folder".into()));
+        }
+        args.extend([
+            "-blockdev".into(),
+            json!({"driver":"vvfat", "node-name":"shared", "dir":text_path(&directory)?,
+                "fat-type":16, "rw":false, "read-only":true})
+            .to_string(),
+            "-device".into(),
+            "usb-storage,drive=shared,removable=on".into(),
+        ]);
+    }
     if runtime.guest_agent {
         let agent_socket = Path::new(socket).parent().unwrap().join("agent.sock");
         args.extend([
@@ -330,6 +347,85 @@ pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<Stri
         ]);
     }
     Ok(args)
+}
+
+/// Save settings only while the VM is stopped, preserving a private backup.
+/// The original text prevents overwriting edits made after the GUI loaded it.
+pub fn save_config(path: &Path, original: &str, config: &Config) -> Result<PathBuf> {
+    use std::io::Write;
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+    let path = fs::canonicalize(path).map_err(|e| Error(e.to_string()))?;
+    let base = path
+        .parent()
+        .ok_or_else(|| Error("Missing config directory".into()))?;
+    config.validate()?;
+    config.check_images(base)?;
+    // Validate the full device plan without requiring this editor's host to support HVF.
+    let mut checked = config.clone();
+    if let Some(runtime) = checked.runtime.as_mut() {
+        runtime.accelerator = Accelerator::Tcg;
+    }
+    let directory = runtime_dir(&path)?;
+    match fs::create_dir(&directory) {
+        Ok(()) => fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))
+            .map_err(|e| Error(e.to_string()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(Error(e.to_string())),
+    }
+    let metadata = fs::symlink_metadata(&directory).map_err(|e| Error(e.to_string()))?;
+    if !metadata.is_dir()
+        || metadata.mode() & 0o077 != 0
+        || metadata.uid() != fs::metadata(base).map_err(|e| Error(e.to_string()))?.uid()
+    {
+        return Err(Error(
+            "VM runtime directory must be private and owned by VM owner".into(),
+        ));
+    }
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .mode(0o600)
+        .open(directory.join("lock"))
+        .map_err(|e| Error(e.to_string()))?;
+    lock.try_lock_exclusive()
+        .map_err(|_| Error("Shut down the VM before saving settings".into()))?;
+    arguments(&checked, base, &directory.join("qmp.sock"))?;
+    let current = fs::read_to_string(&path).map_err(|e| Error(e.to_string()))?;
+    if current != original {
+        return Err(Error(
+            "Configuration changed on disk. Reopen it before saving".into(),
+        ));
+    }
+    let serialized = toml::to_string_pretty(config).map_err(|e| Error(e.to_string()))?;
+    let mut nonce = [0u8; 8];
+    getrandom::fill(&mut nonce).map_err(|e| Error(e.to_string()))?;
+    let suffix = u64::from_ne_bytes(nonce);
+    let backup = path.with_extension(format!("toml.backup-{suffix:016x}"));
+    let temporary = path.with_extension(format!("toml.pending-{suffix:016x}"));
+    let write_private = |destination: &Path, contents: &str| -> Result<()> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(destination)
+            .map_err(|e| Error(e.to_string()))?;
+        file.write_all(contents.as_bytes())
+            .and_then(|()| file.sync_all())
+            .map_err(|e| Error(e.to_string()))
+    };
+    write_private(&backup, &current)?;
+    let result = write_private(&temporary, &serialized)
+        .and_then(|()| fs::rename(&temporary, &path).map_err(|e| Error(e.to_string())));
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result?;
+    File::open(base)
+        .and_then(|file| file.sync_all())
+        .map_err(|e| Error(e.to_string()))?;
+    Ok(backup)
 }
 
 pub struct QemuBackend {
@@ -786,6 +882,7 @@ pub fn initialize_guest(
             network: false,
             network_device: NetworkDevice::Virtio,
             guest_agent: false,
+            shared_directory: None,
             tpm: (guest_os == GuestOs::Windows).then(|| TpmConfig {
                 state: "tpm".into(),
                 binary: default_swtpm(),

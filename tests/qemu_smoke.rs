@@ -544,6 +544,10 @@ fn installer_profile_boot(guest_os: freelane::GuestOs) {
     config.runtime.as_mut().unwrap().accelerator = qemu::Accelerator::Tcg;
     config.runtime.as_mut().unwrap().headless = true;
     config.installer = Some(iso.clone());
+    let shared = temp.0.join("shared, files");
+    fs::create_dir(&shared).unwrap();
+    fs::write(shared.join("hello.txt"), b"shared host file bytes").unwrap();
+    config.runtime.as_mut().unwrap().shared_directory = Some(shared.clone());
     fs::write(&config_path, toml::to_string_pretty(&config).unwrap()).unwrap();
     let mut backend = QemuBackend::new(&config_path).unwrap();
     backend.prepare(&config).unwrap();
@@ -579,8 +583,20 @@ fn installer_profile_boot(guest_os: freelane::GuestOs) {
         .expect("installer CD-ROM not attached");
     assert_eq!(cd["removable"], true);
     assert_eq!(cd["inserted"]["ro"], true);
+    let share = blocks
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|block| block["inserted"]["node-name"] == "shared")
+        .expect("shared USB volume not attached");
+    assert_eq!(share["removable"], true);
+    assert_eq!(share["inserted"]["ro"], true);
     drop(qmp);
     backend.stop().unwrap();
+    assert_eq!(
+        fs::read(shared.join("hello.txt")).unwrap(),
+        b"shared host file bytes"
+    );
     assert!(!backend.directory().join("console.sock").exists());
     assert_eq!(
         fs::read(&iso).unwrap(),

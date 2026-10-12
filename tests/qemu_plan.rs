@@ -218,3 +218,64 @@ fn arm_virtio_devices_disable_legacy_port_io() {
         "Windows ARM needs memory-mapped modern virtio, not legacy port I/O"
     );
 }
+
+#[test]
+fn shared_folder_uses_readonly_usb_and_literal_json_path() {
+    let images = Images::new();
+    let shared = images.0.join("share, spaces & files");
+    fs::create_dir(&shared).unwrap();
+    fs::write(shared.join("hello.txt"), "shared bytes").unwrap();
+    let mut config = images.config();
+    config.runtime.as_mut().unwrap().shared_directory = Some(shared.clone());
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    let block: serde_json::Value = args
+        .windows(2)
+        .filter(|p| p[0] == "-blockdev")
+        .map(|p| serde_json::from_str::<serde_json::Value>(&p[1]).unwrap())
+        .find(|b| b["node-name"] == "shared")
+        .unwrap();
+    assert_eq!(block["dir"], shared.to_str().unwrap());
+    assert_eq!(block["driver"], "vvfat");
+    assert_eq!(block["rw"], false);
+    assert_eq!(block["read-only"], true);
+    assert!(args
+        .iter()
+        .any(|a| a == "usb-storage,drive=shared,removable=on"));
+    config.runtime.as_mut().unwrap().shared_directory = Some(images.0.join("installer.iso"));
+    assert!(qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).is_err());
+}
+
+#[test]
+fn settings_save_preserves_backup_and_rejects_running_or_conflicting_edits() {
+    use fs2::FileExt;
+    let images = Images::new();
+    let path = images.0.join("vm.toml");
+    let mut config = images.config();
+    let original = toml::to_string_pretty(&config).unwrap();
+    fs::write(&path, &original).unwrap();
+    config.cpus = 6;
+    let backup = qemu::save_config(&path, &original, &config).unwrap();
+    assert_eq!(fs::read_to_string(backup).unwrap(), original);
+    let saved = fs::read_to_string(&path).unwrap();
+    assert_eq!(Config::parse(&saved).unwrap().cpus, 6);
+    assert!(qemu::save_config(&path, &original, &config)
+        .unwrap_err()
+        .to_string()
+        .contains("changed on disk"));
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(qemu::runtime_dir(&path).unwrap().join("lock"))
+        .unwrap();
+    lock.try_lock_exclusive().unwrap();
+    assert!(qemu::save_config(&path, &saved, &config)
+        .unwrap_err()
+        .to_string()
+        .contains("Shut down"));
+    assert_eq!(fs::read_to_string(&path).unwrap(), saved);
+    drop(lock);
+    config.memory_mib = 1;
+    assert!(qemu::save_config(&path, &saved, &config).is_err());
+    assert_eq!(fs::read_to_string(&path).unwrap(), saved);
+    let _ = fs::remove_dir_all(qemu::runtime_dir(&path).unwrap());
+}

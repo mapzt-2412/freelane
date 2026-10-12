@@ -7,7 +7,7 @@ pub mod qmp;
 use serde::{Deserialize, Serialize};
 use std::{fmt, path::PathBuf};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub name: String,
