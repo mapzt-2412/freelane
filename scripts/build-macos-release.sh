@@ -50,10 +50,27 @@ codesign --force --sign - "$app"
 codesign --verify --deep --strict "$app"
 lipo "$app/Contents/MacOS/freelane" -verify_arch arm64
 lipo "$app/Contents/MacOS/freelane-desktop" -verify_arch arm64
+# Native Dock export/signature check. Fixture owns no VM or guest data.
+fixture_dir="$(mktemp -d "$repo_dir/target/dock-bundle-check.XXXXXX")"
+python3 - "$fixture_dir" <<'PY'
+from pathlib import Path
+import json, sys
+root = Path(sys.argv[1])
+(root / 'vm.toml').write_text('# Offline export fixture only; no guest is booted.\n')
+(root / 'app.toml').write_text('name="Dock export check"\nvm=' + json.dumps(str(root / 'vm.toml')) + '\nexecutable=' + json.dumps(r'C:\Windows\System32\notepad.exe') + '\narguments=[]\n')
+PY
+"$app/Contents/MacOS/freelane" app-export "$fixture_dir/app.toml" "$fixture_dir/Dock check.app"
+plutil -lint "$fixture_dir/Dock check.app/Contents/Info.plist"
+codesign --verify --deep --strict "$fixture_dir/Dock check.app"
+test -f "$fixture_dir/Dock check.app/Contents/Resources/app.toml"
+# Delete only the new offline fixture after verification.
+rm -rf "$fixture_dir"
 # Exercise actual release CLI parsing; an offline mobile plan needs no emulator.
 "$app/Contents/MacOS/freelane" mobile-plan "$repo_dir/configs/mobile.ios.example.toml" > "$package_dir/ios-plan-check.json"
 cp README.md README.vi.md LICENSE "$package_dir/"
 cp docs/release.md "$package_dir/START-HERE.md"
+mkdir -p "$package_dir/scripts"
+cp scripts/install-windows-agent.ps1 "$package_dir/scripts/"
 cp crates/desktop/assets/DejaVu-LICENSE.txt "$package_dir/"
 python3 - "$package_dir" <<'PY'
 from pathlib import Path
