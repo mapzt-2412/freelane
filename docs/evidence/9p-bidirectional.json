@@ -1,0 +1,25 @@
+{
+  "result": "passed",
+  "run_id": "6c3ee55f-41c6-4c2d-a5f2-9fcb7cb1f7b7",
+  "recorded_at_utc": "2026-10-12T07:12:06.100996+00:00",
+  "fixture_sha256": "b1411c26d5250b05e5477c0522fae669bec14696ebceb3800ec540e879f30c29",
+  "guest": "ARM64 Linux initramfs fixture",
+  "uid": 1000,
+  "production_plan": [
+    "-fsdev",
+    "local,id=hostshare,path=/tmp/freelane-9p-dqp8t1fb/share,,security_model=none,security_model=mapped-xattr",
+    "-device",
+    "virtio-9p-pci,disable-legacy=on,fsdev=hostshare,mount_tag=freelane"
+  ],
+  "host_to_guest_live_update": true,
+  "guest_to_host_create_rename_delete": true,
+  "guest_native_poweroff": true,
+  "installed_ubuntu_desktop": false,
+  "kernel_sha256": "71fe6776ef591ea452661a5933e11d2044c5df6aaf76cf39b8d9655fa4e47904",
+  "module_sha256": {
+    "netfs": "bc7844355c51997a71bb44d32e5258a691dca802afa41384518bfe4c9783cff6",
+    "9pnet": "b3d220cd11585f805fee613848911735bbdef653183ff5a4d2f7bf634ed3e72d",
+    "9pnet_virtio": "efa122aa8cbe39fbfb9fa95a9251ce6bd868933381058b96be741ec315b505b4",
+    "9p": "059d30d0d9dfdb9671ed30e95ee3ba11e02d8dbcf61b515ac297cd5674a7310a"
+  }
+}
