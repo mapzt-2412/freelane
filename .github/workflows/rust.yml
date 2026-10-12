@@ -8,6 +8,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python3 -m unittest discover -s tests/mcp -v
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
@@ -24,18 +28,20 @@ jobs:
       - name: Install signed distribution packages
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl git build-essential qemu-system-arm qemu-utils qemu-efi-aarch64 swtpm mtools xorriso seabios
+          apt-get install -y --no-install-recommends ca-certificates curl git python3 build-essential qemu-system-arm qemu-utils qemu-efi-aarch64 swtpm mtools xorriso seabios
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
           targets: aarch64-apple-darwin,aarch64-unknown-uefi
       - run: cargo check --locked --target aarch64-apple-darwin
-      - name: Execute ARM guest and boot UEFI
+      - name: Exercise stdio MCP jobs and real ARM/UEFI VM controls
         env:
           FREELANE_TEST_FIRMWARE: /usr/share/AAVMF/AAVMF_CODE.fd
           FREELANE_TEST_NVRAM: /usr/share/AAVMF/AAVMF_VARS.fd
-        run: cargo test --locked --test qemu_smoke -- --ignored
+        run: |
+          cargo build --locked
+          python3 tests/mcp_real_smoke.py
   guest-agent-windows:
     runs-on: windows-latest
     steps:
