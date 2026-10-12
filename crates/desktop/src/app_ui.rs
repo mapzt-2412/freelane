@@ -59,13 +59,27 @@ impl Viewer {
         };
         let vm = self.profile.vm.clone();
         self.task(ctx, move || {
-            let reply = agent::window_request(
+            let action = Action::CaptureWindow {
+                target: target.clone(),
+            };
+            let reply = match agent::window_request(
                 &vm,
                 Action::CaptureWindow {
                     target: target.clone(),
                 },
-            )
-            .map_err(|e| e.to_string())?;
+            ) {
+                Ok(reply) => reply,
+                Err(error)
+                    if error.to_string()
+                        == "Guest agent: Window capture timed out; guest may be unresponsive" =>
+                {
+                    // A guest-reported capture timeout acknowledges this read-only RPC.
+                    // Retry one snapshot after a pause; never retry input or transport errors.
+                    std::thread::sleep(Duration::from_secs(1));
+                    agent::window_request(&vm, action).map_err(|e| e.to_string())?
+                }
+                Err(error) => return Err(error.to_string()),
+            };
             let Outcome::WindowFrame {
                 width,
                 height,
@@ -171,7 +185,11 @@ impl eframe::App for Viewer {
                         self.next = Instant::now();
                     }
                     Err(e) => {
-                        self.notice = e;
+                        self.notice = if self.queue.is_empty() {
+                            e
+                        } else {
+                            format!("{e}. Đã hủy {} thao tác đang chờ, chưa gửi; kiểm tra app trước khi nhập lại.", self.queue.len())
+                        };
                         self.live = false;
                         self.queue.clear();
                     }
