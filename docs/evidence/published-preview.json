@@ -1,0 +1,29 @@
+{
+  "tag": "v0.1.0-preview.1",
+  "source_commit": "bc1795ff2d5fe09930270322e34d2e56b0267dc6",
+  "release_url": "https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.1",
+  "workflow": "https://github.com/puma2k/freelane/actions/runs/38276311183",
+  "workflow_result": "success",
+  "published_assets": [
+    "FreeLane-0.1.0-bc1795ff2d5f-macos-arm64.zip",
+    "FreeLane-0.1.0-bc1795ff2d5f-macos-arm64.zip.sha256",
+    "FreeLane-v0.1.0-preview.1-windows-arm64-agent.zip",
+    "FreeLane-v0.1.0-preview.1-windows-arm64-agent.zip.sha256"
+  ],
+  "native_mac_guest_runtime_verified": false,
+  "independent_download_verification": {
+    "checksums": "passed",
+    "zip_integrity": "passed",
+    "binary_architectures": "Mac ARM64 and Windows ARM64 verified",
+    "assets": {
+      "FreeLane-v0.1.0-preview.1-windows-arm64-agent.zip": {
+        "bytes": 428695,
+        "sha256": "31123cbe220295af73cb8d45ec2ef9b847afd7cc55759a5ad4277e053e4bdb1d"
+      },
+      "FreeLane-0.1.0-bc1795ff2d5f-macos-arm64.zip": {
+        "bytes": 7257123,
+        "sha256": "080d4d9ceab6493e661f714a743a0efeabcf1922bd15e298ababfe383b9fe3e9"
+      }
+    }
+  }
+}

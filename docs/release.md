@@ -4,9 +4,9 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Verified build and download](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64`, 6.21 MB, source commit `28e0fd0`. Sign in to GitHub to download the artifact. This run passed build/signature/ARM64/CLI-plan checks and uploaded the ZIP. [Recorded evidence](evidence/macos-release-build.json) distinguishes these checks from native GUI, guest and Simulator execution. Artifacts expire after 30 days.
+[Download v0.1.0-preview.1](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.1): Mac ARM64 ZIP, Windows ARM64 agent ZIP and SHA256 files, built from `bc1795f`. [Release workflow](https://github.com/puma2k/freelane/actions/runs/38276311183) passed both packaging jobs and checksum verification before publishing. Native Mac guest execution and Dock quick-open remain unverified. Earlier packaging evidence is retained in [the baseline record](evidence/macos-release-build.json).
 
-Use macOS 14 or later on Apple Silicon. The [Experimental release packages workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) builds the CLI and desktop with the macOS SDK, bundles `FreeLane.app`, ad-hoc signs it, verifies the signatures/ARM64 architecture and executes an offline release CLI plan check. Download its `FreeLane-experimental-macos-arm64` artifact from a **successful** run, then extract the inner ZIP. A workflow definition or push alone is not evidence that its build succeeded. Artifacts expire after 30 days; this workflow does not publish GitHub Releases automatically.
+Use macOS 14 or later on Apple Silicon. The [Experimental release packages workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) builds the CLI and desktop with the macOS SDK, bundles `FreeLane.app`, ad-hoc signs it, verifies the signatures/ARM64 architecture and executes an offline release CLI plan check. Download its `FreeLane-experimental-macos-arm64` artifact from a **successful** run, then extract the inner ZIP. A workflow definition or push alone is not evidence that its build succeeded. Artifacts expire after 30 days. Preview tags additionally build the Windows agent and publish a GitHub prerelease after both packaging jobs and checksum verification succeed.
 
 The package contains `FreeLane.app`, CLI, documentation, example configs, source/font notices, dependency metadata, commit identifier and a ZIP SHA-256 file. It does not contain VM disks, Windows, QEMU, swtpm, firmware, Android SDKs, Xcode or guest-agent binaries. Install prerequisites separately following [the README](../README.md). SDK/firmware/config paths must match your Mac; examples contain placeholders.
 
@@ -42,7 +42,7 @@ cargo build --locked --release --workspace
 ```
 
 This produces Linux executables under `target/release/`; they cannot run on Mac. The experimental cloud archive includes CLI/desktop/host agent, docs, configs and notices, while QEMU and mobile SDKs remain separate. Desktop execution needs graphical libraries/session. Its Linux runtime uses explicit TCG software emulation, without a Mac/HVF performance claim.
-# Publishing a preview
+## Publishing a preview
 
 Pushing a new `v*-preview.*` tag runs the release workflow. Both native Mac packaging and Windows ARM64 agent packaging must succeed before the publish job verifies their SHA256 files and creates a GitHub prerelease with ZIPs and checksums. Only that job receives `contents: write`. Main-branch builds continue to upload Actions artifacts without creating releases. Release notes are maintained in `docs/release-notes-preview.md`.
 
