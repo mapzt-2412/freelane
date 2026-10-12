@@ -87,7 +87,7 @@ impl Images {
         ] {
             fs::write(base.join(filename), b"fixture, not bootable").unwrap();
         }
-        Self(base)
+        Self(fs::canonicalize(base).unwrap())
     }
     fn config(&self) -> Config {
         Config::parse("name='Windows'\ncpus=4\nmemory_mib=4096\ndisk='disk,with spaces.qcow2'\ninstaller='installer.iso'\n[runtime]\nfirmware='firmware.fd'\nnvram='nvram.fd'\naccelerator='tcg'\nheadless=true\ndisk_format='qcow2'").unwrap()

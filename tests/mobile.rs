@@ -20,7 +20,7 @@ impl Fixture {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&p).unwrap();
-        Self(p)
+        Self(fs::canonicalize(p).unwrap())
     }
 }
 impl Drop for Fixture {
