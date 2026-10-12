@@ -1,1 +1,0 @@
-Experimental Rust VM and mobile simulator manager for Apple Silicon: Windows ARM, Ubuntu ARM64, Android Emulator and Xcode iOS Simulator.
