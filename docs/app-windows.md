@@ -4,6 +4,10 @@ FreeLane has an **experimental separate-window viewer** for ordinary Windows Win
 
 This is a first integration path, not Parallels Coherence parity. The viewer uses bounded JPEG snapshots, optionally refreshed one second **after the preceding operation finishes**. It is not continuous video or an accelerated remote graphics protocol. Native Mac/Dock behavior needs testing with a real installed Windows VM; Linux cloud tests exercise the guest transport and viewer separately.
 
+## Download this revision
+
+[Mac build](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64`. [Windows ARM64 agent](https://github.com/puma2k/freelane/actions/runs/38272833003#artifacts): `experimental-windows-arm64-agent`. Both packaging/upload jobs passed; sign in to GitHub to download. The broader second workflow has failed MCP steps, so its overall red status must not be described as a complete CI pass. [Build evidence](evidence/app-window-release-build.json) records these separately.
+
 ## Prepare Windows
 
 Use the matching Windows ARM64 guest-agent build from this revision. Set `guest_agent=true` in the VM's `[runtime]` configuration and install the compatible signed ARM64 virtio-serial driver as described in [guest-agent setup](guest-agent.md). Run the agent in the signed-in user's interactive session. It must be available after login for Dock quick-open; the launcher does not log in or obtain credentials.
@@ -70,3 +74,11 @@ The updated ARM64 agent actually answered v1 ping and v2 window capabilities in 
 ![Actual Notepad client-area JPEG from the Windows agent](assets/windows-app-client.jpg)
 
 [Recorded partial acceptance](evidence/windows-app-window.json) preserves the successful capture and the interrupted input verification separately.
+
+## Host viewer replay check
+
+After the live guest session interrupted, the genuine captured Notepad JPEG was decoded and displayed by the host viewer over a read-only local RPC fixture. This verifies the host JPEG/render path and UI layout, not Windows input behavior or a live guest connection.
+
+![Host viewer rendering the recorded Windows client frame through a labeled replay fixture](assets/windows-app-viewer-replay.png)
+
+An explicit `freelane-desktop --app profile.toml --pid PID` can attach to the specified guest process without another launch; use a fresh verified PID, not a PID retained across reboot.

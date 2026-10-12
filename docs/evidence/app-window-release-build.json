@@ -1,0 +1,25 @@
+{
+  "result": "passed",
+  "source_commit": "8c95c2a190b94e39acd4d6b99f3a1efb637bb1dc",
+  "mac_workflow_run": "https://github.com/puma2k/freelane/actions/runs/38275323897",
+  "mac_job": "https://github.com/puma2k/freelane/actions/runs/38275323897/job/114899247955",
+  "mac_artifact": "FreeLane-experimental-macos-arm64",
+  "mac_artifact_id": "11758847087",
+  "checks": [
+    "Mac arm64 release build",
+    "native Dock fixture export with real copied CLI/desktop binaries",
+    "plist lint",
+    "ad-hoc bundle signing and verification",
+    "package upload"
+  ],
+  "windows_agent_run": "https://github.com/puma2k/freelane/actions/runs/38272833003",
+  "windows_agent_job": "https://github.com/puma2k/freelane/actions/runs/38272833003/job/114891035263",
+  "windows_agent_artifact": "experimental-windows-arm64-agent",
+  "windows_agent_artifact_id": "11757029743",
+  "full_ci_result": "failed: macos-14 Python MCP step and arm-emulation real MCP step; other inspected build jobs passed",
+  "native_mac_windows_vm_test": false,
+  "dock_quick_open_runtime_test": false,
+  "after_input_visual_test": false,
+  "host_viewer_test": "Actual captured Windows JPEG decoded/rendered through a read-only local replay fixture on Linux Xvfb; not a live Windows or Mac Dock session",
+  "mac_artifact_sha256": "6391489377a6a20e2770fef9ed5ccdc3a80901567eb193241f80ff3ad379a8d5"
+}

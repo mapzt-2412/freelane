@@ -38,7 +38,7 @@ UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật đ�
 
 ## Tải bản thử nghiệm
 
-[Tải bản Apple Silicon đã build thành công](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64` (6.21 MB). Cần đăng nhập GitHub; artifact được giữ 30 ngày.
+[Tải bản Apple Silicon đã build thành công](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64` (có viewer app riêng và xuất launcher Dock). Cần đăng nhập GitHub; artifact được giữ 30 ngày.
 
 [Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+, backend cài riêng và cấu hình local; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
 
@@ -121,7 +121,7 @@ cargo clippy --locked --workspace --all-targets -- -D warnings
 python3 -m unittest discover -s tests/mcp -v
 ```
 
-Lần chạy Linux được ghi nhận gần nhất đã qua **54 kiểm thử Rust**, **11 kiểm thử Python MCP** và **6 bài QEMU thật chạy riêng**. `cargo test` thông thường bỏ qua 6 bài QEMU; [hướng dẫn phát triển](docs/development.md) nêu cách chuẩn bị và chạy. Kiểm tra biên dịch cho macOS ARM64 đã qua, nhưng chưa chứng minh chạy trên Mac. Kết quả mobile có giới hạn đã nêu ở trên.
+Lần chạy Linux được ghi nhận gần nhất đã qua **59 kiểm thử Rust**, **11 kiểm thử Python MCP** và **6 bài QEMU thật chạy riêng**. `cargo test` thông thường bỏ qua 6 bài QEMU; [hướng dẫn phát triển](docs/development.md) nêu cách chuẩn bị và chạy. Kiểm tra biên dịch cho macOS ARM64 đã qua, nhưng chưa chứng minh chạy trên Mac. Kết quả mobile có giới hạn đã nêu ở trên.
 
 Ưu tiên tiếp theo là kiểm thử Apple Silicon thật, cài đặt/shutdown tin cậy, ổn định Android, xác minh iOS Simulator và tăng tốc đồ họa. Chưa có bằng chứng chạy mọi app hoặc nhanh hơn Parallels. Xem [trạng thái triển khai](docs/implementation.md) và [tương thích ứng dụng](docs/compatibility.md).
 

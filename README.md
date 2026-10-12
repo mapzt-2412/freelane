@@ -38,7 +38,7 @@ The desktop displays snapshots, with optional refresh for desktop VMs. Continuou
 
 ## Download an experimental build
 
-[Download the verified Apple Silicon build](https://github.com/puma2k/freelane/actions/runs/38237076778#artifacts): `FreeLane-experimental-macos-arm64` (6.21 MB). GitHub sign-in required; artifact retained for 30 days.
+[Download the verified Apple Silicon build](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64` (includes experimental app windows and Dock export). GitHub sign-in required; artifact retained for 30 days.
 
 The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 
@@ -121,7 +121,7 @@ cargo clippy --locked --workspace --all-targets -- -D warnings
 python3 -m unittest discover -s tests/mcp -v
 ```
 
-The latest recorded Linux run passed **54 portable Rust tests**, **11 Python MCP tests** and **six separately invoked real QEMU integration tests**. Ordinary `cargo test` ignores the six QEMU tests; [development instructions](docs/development.md) describe their prerequisites. macOS ARM64 cross-compilation checks passed; they do not establish native execution. Mobile runtime evidence has the limits described above.
+The latest recorded Linux run passed **59 portable Rust tests**, **11 Python MCP tests** and **six separately invoked real QEMU integration tests**. Ordinary `cargo test` ignores the six QEMU tests; [development instructions](docs/development.md) describe their prerequisites. macOS ARM64 cross-compilation checks passed; they do not establish native execution. Mobile runtime evidence has the limits described above.
 
 Priorities are native Apple Silicon testing, reliable setup/shutdown, Android stability, actual iOS Simulator validation and accelerated graphics. Universal app support and faster-than-Parallels performance have not been demonstrated. [Implementation status](docs/implementation.md) and [compatibility notes](docs/compatibility.md) track the remaining work.
 
