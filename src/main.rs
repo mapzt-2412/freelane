@@ -16,6 +16,13 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, path] if command == "vm-create" => {
+            let request = freelane::provision::load(Path::new(path))?;
+            let config = request.create()?;
+            println!("Created {}. Guest OS installation and boot have not run.", config.display());
+            Ok(())
+        }
+
         [command, path] if command == "doctor-json" => {
             let report = freelane::diagnostics::inspect(Path::new(path));
             println!("{}", serde_json::to_string_pretty(&report).map_err(|e| Error(e.to_string()))?);

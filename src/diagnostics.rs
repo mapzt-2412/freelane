@@ -37,7 +37,7 @@ fn check(id: &'static str, ok: bool, detail: String, remedy: &'static str) -> Ch
         remedy: if ok { None } else { Some(remedy) },
     }
 }
-fn executable(path: &Path, base: &Path) -> bool {
+pub(crate) fn executable(path: &Path, base: &Path) -> bool {
     let valid = |p: PathBuf| {
         fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
     };

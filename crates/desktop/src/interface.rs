@@ -252,6 +252,15 @@ impl Desktop {
                 {
                     self.open_dialog = true;
                 }
+                if ui
+                    .add_enabled(
+                        self.pending.is_none() && self.child.is_none(),
+                        egui::Button::new(lang.text("Create virtual machine")),
+                    )
+                    .clicked()
+                {
+                    self.wizard.open = true;
+                }
                 if ui.button(lang.text("Android & iOS")).clicked() {
                     self.mobile_open = true;
                 }
@@ -293,6 +302,16 @@ impl Desktop {
                         ui.horizontal(|ui| {
                             ui.spinner();
                         });
+                    }
+                    if !self.library_notice.is_empty() {
+                        ui.colored_label(
+                            MUTED,
+                            format!(
+                                "{}: {}",
+                                lang.text("Library not saved"),
+                                self.library_notice
+                            ),
+                        );
                     }
                     if !self.notice.is_empty() {
                         ui.add_space(10.0);

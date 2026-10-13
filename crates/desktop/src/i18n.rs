@@ -10,6 +10,19 @@ impl Language {
             return english;
         }
         match english {
+            "Library not saved" => "Thư viện chưa được lưu",
+            "VM name" => "Tên máy ảo",
+            "Create virtual machine" => "Tạo máy ảo mới",
+            "New VM directory" => "Thư mục máy ảo mới",
+            "ARM64 installer ISO" => "ISO cài đặt ARM64",
+            "Firmware code" => "Firmware code",
+            "Variable template" => "Mẫu NVRAM",
+            "Disk size (GiB)" => "Dung lượng đĩa (GiB)",
+            "I confirm the installer is ARM64" => "Tôi xác nhận bộ cài là ARM64",
+            "Create workspace" => "Tạo không gian máy ảo",
+            "Creates a new sparse disk and private firmware/TPM state. Does not boot or install the OS." => "Tạo đĩa sparse mới và trạng thái firmware/TPM riêng. Chưa boot hoặc cài hệ điều hành.",
+            "ISO architecture is confirmed by you; automatic media verification is not available yet." => "Anh/chị xác nhận kiến trúc ISO; chưa có kiểm tra bộ cài tự động.",
+
             "Windows workspace" => "Không gian Windows",
             "Ubuntu workspace" => "Không gian Ubuntu",
             "Android & iOS" => "Android & iOS",

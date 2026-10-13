@@ -870,6 +870,23 @@ pub fn initialize_guest(
     qemu_img: &Path,
     guest_os: GuestOs,
 ) -> Result<PathBuf> {
+    initialize_guest_sized(directory, firmware, template, qemu_img, guest_os, 64)
+}
+
+pub fn initialize_guest_sized(
+    directory: &Path,
+    firmware: &Path,
+    template: &Path,
+    qemu_img: &Path,
+    guest_os: GuestOs,
+    disk_gib: u64,
+) -> Result<PathBuf> {
+    let minimum = if guest_os == GuestOs::Windows { 64 } else { 8 };
+    if !(minimum..=4096).contains(&disk_gib) {
+        return Err(Error(format!(
+            "Disk size must be {minimum}–4096 GiB for this guest"
+        )));
+    }
     let firmware = fs::canonicalize(firmware).map_err(|e| Error(format!("Firmware: {e}")))?;
     let template = fs::canonicalize(template).map_err(|e| Error(format!("NVRAM template: {e}")))?;
     for path in [&firmware, &template] {
@@ -909,7 +926,7 @@ pub fn initialize_guest(
     let status = Command::new(qemu_img)
         .args(["create", "-f", "qcow2"])
         .arg(directory.join(disk))
-        .arg("64G")
+        .arg(format!("{disk_gib}G"))
         .stdin(Stdio::null())
         .status()
         .map_err(|e| Error(format!("qemu-img: {e}; incomplete directory retained")))?;

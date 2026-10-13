@@ -2,6 +2,7 @@ mod app_ui;
 mod i18n;
 mod interface;
 mod mobile_ui;
+mod wizard;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
 use freelane_agent_protocol::{Action, Outcome};
@@ -30,11 +31,12 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
-    Loaded(VmInfo),
+    Loaded(VmInfo, Option<String>),
+    Created(PathBuf),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
     MobileNotice(String),
     MobileFrame(egui::ColorImage),
-    Saved(VmInfo, String),
+    Saved(VmInfo, String, Option<String>),
     Status(String),
     Frame(egui::ColorImage, bool),
     Notice(String),
@@ -43,6 +45,7 @@ type WorkResult = Result<Event, String>;
 
 #[derive(Default)]
 struct Desktop {
+    wizard: wizard::Wizard,
     mobile_open: bool,
     mobile_path: String,
     mobile_profile: Option<(PathBuf, freelane::mobile::Profile)>,
@@ -54,6 +57,7 @@ struct Desktop {
     mobile_errors: Option<Arc<Mutex<Vec<u8>>>>,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
+    library_notice: String,
     open_dialog: bool,
     view: interface::View,
     settings_tab: interface::SettingsTab,
@@ -192,20 +196,36 @@ impl Desktop {
                 },
                 None => "Runtime not configured",
             };
-            Ok(Event::Loaded(VmInfo {
-                path,
-                config: config.clone(),
-                original: text,
-                name: config.name,
-                guest_os: config.guest_os,
-                cpus: config.cpus,
-                memory: config.memory_mib,
-                acceleration,
-                guest_agent: config
-                    .runtime
-                    .as_ref()
-                    .is_some_and(|runtime| runtime.guest_agent),
-            }))
+            let warning = freelane::library::default_path()
+                .and_then(|file| {
+                    freelane::library::record(
+                        &file,
+                        freelane::library::Entry {
+                            path: path.clone(),
+                            name: config.name.clone(),
+                            guest_os: config.guest_os,
+                        },
+                    )
+                })
+                .err()
+                .map(|e| e.to_string());
+            Ok(Event::Loaded(
+                VmInfo {
+                    path,
+                    config: config.clone(),
+                    original: text,
+                    name: config.name,
+                    guest_os: config.guest_os,
+                    cpus: config.cpus,
+                    memory: config.memory_mib,
+                    acceleration,
+                    guest_agent: config
+                        .runtime
+                        .as_ref()
+                        .is_some_and(|runtime| runtime.guest_agent),
+                },
+                warning,
+            ))
         });
     }
     fn save_settings(&mut self, ctx: &egui::Context) {
@@ -235,12 +255,26 @@ impl Desktop {
                 None => "Runtime not configured",
             };
             updated.config = config;
+            let warning = freelane::library::default_path()
+                .and_then(|file| {
+                    freelane::library::record(
+                        &file,
+                        freelane::library::Entry {
+                            path: updated.path.clone(),
+                            name: updated.name.clone(),
+                            guest_os: updated.guest_os,
+                        },
+                    )
+                })
+                .err()
+                .map(|e| e.to_string());
             Ok(Event::Saved(
                 updated,
                 format!(
                     "Settings saved for next start. Backup: {}",
                     backup.display()
                 ),
+                warning,
             ))
         });
     }
@@ -379,6 +413,11 @@ impl Desktop {
                 Ok(result) => {
                     self.pending = None;
                     match result {
+                        Ok(Event::Created(path)) => {
+                            self.wizard.open = false;
+                            self.draft_path = path.display().to_string();
+                            self.open(ctx);
+                        }
                         Ok(Event::MobileLoaded(path, profile)) => {
                             self.mobile_profile = Some((path, profile));
                             self.mobile_texture = None;
@@ -392,7 +431,8 @@ impl Desktop {
                                 egui::TextureOptions::LINEAR,
                             ))
                         }
-                        Ok(Event::Loaded(vm)) => {
+                        Ok(Event::Loaded(vm, warning)) => {
+                            self.library_notice = warning.unwrap_or_default();
                             self.settings = Some(vm.config.clone());
                             self.installer_path = vm
                                 .config
@@ -425,7 +465,8 @@ impl Desktop {
                             self.status = "Not checked".into();
                             self.control(ctx, "status");
                         }
-                        Ok(Event::Saved(vm, notice)) => {
+                        Ok(Event::Saved(vm, notice, warning)) => {
+                            self.library_notice = warning.unwrap_or_default();
                             if let Some(entry) =
                                 self.library.iter_mut().find(|entry| entry.0 == vm.path)
                             {
@@ -512,6 +553,7 @@ impl eframe::App for Desktop {
         self.receive(&ctx);
         self.draw(ui, &ctx);
         self.mobile_ui(&ctx);
+        self.wizard_ui(&ctx);
     }
 }
 fn main() -> eframe::Result {
@@ -565,7 +607,18 @@ fn main() -> eframe::Result {
         }
     }
     let path = paths.first().cloned().unwrap_or_default();
-    let mut library = Vec::new();
+    let saved_library =
+        freelane::library::default_path().and_then(|file| freelane::library::read(&file));
+    let library_notice = saved_library
+        .as_ref()
+        .err()
+        .map(|e| e.to_string())
+        .unwrap_or_default();
+    let mut library: Vec<(PathBuf, String, GuestOs)> = saved_library
+        .unwrap_or_default()
+        .into_iter()
+        .map(|e| (e.path, e.name, e.guest_os))
+        .collect();
     for entry in paths {
         if let Ok(path) = std::fs::canonicalize(&entry) {
             if std::fs::metadata(&path).is_ok_and(|m| m.len() <= 1024 * 1024) {
@@ -598,6 +651,7 @@ fn main() -> eframe::Result {
                 mobile_path,
                 language,
                 library,
+                library_notice,
                 ..Default::default()
             }))
         }),

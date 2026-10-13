@@ -1,0 +1,13 @@
+# Explicit fresh-workspace request. Existing directories are never overwritten.
+name = "Windows 11 ARM"
+guest_os = "windows"
+directory = "/absolute/path/to/new-windows-vm"
+installer = "/absolute/path/to/windows-arm64.iso"
+firmware = "/absolute/path/to/arm-secure-code.fd"
+variable_template = "/absolute/path/to/arm-secure-vars-template.fd"
+qemu_img = "qemu-img"
+accelerator = "hvf" # Explicitly choose "tcg" when testing on Linux.
+cpus = 4
+memory_mib = 4096
+disk_gib = 64
+arm64_media_confirmed = false # Set true only after verifying the media you selected.
