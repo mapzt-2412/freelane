@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-13",
+  "code_commit": "d886596",
+  "host": "Linux x86_64",
+  "accelerator": "tcg",
+  "guest": "Ubuntu 24.04.5 ARM64 server",
+  "agent": {
+    "source": "local current P2 build",
+    "sha256": "74a54429375a418f4c0f1d98ea1fc2380fa05442cad34a5b50dd76405bbf674e",
+    "architecture": "aarch64",
+    "guest_service_user": "ubuntu"
+  },
+  "real_virtio_discovery": true,
+  "report": {
+    "negotiated_protocol": 3,
+    "minimum_agent_protocol": 1,
+    "agent_version": "0.1.0",
+    "os": "linux",
+    "arch": "aarch64",
+    "protocols": [
+      1,
+      2,
+      3
+    ],
+    "features": [
+      {
+        "name": "launch",
+        "protocol": 1
+      }
+    ],
+    "capability_list_complete": true,
+    "max_frame": 65536
+  },
+  "guest_uid_observed": 1000,
+  "uid_evidence": "Separate v1 launch wrote os.getuid(); controlled root seed watcher emitted FREELANE_AGENT_UID_1000 on UART. Discovery itself used only Ping.",
+  "workspace_tests_passed": 106,
+  "workspace_tests_ignored": 6,
+  "mcp_tests_passed": 11,
+  "clippy": "passed",
+  "desktop_build": "passed",
+  "mac_arm64_core_cross_check": "passed",
+  "windows_arm64_agent_build": "passed",
+  "linux_arm64_agent_build": "passed",
+  "native_mac_runtime": false,
+  "normal_windows_user_runtime": false,
+  "clipboard_transfer_lifecycle_complete": false,
+  "ui_acceptance": {
+    "english": "actual connected v3 UI verified",
+    "vietnamese": "actual connected v3 UI verified; missing Unavailable translation identified, corrected and desktop rebuilt; corrected label not recaptured"
+  },
+  "clean_shutdown": true,
+  "published_package": "preview.6 predates this code",
+  "real_v1_ping": true,
+  "real_v2_capabilities": {
+    "window_snapshots": false
+  },
+  "screenshot": "../assets/agent-capabilities-en.png"
+}

@@ -24,6 +24,7 @@ impl Language {
             "Launch applications" => "Mở ứng dụng",
             "Window snapshots" => "Ảnh cửa sổ",
             "Supported" => "Có hỗ trợ",
+            "Unavailable" => "Không khả dụng",
             "Agent capabilities unavailable. Check the channel and guest agent installation." => "Chưa kiểm tra được khả năng agent. Kiểm tra kênh kết nối và cài đặt agent trong guest.",
             "Installer ISO" => "Bộ cài ISO",
             "Ubuntu cloud image" => "Ảnh Ubuntu cloud",
