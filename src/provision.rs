@@ -11,6 +11,7 @@ pub enum Stage {
     CheckingInputs,
     InspectingMedia,
     PreparingWorkspace,
+    ImportingImage,
     Configuring,
     Verifying,
     Publishing,
@@ -24,9 +25,20 @@ struct Prepared {
     status: String,
     files: std::collections::BTreeMap<String, String>,
 }
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Source {
+    #[default]
+    InstallerIso,
+    UbuntuCloudImage,
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
+    #[serde(default)]
+    pub source: Source,
+    #[serde(default)]
+    pub cloud_init_iso: Option<PathBuf>,
     pub name: String,
     pub guest_os: GuestOs,
     pub directory: PathBuf,
@@ -79,6 +91,22 @@ impl Request {
             }
             if self.guest_os != GuestOs::Ubuntu && self.share_mode == qemu::ShareMode::Virtio9p {
                 return Err(Error("Read/write 9p sharing requires Ubuntu".into()));
+            }
+        }
+        if self.source == Source::UbuntuCloudImage && self.guest_os != GuestOs::Ubuntu {
+            return Err(Error("Cloud images are supported only for Ubuntu".into()));
+        }
+        if self.source == Source::InstallerIso && self.cloud_init_iso.is_some() {
+            return Err(Error(
+                "NoCloud seed is available only with an Ubuntu cloud image".into(),
+            ));
+        }
+        if let Some(seed) = &self.cloud_init_iso {
+            let m = fs::metadata(seed).map_err(|e| Error(format!("NoCloud seed: {e}")))?;
+            if !m.is_file() || m.len() == 0 || m.len() > 64 * 1024 * 1024 {
+                return Err(Error(
+                    "NoCloud seed must be a nonempty regular ISO of at most 64 MiB".into(),
+                ));
             }
         }
         if !self.arm64_media_confirmed {
@@ -146,6 +174,17 @@ impl Request {
             .and_then(|n| n.checked_add(v.len()))
             .and_then(|n| n.checked_add(64 * 1024 * 1024))
             .ok_or_else(|| Error("VM storage estimate overflow".into()))?;
+        let required = if self.source == Source::UbuntuCloudImage {
+            required
+                .checked_add(
+                    fs::metadata(&self.installer)
+                        .map_err(|e| Error(e.to_string()))?
+                        .len(),
+                )
+                .ok_or_else(|| Error("VM storage estimate overflow".into()))?
+        } else {
+            required
+        };
         let available = crate::storage::free_space(parent)?;
         if available < required {
             return Err(Error(format!("VM storage insufficient: require {} MiB for disk growth and firmware, available {} MiB. Choose a larger destination or a smaller disk. This check does not reserve space.", required / 1024 / 1024, available / 1024 / 1024)));
@@ -210,7 +249,20 @@ impl Request {
             config.name = self.name.clone();
             config.cpus = self.cpus;
             config.memory_mib = self.memory_mib;
-            config.installer = Some(installer);
+            config.installer = if self.source == Source::InstallerIso {
+                Some(installer.clone())
+            } else {
+                update(Stage::ImportingImage);
+                let imported = pending.join("cloud-import.qcow2");
+                crate::cloud_image::import(&self.qemu_img, &installer, &imported, self.disk_gib)?;
+                fs::rename(imported, pending.join(&config.disk))
+                    .map_err(|e| Error(e.to_string()))?;
+                self.cloud_init_iso
+                    .as_ref()
+                    .map(fs::canonicalize)
+                    .transpose()
+                    .map_err(|e| Error(e.to_string()))?
+            };
             let runtime = config.runtime.as_mut().unwrap();
             runtime.accelerator = self.accelerator;
             runtime.network = self.network;
@@ -296,7 +348,12 @@ impl Request {
         update(Stage::CheckingInputs);
         self.validate()?;
         update(Stage::InspectingMedia);
-        crate::media::verify_arm64_iso(&self.installer)?;
+        match self.source {
+            Source::InstallerIso => crate::media::verify_arm64_iso(&self.installer)?,
+            Source::UbuntuCloudImage => {
+                crate::cloud_image::validate(&self.installer, self.disk_gib)?
+            }
+        }
         let installer = fs::canonicalize(&self.installer).map_err(|e| Error(e.to_string()))?;
         self.build_staged_progress(installer, &mut update)
     }
@@ -337,6 +394,11 @@ pub fn load(path: &Path) -> Result<Request> {
             *p = base.join(&*p);
         }
     }
+    if let Some(seed) = &mut r.cloud_init_iso {
+        if seed.is_relative() {
+            *seed = base.join(&*seed);
+        }
+    }
     if let Some(folder) = &mut r.shared_directory {
         if folder.is_relative() {
             *folder = base.join(&*folder);
@@ -370,6 +432,8 @@ mod tests {
         .unwrap();
         fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
         Request {
+            source: Source::InstallerIso,
+            cloud_init_iso: None,
             name: "Transaction Ubuntu".into(),
             guest_os: GuestOs::Ubuntu,
             directory: root.join("new"),
@@ -657,6 +721,8 @@ mod recovery_tests {
         fs::write(&tool,"#!/bin/sh\nprintf 'fake disk fixture' > \"$4\"\nmkdir \"$(dirname \"$4\")/../new\"\nprintf 'user data' > \"$(dirname \"$4\")/../new/user.txt\"\n").unwrap();
         fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
         let r = Request {
+            source: Source::InstallerIso,
+            cloud_init_iso: None,
             name: "Recovered fixture".into(),
             guest_os: GuestOs::Ubuntu,
             directory: root.join("new"),

@@ -369,3 +369,19 @@ fn virtio_gpu_is_explicit_linux_only_and_preserves_basic_firmware_display() {
         qemu::Graphics::Virtio2d
     );
 }
+
+#[test]
+fn virtio_network_for_disk_boot_does_not_require_an_external_pxe_rom() {
+    let images = Images::new();
+    let mut config = images.config();
+    config.runtime.as_mut().unwrap().network = true;
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    let device = args
+        .iter()
+        .find(|arg| arg.starts_with("virtio-net-pci,"))
+        .unwrap();
+    assert!(
+        device.split(',').any(|option| option == "romfile="),
+        "Disk/ISO boot must work without optional PXE ROM packages"
+    );
+}

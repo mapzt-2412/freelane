@@ -11,6 +11,8 @@ fn rejected_creation_preserves_existing_data_and_source_templates() {
     fs::write(&tool, "#!/bin/sh\nexit 99\n").unwrap();
     fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
     let mut r = Request {
+        source: freelane::provision::Source::InstallerIso,
+        cloud_init_iso: None,
         name: "Ubuntu test".into(),
         guest_os: GuestOs::Ubuntu,
         directory: root.join("new"),

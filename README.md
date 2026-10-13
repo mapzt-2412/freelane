@@ -134,3 +134,5 @@ FreeLane is independent and is not affiliated with Apple, Microsoft, Google, Can
 [VM creation and persistent library](docs/vm-creation.md) · [Roadmap progress](docs/plans/progress.md) · [Mac acceptance](docs/mac-acceptance.md)
 
 [Offline checkpoint/recovery-copy foundation](docs/checkpoints.md)
+
+[Create Ubuntu from an ARM64 cloud image](docs/cloud-images.md) · [Import/export settings](docs/settings-bundles.md) · [Reconnect a moved VM](docs/library-recovery.md)

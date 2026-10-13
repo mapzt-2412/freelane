@@ -271,3 +271,5 @@ pub mod media;
 pub mod readiness;
 
 pub mod settings_bundle;
+
+pub mod cloud_image;

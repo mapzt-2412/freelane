@@ -1,0 +1,23 @@
+{
+  "url": "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img",
+  "sha256": "1d6bffe64b848468ac97f821d369a4846d983de1800ccf6b5ec8853e85cefc55",
+  "signature_verified": true,
+  "signer": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+  "unit_tests_passed": 99,
+  "unit_tests_ignored": 6,
+  "clippy": "passed",
+  "mac_arm64_core_check": "passed",
+  "ui_cloud_creation": true,
+  "ui_native_dialogs": false,
+  "guest_first_boot_from_ui_created_vm": true,
+  "guest_arch": "aarch64",
+  "guest_os": "Ubuntu 24.04.5",
+  "clean_first_shutdown": true,
+  "reboot_verification": "in progress",
+  "guest_agent_installation": false,
+  "native_mac_acceptance": false,
+  "ui_created_guest_reboot_marker_present": true,
+  "ui_created_guest_reboot_shutdown": "clean; host requested",
+  "ui_test_seed_issue": "early shutdown in bootcmd required host intervention; automated test seed corrected",
+  "automated_boot_reboot": "in progress"
+}

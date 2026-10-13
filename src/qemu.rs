@@ -415,7 +415,9 @@ fn arguments_inner(
                 "user,id=net0",
                 "-device",
                 match runtime.network_device {
-                    NetworkDevice::Virtio => "virtio-net-pci,disable-legacy=on,netdev=net0",
+                    NetworkDevice::Virtio => {
+                        "virtio-net-pci,disable-legacy=on,netdev=net0,romfile="
+                    }
                     NetworkDevice::Usb => "usb-net,netdev=net0",
                 },
             ]

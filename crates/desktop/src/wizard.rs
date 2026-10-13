@@ -11,6 +11,8 @@ pub enum Field {
 pub struct Wizard {
     pub open: bool,
     windows: bool,
+    cloud: bool,
+    cloud_seed: String,
     name: String,
     directory: String,
     installer: String,
@@ -52,6 +54,8 @@ impl Default for Wizard {
         Self {
             open: false,
             windows: true,
+            cloud: false,
+            cloud_seed: String::new(),
             name: "Windows 11 ARM".into(),
             directory: String::new(),
             installer: String::new(),
@@ -127,6 +131,26 @@ impl Desktop {
                                     .into();
                                 }
                             }
+                            if self.wizard.windows {
+                                self.wizard.cloud = false;
+                            } else {
+                                let previous = self.wizard.cloud;
+                                ui.horizontal(|ui| {
+                                    ui.selectable_value(
+                                        &mut self.wizard.cloud,
+                                        false,
+                                        lang.text("Installer ISO"),
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.wizard.cloud,
+                                        true,
+                                        lang.text("Ubuntu cloud image"),
+                                    );
+                                });
+                                if previous != self.wizard.cloud {
+                                    self.wizard.confirmed = false;
+                                }
+                            }
                             ui.label(lang.text("VM name"));
                             ui.text_edit_singleline(&mut self.wizard.name);
                             for (label, value, field) in [
@@ -136,7 +160,11 @@ impl Desktop {
                                     Field::Directory,
                                 ),
                                 (
-                                    "ARM64 installer ISO",
+                                    if self.wizard.cloud {
+                                        "ARM64 cloud image (qcow2)"
+                                    } else {
+                                        "ARM64 installer ISO"
+                                    },
                                     &mut self.wizard.installer,
                                     Field::Installer,
                                 ),
@@ -150,14 +178,19 @@ impl Desktop {
                             ] {
                                 ui.label(lang.text(label));
                                 ui.horizontal(|ui| {
-                                    ui.add_sized(
+                                    let changed = ui.add_sized(
                                         egui::vec2((ui.available_width() - 120.0).max(100.0), 24.0),
                                         egui::TextEdit::singleline(value),
-                                    );
+                                    ).changed();
+                                    if changed && matches!(field, Field::Installer) { self.wizard.confirmed=false; }
                                     if ui.button(lang.text("Browse")).clicked() {
                                         picker = Some(field);
                                     }
                                 });
+                            }
+                            if self.wizard.cloud {
+                                ui.label(lang.text("NoCloud seed ISO (optional)")).on_hover_text(lang.text("Configure a login or SSH key in the seed. Seed contents are not verified."));
+                                ui.text_edit_singleline(&mut self.wizard.cloud_seed);
                             }
                             ui.horizontal(|ui| {
                                 for (label, cpus, memory, ubuntu_disk) in [
@@ -246,7 +279,11 @@ impl Desktop {
                             });
                             ui.checkbox(
                                 &mut self.wizard.confirmed,
-                                lang.text("I confirm the installer is ARM64"),
+                                lang.text(if self.wizard.cloud {
+                                    "I confirm the cloud image is ARM64"
+                                } else {
+                                    "I confirm the installer is ARM64"
+                                }),
                             );
                             create = ui
                                 .add_enabled(
@@ -265,6 +302,7 @@ impl Desktop {
                                         Stage::CheckingInputs => "Checking inputs",
                                         Stage::InspectingMedia => "Checking installer",
                                         Stage::PreparingWorkspace => "Preparing workspace",
+                                        Stage::ImportingImage => "Importing cloud image",
                                         Stage::Configuring => "Saving configuration",
                                         Stage::Verifying => "Verifying files",
                                         Stage::Publishing => "Finishing workspace",
@@ -288,6 +326,13 @@ impl Desktop {
         if create {
             let w = &self.wizard;
             let request = freelane::provision::Request {
+                source: if w.cloud {
+                    freelane::provision::Source::UbuntuCloudImage
+                } else {
+                    freelane::provision::Source::InstallerIso
+                },
+                cloud_init_iso: (w.cloud && !w.cloud_seed.trim().is_empty())
+                    .then(|| PathBuf::from(w.cloud_seed.trim())),
                 name: w.name.trim().into(),
                 guest_os: if w.windows {
                     GuestOs::Windows

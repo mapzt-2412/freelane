@@ -134,3 +134,5 @@ FreeLane độc lập với Apple, Microsoft, Google, Canonical và Parallels.
 [VM creation and persistent library](docs/vm-creation.md) · [Roadmap progress](docs/plans/progress.md) · [Mac acceptance](docs/mac-acceptance.md)
 
 [Offline checkpoint/recovery-copy foundation](docs/checkpoints.md)
+
+[Tạo Ubuntu từ ảnh cloud ARM64](docs/cloud-images.vi.md) · [Nhập/xuất cấu hình](docs/settings-bundles.md) · [Tìm lại VM đã chuyển thư mục](docs/library-recovery.md)
