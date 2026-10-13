@@ -1,0 +1,32 @@
+{
+  "source_commit": "373273c4dc8a95f01bca2bc1c9ecf0727350b8e0",
+  "ci": "https://github.com/puma2k/freelane/actions/runs/38348621836",
+  "ci_result": "success",
+  "file_roundtrip": {
+    "create_and_restore_fresh_workspace": "passed",
+    "qemu_io_restored_pattern": "passed",
+    "tpm_fixture_bytes": "passed",
+    "restored_backend_plan": "passed",
+    "restore_overwrite_refused": "passed",
+    "corrupt_checkpoint_rejected_before_output_creation": "passed",
+    "original_workspace_unchanged": "passed",
+    "guest_booted": false,
+    "windows_tpm_or_bitlocker_restore_verified": false,
+    "fixture_virtual_disk_mib": 8
+  },
+  "storage_gate": {
+    "real_windows_copy": "blocked",
+    "reason": "insufficient host capacity for conservative full-copy checkpoint",
+    "output_created": false,
+    "guest_disk_modified": false
+  },
+  "additional_safety": [
+    "read-only checkpoint files",
+    "no overwrite on filename collision",
+    "atomic no-replace publication on Linux/macOS",
+    "pending restore startup marker",
+    "dirty/backing/external-data image refusal"
+  ],
+  "windows_bitlocker_restore_verified": false,
+  "p1_milestone_accepted": false
+}

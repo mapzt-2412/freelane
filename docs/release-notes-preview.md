@@ -12,4 +12,6 @@ Mac packaging, architecture, bundle signatures and native offline Dock export ar
 
 Tiếng Việt: Đây là bản thử nghiệm cho Mac Apple Silicon. Mở DMG và kéo FreeLane vào Applications; nếu dùng cửa sổ app Windows riêng, cài agent ARM64 mới trong Windows. Cần chuẩn bị QEMU/firmware và bộ cài hệ điều hành riêng. Chưa kiểm thử đầy đủ thao tác Windows và mở từ Dock trên Mac thật.
 
-New in this candidate: structured read-only `doctor-json`, first fresh-workspace creation wizard/`vm-create`, and private persisted VM bookmarks. Workspace creation does not install or boot an OS; automatic media verification, disk-space checks and checkpoint/recovery are unfinished. See `docs/vm-creation.md` and `docs/mac-acceptance.md` in the package.
+New in this candidate: structured read-only `doctor-json`, first fresh-workspace creation wizard/`vm-create`, and private persisted VM bookmarks. Workspace creation does not install or boot an OS; automatic media verification, disk-space checks and full checkpoint/recovery acceptance is unfinished. See `docs/vm-creation.md` and `docs/mac-acceptance.md` in the package.
+
+Offline checkpoint/recovery-copy CLI is now available for clean standalone qcow2 workspaces. It preserves sources and only restores to fresh directories, with checksums, startup markers, read-only checkpoint files and atomic no-replace publication. Linux/Mac file-roundtrip CI passed; no real Windows/BitLocker restore or live/memory snapshot is claimed. See `docs/checkpoints.md`.
