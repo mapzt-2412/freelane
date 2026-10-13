@@ -28,7 +28,11 @@ fn accept(listener: &UnixListener) -> UnixStream {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
         match listener.accept() {
-            Ok((socket, _)) => return socket,
+            Ok((socket, _)) => {
+                // macOS may inherit O_NONBLOCK from the listening socket.
+                socket.set_nonblocking(false).unwrap();
+                return socket;
+            }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                 assert!(Instant::now() < deadline, "expected input connection");
                 thread::sleep(Duration::from_millis(10));
