@@ -1,0 +1,14 @@
+{
+  "tag": "v0.1.0-preview.6",
+  "source_commit": "a50687e9f692f7363790dbf9c5e49b68651899d6",
+  "release_url": "https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.6",
+  "workflow_url": "https://github.com/puma2k/freelane/actions/runs/38385437797",
+  "workflow_status": "Success",
+  "dmg_asset": "FreeLane-0.1.0-a50687e9f692-macos-arm64.dmg",
+  "bytes": 11630682,
+  "sha256": "b5d3cd008df6cbeb4fcf97c03cfea51884270b8cbdca66980e49a3836aa09743",
+  "downloaded_checksum_match": true,
+  "udif_footer_verified": true,
+  "physical_mac_runtime_acceptance": false,
+  "signing": "ad-hoc; not notarized"
+}
