@@ -23,6 +23,10 @@ fn rejected_creation_preserves_existing_data_and_source_templates() {
         memory_mib: 2048,
         disk_gib: 8,
         arm64_media_confirmed: false,
+        network: false,
+        guest_agent: false,
+        shared_directory: None,
+        share_mode: freelane::qemu::ShareMode::ReadonlyUsb,
     };
     assert!(r.create().unwrap_err().to_string().contains("Confirm"));
     assert!(!r.directory.exists());
@@ -83,5 +87,23 @@ fn interrupted_creation_marker_refuses_backend_start_and_plan() {
             .contains("creation")
     );
     assert!(root.join("freelane-creation.json").exists());
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn loads_optional_connectivity_and_resolves_share_path() {
+    let root =
+        std::env::temp_dir().join(format!("fl-provision-connectivity-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    let file = root.join("request.toml");
+    fs::write(&file,"name='Ubuntu'\nguest_os='ubuntu'\ndirectory='new'\ninstaller='arm.iso'\nfirmware='code.fd'\nvariable_template='vars.fd'\nqemu_img='qemu-img'\naccelerator='tcg'\ncpus=2\nmemory_mib=2048\ndisk_gib=8\narm64_media_confirmed=true\nnetwork=true\nguest_agent=true\nshared_directory='Tài liệu'\nshare_mode='virtio9p'\n").unwrap();
+    let request = freelane::provision::load(&file).unwrap();
+    let value = serde_json::to_value(request).unwrap();
+    assert_eq!(value["network"], true);
+    assert_eq!(value["guest_agent"], true);
+    assert_eq!(
+        value["shared_directory"],
+        root.join("Tài liệu").to_str().unwrap()
+    );
     fs::remove_dir_all(root).unwrap();
 }

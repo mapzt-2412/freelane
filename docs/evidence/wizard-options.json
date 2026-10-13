@@ -1,0 +1,29 @@
+{
+  "workspace_tests_passed": 83,
+  "ignored_tests": 6,
+  "ui_creation": {
+    "ui_create_clicked": true,
+    "guest_os": "ubuntu",
+    "disk_virtual_gib": 16,
+    "cpus": 2,
+    "memory_mib": 2048,
+    "network_configured": true,
+    "agent_channel_configured": true,
+    "source_firmware_and_vars_preserved": true,
+    "library_saved": true,
+    "guest_started": false,
+    "os_installed": false,
+    "platform": "Linux Xvfb"
+  },
+  "media": {
+    "file": "ubuntu-24.04.5-live-server-arm64.iso",
+    "source": "https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.5-live-server-arm64.iso",
+    "keyring_source": "https://archive.ubuntu.com/ubuntu/project/ubuntu-archive-keyring.gpg",
+    "signer_fingerprint": "843938DF228D22F7B3742BC0D94AA3F0EFE21092",
+    "signature_verified": true,
+    "sha256_verified": true,
+    "sha256": "f12484464c7d4d73e2167e0a7dbda1e669f8fae9bcf778dc0944937034b320cb"
+  },
+  "native_mac_dialog_tested": false,
+  "guest_installation_tested": false
+}

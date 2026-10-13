@@ -37,3 +37,5 @@ P1 media check passed on the actual supplied Windows ARM64 ISO (UDF bridge, extr
 P1 runtime observation: `vm-readiness` and desktop Refresh status distinguish QMP state from agent connectivity; installation completion stays unverified. QMP socket and absent-backend tests preserve configuration and avoid creating runtime state. Guided installation/recovery remain outstanding.
 
 P1 interruption foundation: protected staging, no-replace publication and `creation-recover` for prepared never-started workspaces implemented. Tests cover backend failure, a simultaneous destination collision, recovery, corrupted files and early-stage refusal. These use nonbootable file fixtures; native wizard creation and OS-installation recovery remain unverified.
+
+P1 wizard resources/connectivity/progress: implemented and tested. Actual Linux UI created a 16 GiB Ubuntu workspace using signature/checksum-verified Ubuntu 24.04.5 media, saved its library entry and reopened the configuration. No guest start or installation was performed. Full workspace: 83 passed, 6 ignored. Native acceptance and guided OS installation remain pending.

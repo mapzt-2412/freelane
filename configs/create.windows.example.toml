@@ -11,3 +11,9 @@ cpus = 4
 memory_mib = 4096
 disk_gib = 64
 arm64_media_confirmed = false # Set true only after verifying the media you selected.
+
+# Optional connectivity (old requests default to disabled).
+network = true
+guest_agent = true
+share_mode = "readonly_usb"
+# shared_directory = "/absolute/path/to/shared-folder"

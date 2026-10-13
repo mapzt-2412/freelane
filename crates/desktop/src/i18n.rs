@@ -10,6 +10,21 @@ impl Language {
             return english;
         }
         match english {
+            "Small" => "Nhẹ",
+            "Standard" => "Tiêu chuẩn",
+            "Large" => "Lớn",
+            "Checking inputs" => "Kiểm tra cấu hình",
+            "Checking installer" => "Kiểm tra bộ cài",
+            "Preparing workspace" => "Tạo ổ đĩa và firmware",
+            "Saving configuration" => "Lưu cấu hình",
+            "Verifying files" => "Xác minh tệp",
+            "Finishing workspace" => "Hoàn tất máy ảo",
+            "Workspace created" => "Đã tạo máy ảo",
+
+            "Networking" => "Kết nối mạng",
+            "Shared folder" => "Thư mục chia sẻ",
+            "Read/write 9p" => "9p đọc/ghi",
+
             "incomplete" => "Tạo chưa hoàn tất",
             "Guest agent" => "Agent máy khách",
             "connected" => "Đã kết nối",

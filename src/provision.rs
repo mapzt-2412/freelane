@@ -5,6 +5,17 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Stage {
+    CheckingInputs,
+    InspectingMedia,
+    PreparingWorkspace,
+    Configuring,
+    Verifying,
+    Publishing,
+    Complete,
+}
 pub const MARKER: &str = "freelane-creation.json";
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -28,6 +39,14 @@ pub struct Request {
     pub memory_mib: u64,
     pub disk_gib: u64,
     pub arm64_media_confirmed: bool,
+    #[serde(default)]
+    pub network: bool,
+    #[serde(default)]
+    pub guest_agent: bool,
+    #[serde(default)]
+    pub shared_directory: Option<PathBuf>,
+    #[serde(default)]
+    pub share_mode: qemu::ShareMode,
 }
 impl Request {
     pub fn validate(&self) -> Result<()> {
@@ -50,6 +69,17 @@ impl Request {
             return Err(Error(
                 "Choose a new, nonexisting VM directory; existing directories are preserved".into(),
             ));
+        }
+        if let Some(folder) = &self.shared_directory {
+            if !fs::metadata(folder)
+                .map_err(|e| Error(format!("Shared folder: {e}")))?
+                .is_dir()
+            {
+                return Err(Error("Shared folder must be an existing directory".into()));
+            }
+            if self.guest_os != GuestOs::Ubuntu && self.share_mode == qemu::ShareMode::Virtio9p {
+                return Err(Error("Read/write 9p sharing requires Ubuntu".into()));
+            }
         }
         if !self.arm64_media_confirmed {
             return Err(Error("Confirm your selected installer is ARM64".into()));
@@ -122,7 +152,15 @@ impl Request {
         }
         Ok(())
     }
+    #[cfg(test)]
     fn build_staged(&self, installer: PathBuf) -> Result<PathBuf> {
+        self.build_staged_progress(installer, &mut |_| {})
+    }
+    fn build_staged_progress(
+        &self,
+        installer: PathBuf,
+        update: &mut impl FnMut(Stage),
+    ) -> Result<PathBuf> {
         use std::{
             io::Write,
             os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -156,6 +194,7 @@ impl Request {
         ));
         let mut published = false;
         let result = (|| {
+            update(Stage::PreparingWorkspace);
             let path = qemu::initialize_guest_transaction(
                 &pending,
                 &self.firmware,
@@ -165,13 +204,24 @@ impl Request {
                 self.disk_gib,
                 true,
             )?;
+            update(Stage::Configuring);
             let mut config =
                 Config::parse(&fs::read_to_string(&path).map_err(|e| Error(e.to_string()))?)?;
             config.name = self.name.clone();
             config.cpus = self.cpus;
             config.memory_mib = self.memory_mib;
             config.installer = Some(installer);
-            config.runtime.as_mut().unwrap().accelerator = self.accelerator;
+            let runtime = config.runtime.as_mut().unwrap();
+            runtime.accelerator = self.accelerator;
+            runtime.network = self.network;
+            runtime.guest_agent = self.guest_agent;
+            runtime.shared_directory = self
+                .shared_directory
+                .as_ref()
+                .map(fs::canonicalize)
+                .transpose()
+                .map_err(|e| Error(e.to_string()))?;
+            runtime.share_mode = self.share_mode;
             let mut checked = config.clone();
             checked.runtime.as_mut().unwrap().accelerator = qemu::Accelerator::Tcg;
             qemu::creation_arguments(
@@ -199,6 +249,7 @@ impl Request {
                     .and_then(|f| f.sync_all())
                     .map_err(|e| Error(e.to_string()))?;
             }
+            update(Stage::Verifying);
             let mut files = std::collections::BTreeMap::new();
             for name in [
                 "vm.toml",
@@ -227,9 +278,11 @@ impl Request {
                 .and_then(|_| file.sync_all())
                 .map_err(|e| Error(e.to_string()))?;
             fs::rename(temporary, pending.join(MARKER)).map_err(|e| Error(e.to_string()))?;
+            update(Stage::Publishing);
             crate::storage::publish(&pending, &final_path)?;
             published = true;
             fs::remove_file(final_path.join(MARKER)).map_err(|e| Error(e.to_string()))?;
+            update(Stage::Complete);
             Ok(final_path.join("vm.toml"))
         })();
         result.map_err(|e: Error| {
@@ -239,11 +292,16 @@ impl Request {
             ))
         })
     }
-    pub fn create(&self) -> Result<PathBuf> {
+    pub fn create_with_progress(&self, mut update: impl FnMut(Stage)) -> Result<PathBuf> {
+        update(Stage::CheckingInputs);
         self.validate()?;
+        update(Stage::InspectingMedia);
         crate::media::verify_arm64_iso(&self.installer)?;
         let installer = fs::canonicalize(&self.installer).map_err(|e| Error(e.to_string()))?;
-        self.build_staged(installer)
+        self.build_staged_progress(installer, &mut update)
+    }
+    pub fn create(&self) -> Result<PathBuf> {
+        self.create_with_progress(|_| {})
     }
 }
 /// Load an explicit creation request; relative inputs resolve against its file, not process cwd.
@@ -262,6 +320,11 @@ pub fn load(path: &Path) -> Result<Request> {
     ] {
         if p.is_relative() {
             *p = base.join(&*p);
+        }
+    }
+    if let Some(folder) = &mut r.shared_directory {
+        if folder.is_relative() {
+            *folder = base.join(&*folder);
         }
     }
     if r.qemu_img.components().count() > 1 && r.qemu_img.is_relative() {
@@ -304,16 +367,63 @@ mod tests {
             memory_mib: 2048,
             disk_gib: 8,
             arm64_media_confirmed: true,
+            network: false,
+            guest_agent: false,
+            shared_directory: None,
+            share_mode: qemu::ShareMode::ReadonlyUsb,
         }
+    }
+    #[test]
+    fn rejected_request_reports_validation_without_false_completion() {
+        let root =
+            std::env::temp_dir().join(format!("fl-creation-progress-{}", std::process::id()));
+        let mut r = request(&root, false);
+        r.arm64_media_confirmed = false;
+        let mut stages = Vec::new();
+        assert!(r.create_with_progress(|stage| stages.push(stage)).is_err());
+        assert_eq!(stages, vec![Stage::CheckingInputs]);
+        assert!(!r.directory.exists());
+        fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn staging_component_publishes_only_completed_configuration() {
         let root = std::env::temp_dir().join(format!("fl-stage-success-{}", std::process::id()));
-        let r = request(&root, false);
-        let result = r.build_staged(r.installer.clone()).unwrap();
+        let mut r = request(&root, false);
+        r.network = true;
+        r.guest_agent = true;
+        let share = root.join("Tài liệu");
+        fs::create_dir(&share).unwrap();
+        fs::write(share.join("user.txt"), b"shared originals").unwrap();
+        r.shared_directory = Some(share.clone());
+        r.share_mode = qemu::ShareMode::Virtio9p;
+        let mut stages = Vec::new();
+        let result = r
+            .build_staged_progress(r.installer.clone(), &mut |stage| stages.push(stage))
+            .unwrap();
+        assert_eq!(
+            stages,
+            vec![
+                Stage::PreparingWorkspace,
+                Stage::Configuring,
+                Stage::Verifying,
+                Stage::Publishing,
+                Stage::Complete
+            ]
+        );
         let config = Config::parse(&fs::read_to_string(result).unwrap()).unwrap();
         assert_eq!(config.name, r.name);
         assert_eq!(config.cpus, 2);
+        let runtime = config.runtime.as_ref().unwrap();
+        assert!(runtime.network);
+        assert!(runtime.guest_agent);
+        assert_eq!(
+            runtime.shared_directory,
+            Some(fs::canonicalize(&share).unwrap())
+        );
+        assert_eq!(
+            fs::read(share.join("user.txt")).unwrap(),
+            b"shared originals"
+        );
         assert_eq!(config.installer, Some(r.installer));
         assert!(!r.directory.join("freelane-creation.json").exists());
         assert!(!root.read_dir().unwrap().any(|p| p
@@ -429,7 +539,6 @@ pub fn recover_creation(source: &Path, destination: &Path) -> Result<PathBuf> {
     if config.disk != Path::new(disk)
         || runtime.firmware != Path::new("firmware.fd")
         || runtime.nvram != Path::new("nvram.fd")
-        || runtime.shared_directory.is_some()
         || runtime
             .tpm
             .as_ref()
@@ -518,6 +627,10 @@ mod recovery_tests {
             memory_mib: 2048,
             disk_gib: 8,
             arm64_media_confirmed: true,
+            network: false,
+            guest_agent: false,
+            shared_directory: None,
+            share_mode: qemu::ShareMode::ReadonlyUsb,
         };
         assert!(r.build_staged(r.installer.clone()).is_err());
         let source = root

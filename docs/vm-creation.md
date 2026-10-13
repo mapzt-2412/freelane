@@ -1,6 +1,6 @@
 # VM creation and persisted library
 
-The manager now has **Create virtual machine / Tạo máy ảo mới**. Select Windows or Ubuntu, a new directory, installer media, firmware code and a distinct variable template, then choose CPU/RAM/disk size and HVF or TCG explicitly. Use Browse / Chọn… to select files and the parent folder for a new workspace. The folder picker appends `FreeLane VM`; edit the destination name before creating. macOS uses its native dialog; Linux requires zenity or manual path entry. Cancellation preserves the form. Confirm the media only after checking its origin yourself.
+The manager now has **Create virtual machine / Tạo máy ảo mới**. Select Windows or Ubuntu, a new directory, installer media, firmware code and a distinct variable template, then choose CPU/RAM/disk size and HVF or TCG explicitly. Small/Standard/Large select visible resource values; they are allocation presets, not measured performance claims. Enable networking and the guest-agent channel independently, and optionally select a host folder (read-only USB, or read/write 9p for Ubuntu). Use Browse / Chọn… to select files and the parent folder for a new workspace. The folder picker appends `FreeLane VM`; edit the destination name before creating. macOS uses its native dialog; Linux requires zenity or manual path entry. Cancellation preserves the form. Confirm the media only after checking its origin yourself.
 
 ![Creation form on Linux Xvfb](assets/vm-create-wizard-en.png)
 
@@ -43,3 +43,13 @@ freelane creation-recover /absolute/path/to/.freelane-create-ID.pending /absolut
 ```
 
 Recovery validates private ownership, the manifest, contained regular files/checksums, empty initial TPM state and the device plan before an atomic no-replace move. This is completion of a never-started workspace, not guest recovery or OS-installation resumption. A changed/missing component, existing destination, unsupported manifest or earlier `creating` stage is refused with the source preserved. For early failures, keep the pending files for inspection and retry creation with a new destination. Cross-filesystem moves are refused rather than silently copying. Do not remove markers or run QEMU directly against pending directories. Power-loss durability and automatic cleanup of abandoned workspaces are not guaranteed.
+
+## Creation progress and cloud UI evidence
+
+The wizard displays actual completed/active boundaries: input validation, media inspection, workspace preparation, configuration, file verification and publication. There is no estimated percentage or fabricated installation progress. Failed validation never emits completion. Workspace completion does not mean the OS is installed.
+
+The actual Linux UI created a new Ubuntu workspace from the official Ubuntu 24.04.5 ARM64 installer after Ubuntu's checksum signature and ISO SHA-256 were verified. The Small preset produced 2 CPUs, 2048 MiB RAM and a 16 GiB sparse qcow2; network and agent-channel choices persisted, source firmware/variable templates matched the copies and a bookmark was saved. The reopened manager loaded this configuration. No guest was started or OS installed during this creation test.
+
+![Created Ubuntu workspace in English](assets/wizard-created-ubuntu-en.png)
+
+[Evidence](evidence/wizard-options.json) records these limits. Physical-Mac dialog and guest installation acceptance remain deferred.

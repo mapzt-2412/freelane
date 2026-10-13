@@ -6,6 +6,7 @@ pub enum Field {
     Firmware,
     Variables,
     QemuImg,
+    SharedFolder,
 }
 pub struct Wizard {
     pub open: bool,
@@ -21,6 +22,10 @@ pub struct Wizard {
     disk: u64,
     accelerator: qemu::Accelerator,
     confirmed: bool,
+    network: bool,
+    guest_agent: bool,
+    shared_folder: String,
+    share_mode: qemu::ShareMode,
 }
 impl Wizard {
     pub fn picked(&mut self, field: Field, value: String) {
@@ -38,6 +43,7 @@ impl Wizard {
             Field::Firmware => self.firmware = value,
             Field::Variables => self.variables = value,
             Field::QemuImg => self.qemu_img = value,
+            Field::SharedFolder => self.shared_folder = value,
         }
     }
 }
@@ -61,6 +67,10 @@ impl Default for Wizard {
                 qemu::Accelerator::Tcg
             },
             confirmed: false,
+            network: true,
+            guest_agent: true,
+            shared_folder: String::new(),
+            share_mode: qemu::ShareMode::ReadonlyUsb,
         }
     }
 }
@@ -100,6 +110,9 @@ impl Desktop {
                                 );
                             });
                             if previous_windows != self.wizard.windows {
+                                if self.wizard.windows {
+                                    self.wizard.share_mode = qemu::ShareMode::ReadonlyUsb;
+                                }
                                 let old_name = if previous_windows {
                                     "Windows 11 ARM"
                                 } else {
@@ -137,16 +150,40 @@ impl Desktop {
                             ] {
                                 ui.label(lang.text(label));
                                 ui.horizontal(|ui| {
-                                    ui.add(
-                                        egui::TextEdit::singleline(value).desired_width(
-                                            (ui.available_width() - 85.0).max(100.0),
-                                        ),
+                                    ui.add_sized(
+                                        egui::vec2((ui.available_width() - 120.0).max(100.0), 24.0),
+                                        egui::TextEdit::singleline(value),
                                     );
                                     if ui.button(lang.text("Browse")).clicked() {
                                         picker = Some(field);
                                     }
                                 });
                             }
+                            ui.horizontal(|ui| {
+                                for (label, cpus, memory, ubuntu_disk) in [
+                                    ("Small", 2, 2048, 16),
+                                    ("Standard", 4, 4096, 32),
+                                    ("Large", 8, 8192, 64),
+                                ] {
+                                    if ui.button(lang.text(label)).clicked() {
+                                        self.wizard.cpus = cpus;
+                                        self.wizard.memory = if self.wizard.windows {
+                                            memory.max(4096)
+                                        } else {
+                                            memory
+                                        };
+                                        self.wizard.disk = if self.wizard.windows {
+                                            if label == "Large" {
+                                                128
+                                            } else {
+                                                64
+                                            }
+                                        } else {
+                                            ubuntu_disk
+                                        };
+                                    }
+                                }
+                            });
                             ui.horizontal_wrapped(|ui| {
                                 ui.label(lang.text("Virtual CPUs"));
                                 ui.add(egui::DragValue::new(&mut self.wizard.cpus).range(1..=64));
@@ -172,6 +209,41 @@ impl Desktop {
                                     "TCG",
                                 );
                             });
+                            ui.horizontal(|ui| {
+                                ui.checkbox(&mut self.wizard.network, lang.text("Networking"));
+                                ui.checkbox(
+                                    &mut self.wizard.guest_agent,
+                                    lang.text("Guest agent channel"),
+                                );
+                            });
+                            ui.collapsing(lang.text("Shared folder"), |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.add_sized(
+                                        egui::vec2((ui.available_width() - 120.0).max(100.0), 24.0),
+                                        egui::TextEdit::singleline(&mut self.wizard.shared_folder),
+                                    );
+                                    if ui.button(lang.text("Browse")).clicked() {
+                                        picker = Some(Field::SharedFolder);
+                                    }
+                                });
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.selectable_value(
+                                        &mut self.wizard.share_mode,
+                                        qemu::ShareMode::ReadonlyUsb,
+                                        lang.text("Read-only USB"),
+                                    );
+                                    ui.add_enabled_ui(!self.wizard.windows, |ui| {
+                                        ui.selectable_value(
+                                            &mut self.wizard.share_mode,
+                                            qemu::ShareMode::Virtio9p,
+                                            lang.text("Read/write 9p"),
+                                        );
+                                    });
+                                });
+                                if self.wizard.windows {
+                                    self.wizard.share_mode = qemu::ShareMode::ReadonlyUsb;
+                                }
+                            });
                             ui.checkbox(
                                 &mut self.wizard.confirmed,
                                 lang.text("I confirm the installer is ARM64"),
@@ -185,7 +257,21 @@ impl Desktop {
                                 .clicked();
                         });
                         if busy {
-                            ui.spinner();
+                            ui.horizontal(|ui| {
+                                ui.spinner();
+                                if let Some(stage) = self.creation_stage {
+                                    use freelane::provision::Stage;
+                                    ui.label(lang.text(match stage {
+                                        Stage::CheckingInputs => "Checking inputs",
+                                        Stage::InspectingMedia => "Checking installer",
+                                        Stage::PreparingWorkspace => "Preparing workspace",
+                                        Stage::Configuring => "Saving configuration",
+                                        Stage::Verifying => "Verifying files",
+                                        Stage::Publishing => "Finishing workspace",
+                                        Stage::Complete => "Workspace created",
+                                    }));
+                                }
+                            });
                         }
                         if !self.notice.is_empty() {
                             ui.label(&self.notice);
@@ -195,7 +281,7 @@ impl Desktop {
         self.wizard.open = open;
         if let Some(field) = picker {
             self.work(ctx, move || {
-                file_picker::choose(matches!(field, Field::Directory))
+                file_picker::choose(matches!(field, Field::Directory | Field::SharedFolder))
                     .map(|path| Event::WizardPicked(field, path))
             });
         }
@@ -218,11 +304,21 @@ impl Desktop {
                 memory_mib: w.memory,
                 disk_gib: w.disk,
                 arm64_media_confirmed: w.confirmed,
+                network: w.network,
+                guest_agent: w.guest_agent,
+                shared_directory: (!w.shared_folder.trim().is_empty())
+                    .then(|| PathBuf::from(w.shared_folder.trim())),
+                share_mode: w.share_mode,
             };
-            self.notice = lang.text("Create workspace").into();
+            self.notice.clear();
+            let (tx, rx) = mpsc::channel();
+            self.creation_progress = Some(rx);
+            self.creation_stage = Some(freelane::provision::Stage::CheckingInputs);
             self.work(ctx, move || {
                 request
-                    .create()
+                    .create_with_progress(|stage| {
+                        let _ = tx.send(stage);
+                    })
                     .map(Event::Created)
                     .map_err(|e| e.to_string())
             });

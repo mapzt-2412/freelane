@@ -58,6 +58,8 @@ struct Desktop {
     mobile_texture: Option<egui::TextureHandle>,
     mobile_child: Option<Child>,
     mobile_errors: Option<Arc<Mutex<Vec<u8>>>>,
+    creation_progress: Option<mpsc::Receiver<freelane::provision::Stage>>,
+    creation_stage: Option<freelane::provision::Stage>,
     agent_status: String,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
@@ -415,10 +417,17 @@ impl Desktop {
     }
     fn receive(&mut self, ctx: &egui::Context) {
         self.poll_mobile(ctx);
+        if let Some(receiver) = &self.creation_progress {
+            while let Ok(stage) = receiver.try_recv() {
+                self.creation_stage = Some(stage);
+            }
+        }
         if let Some(receiver) = &self.pending {
             match receiver.try_recv() {
                 Ok(result) => {
                     self.pending = None;
+                    self.creation_progress = None;
+                    self.creation_stage = None;
                     match result {
                         Ok(Event::WizardPicked(field, value)) => {
                             if let Some(value) = value {
