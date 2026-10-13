@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.8](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.8) adds automatic component discovery, Homebrew installation from the wizard and read-only agent capability discovery. [Package evidence](evidence/release-preview8.json) records native Mac packaging and independently verified public DMG SHA256. Actual Homebrew installation and native Mac guest execution remain unverified.
+[Latest preview: v0.1.0-preview.9](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.9) adds automatic component discovery, Homebrew installation from the wizard and read-only agent capability discovery. [Package evidence](evidence/release-preview9.json) records native Mac packaging and independently verified public DMG SHA256. Actual Homebrew installation and native Mac guest execution remain unverified.
 
 New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Applications`, then eject it. The native Mac job verifies the disk image, mounts it read-only and rechecks the app signature, ARM64 architecture and Applications shortcut before upload. SHA256 files accompany DMG and ZIP downloads.
 
