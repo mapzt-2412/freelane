@@ -10,6 +10,14 @@ impl Language {
             return english;
         }
         match english {
+            "Guest agent" => "Agent máy khách",
+            "connected" => "Đã kết nối",
+            "disabled" => "Đã tắt",
+            "not_checked" => "Chưa kiểm tra",
+            "unavailable" => "Chưa kết nối",
+            "prelaunch" => "Chờ khởi chạy",
+            "shutdown" => "Đã tắt máy",
+
             "Browse" => "Chọn…",
             "Library not saved" => "Thư viện chưa được lưu",
             "VM name" => "Tên máy ảo",

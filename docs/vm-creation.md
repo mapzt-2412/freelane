@@ -29,3 +29,7 @@ Default paths:
 ![Saved Ubuntu bookmark after restarting the actual manager without arguments](assets/vm-library-reopened.png)
 
 Recorded checks before the conservative storage gate was introduced: real qemu-img created a 64 GiB virtual Windows disk, preflight passed, repeat creation refused overwrite and original NVRAM template bytes stayed unchanged. Actual Linux UI saved an Ubuntu bookmark and reloaded it after restart without configuration arguments. No new guest boot or installation was performed. Physical-Mac wizard/runtime acceptance is pending.
+
+## Observed runtime state
+
+`freelane vm-readiness /absolute/path/to/vm.toml` queries QMP and, only while the backend is observed running and its agent channel is enabled, sends a bounded agent ping. It reports backend and agent independently. Missing/unreachable QMP is `unknown`, never assumed stopped or installed. A running backend or responding agent does not prove installation completion; `installation_complete` remains null. JSON command success means observation completed, not guest acceptance. Desktop Refresh status uses the same observer; Details shows the agent state.

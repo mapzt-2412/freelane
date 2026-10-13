@@ -40,6 +40,7 @@ enum Event {
     MobileFrame(egui::ColorImage),
     Saved(VmInfo, String, Option<String>),
     Status(String),
+    Readiness(freelane::readiness::Report),
     Frame(egui::ColorImage, bool),
     Notice(String),
 }
@@ -57,6 +58,7 @@ struct Desktop {
     mobile_texture: Option<egui::TextureHandle>,
     mobile_child: Option<Child>,
     mobile_errors: Option<Arc<Mutex<Vec<u8>>>>,
+    agent_status: String,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
     library_notice: String,
@@ -284,6 +286,9 @@ impl Desktop {
         let Some(vm) = &self.vm else { return };
         let path = vm.path.clone();
         self.work(ctx, move || {
+            if action == "status" {
+                return freelane::readiness::inspect(&path).map(Event::Readiness).map_err(|e|e.to_string());
+            }
             let reply = qemu::control(&path, action).map_err(|e| {
                 if action == "status" {
                     format!("Status unavailable. If the VM is powered off, use Start; otherwise inspect its runtime log. Details: {e}")
@@ -470,6 +475,7 @@ impl Desktop {
                             self.display_at = None;
                             self.notice.clear();
                             self.status = "Not checked".into();
+                            self.agent_status = "not_checked".into();
                             self.control(ctx, "status");
                         }
                         Ok(Event::Saved(vm, notice, warning)) => {
@@ -484,11 +490,18 @@ impl Desktop {
                             self.notice = notice;
                             self.settings_open = false;
                             self.status = "Not checked".into();
+                            self.agent_status = "not_checked".into();
                             self.texture = None;
                             self.auto_display = false;
                         }
+                        Ok(Event::Readiness(report)) => {
+                            self.status = report.backend;
+                            self.agent_status = report.agent;
+                            self.notice.clear();
+                        }
                         Ok(Event::Status(status)) => {
                             self.status = status;
+                            self.agent_status = "not_checked".into();
                             self.notice.clear();
                         }
                         Ok(Event::Frame(image, announce)) => {
@@ -505,6 +518,7 @@ impl Desktop {
                         Err(error) => {
                             self.auto_display = false;
                             self.status = "Unknown".into();
+                            self.agent_status = "not_checked".into();
                             self.notice = error;
                         }
                     }
@@ -656,6 +670,7 @@ fn main() -> eframe::Result {
                 draft_path: path,
                 mobile_open: !mobile_path.is_empty(),
                 mobile_path,
+                agent_status: "not_checked".into(),
                 language,
                 library,
                 library_notice,

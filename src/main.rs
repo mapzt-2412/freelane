@@ -28,6 +28,11 @@ fn run() -> Result<()> {
             Ok(())
         }
 
+        [command, path] if command == "vm-readiness" => {
+            let report=freelane::readiness::inspect(Path::new(path))?;
+            println!("{}",serde_json::to_string_pretty(&report).map_err(|e| Error(e.to_string()))?);
+            Ok(())
+        }
         [command, path] if command == "media-check" => {
             freelane::media::verify_arm64_iso(Path::new(path))?;
             println!("ARM64 UEFI loader verified; OS installation and media authenticity not verified");

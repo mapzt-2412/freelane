@@ -712,6 +712,8 @@ impl Desktop {
                 card().show(ui, |ui| {
                     ui.label(lang.text("Configuration path"));
                     ui.label(path.display().to_string());
+                    ui.label(lang.text("Guest agent"));
+                    ui.label(lang.text(&self.agent_status));
                     ui.label(lang.text("Configured acceleration"));
                     ui.label(lang.text(acceleration));
                     ui.collapsing(lang.text("Advanced controls"), |ui| {

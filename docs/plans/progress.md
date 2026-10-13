@@ -33,3 +33,5 @@ Next work: P1 installation readiness and interruption recovery; native dialog/gu
 Creation now rejects insufficient destination capacity before backend execution or directory creation. The conservative check includes full virtual disk growth; sparse allocation is not a reservation.
 
 P1 media check passed on the actual supplied Windows ARM64 ISO (UDF bridge, extracted ARM64 PE bootloader). Synthetic ISO tests cover wrong architecture, missing loader and invalid extents. This is not a fresh guest installation. P0 owner checklist: [Mac acceptance](../mac-acceptance.md).
+
+P1 runtime observation: `vm-readiness` and desktop Refresh status distinguish QMP state from agent connectivity; installation completion stays unverified. QMP socket and absent-backend tests preserve configuration and avoid creating runtime state. Guided installation/recovery remain outstanding.
