@@ -56,8 +56,15 @@ pub fn inspect(path: &Path) -> Report {
         guest_runtime_verified: false,
         checks: Vec::new(),
     };
-    let loaded = fs::read_to_string(path)
+    let loaded = fs::metadata(path)
         .map_err(|e| e.to_string())
+        .and_then(|m| {
+            if !m.is_file() || m.len() > 1024 * 1024 {
+                Err("Configuration must be a regular TOML file under 1 MiB".into())
+            } else {
+                fs::read_to_string(path).map_err(|e| e.to_string())
+            }
+        })
         .and_then(|s| Config::parse(&s).map_err(|e| e.to_string()));
     let config = match loaded {
         Ok(c) => c,

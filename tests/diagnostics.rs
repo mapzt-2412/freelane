@@ -42,3 +42,16 @@ fn missing_configuration_is_a_structured_failure_without_creation() {
     assert_eq!(report.checks[0].state, State::Failed);
     assert!(!path.exists());
 }
+
+#[test]
+fn oversized_configuration_is_rejected_before_reading() {
+    let path = std::env::temp_dir().join(format!("fl-diag-large-{}.toml", std::process::id()));
+    let file = fs::File::create(&path).unwrap();
+    file.set_len(2 * 1024 * 1024).unwrap();
+    drop(file);
+    let report = inspect(&path);
+    assert!(!report.preflight_passed);
+    assert!(report.checks[0].detail.contains("1 MiB"));
+    assert_eq!(fs::metadata(&path).unwrap().len(), 2 * 1024 * 1024);
+    fs::remove_file(path).unwrap();
+}
