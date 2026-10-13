@@ -10,6 +10,9 @@ pub enum Field {
 }
 pub struct Wizard {
     pub open: bool,
+    components_missing: bool,
+    refresh_requested: bool,
+    install_requested: bool,
     windows: bool,
     cloud: bool,
     cloud_seed: String,
@@ -30,6 +33,18 @@ pub struct Wizard {
     share_mode: qemu::ShareMode,
 }
 impl Wizard {
+    pub fn apply_tools(&mut self, firmware: String, variables: String, image: String) {
+        self.components_missing = false;
+        if self.firmware.is_empty() {
+            self.firmware = firmware;
+        }
+        if self.variables.is_empty() {
+            self.variables = variables;
+        }
+        if self.qemu_img.is_empty() || self.qemu_img == "qemu-img" {
+            self.qemu_img = image;
+        }
+    }
     pub fn picked(&mut self, field: Field, value: String) {
         match field {
             Field::Directory => {
@@ -51,17 +66,29 @@ impl Wizard {
 }
 impl Default for Wizard {
     fn default() -> Self {
+        let tools = freelane::host_tools::discover();
         Self {
             open: false,
+            components_missing: tools.is_none(),
+            refresh_requested: false,
+            install_requested: false,
             windows: true,
             cloud: false,
             cloud_seed: String::new(),
             name: "Windows 11 ARM".into(),
             directory: String::new(),
             installer: String::new(),
-            firmware: String::new(),
-            variables: String::new(),
-            qemu_img: "qemu-img".into(),
+            firmware: tools
+                .as_ref()
+                .map(|t| t.firmware.display().to_string())
+                .unwrap_or_default(),
+            variables: tools
+                .as_ref()
+                .map(|t| t.variables.display().to_string())
+                .unwrap_or_default(),
+            qemu_img: tools
+                .map(|t| t.image.display().to_string())
+                .unwrap_or_else(|| "qemu-img".into()),
             cpus: 4,
             memory: 4096,
             disk: 64,
@@ -168,13 +195,6 @@ impl Desktop {
                                     &mut self.wizard.installer,
                                     Field::Installer,
                                 ),
-                                ("Firmware code", &mut self.wizard.firmware, Field::Firmware),
-                                (
-                                    "Variable template",
-                                    &mut self.wizard.variables,
-                                    Field::Variables,
-                                ),
-                                ("qemu-img", &mut self.wizard.qemu_img, Field::QemuImg),
                             ] {
                                 ui.label(lang.text(label));
                                 ui.horizontal(|ui| {
@@ -188,6 +208,29 @@ impl Desktop {
                                     }
                                 });
                             }
+                            if self.wizard.components_missing {
+                                ui.label(lang.text("VM components required"));
+                                if ui.button(lang.text("Find installed components")).clicked() {
+                                    self.wizard.refresh_requested=true;
+                                }
+                                if cfg!(target_os="macos") {
+                                    if brew_path().is_some() {
+                                        if ui.button(lang.text("Install QEMU and TPM with Homebrew")).clicked() { self.wizard.install_requested=true; }
+                                    } else {
+                                        ui.hyperlink_to(lang.text("Install Homebrew first"),"https://brew.sh");
+                                    }
+                                }
+                            }
+                            ui.collapsing(lang.text("Advanced components"),|ui| {
+                                for (label,value,field) in [
+                                    ("Firmware code", &mut self.wizard.firmware,Field::Firmware),
+                                    ("Variable template", &mut self.wizard.variables,Field::Variables),
+                                    ("qemu-img", &mut self.wizard.qemu_img,Field::QemuImg),
+                                ] {
+                                    ui.label(lang.text(label));
+                                    ui.horizontal(|ui| {ui.text_edit_singleline(value);if ui.button(lang.text("Browse")).clicked(){picker=Some(field);}});
+                                }
+                            });
                             if self.wizard.cloud {
                                 ui.label(lang.text("NoCloud seed ISO (optional)")).on_hover_text(lang.text("Configure a login or SSH key in the seed. Seed contents are not verified."));
                                 ui.text_edit_singleline(&mut self.wizard.cloud_seed);
@@ -323,6 +366,22 @@ impl Desktop {
                     .map(|path| Event::WizardPicked(field, path))
             });
         }
+        if std::mem::take(&mut self.wizard.refresh_requested) {
+            self.work(ctx, || {
+                freelane::host_tools::discover()
+                    .map(Event::WizardTools)
+                    .ok_or_else(|| "VM components not found".into())
+            });
+        }
+        if std::mem::take(&mut self.wizard.install_requested) {
+            self.notice = "Installing VM components".into();
+            self.work(ctx, || {
+                install_components()?;
+                freelane::host_tools::discover()
+                    .map(Event::WizardTools)
+                    .ok_or_else(|| "VM components not found".into())
+            });
+        }
         if create {
             let w = &self.wizard;
             let request = freelane::provision::Request {
@@ -368,5 +427,51 @@ impl Desktop {
                     .map_err(|e| e.to_string())
             });
         }
+    }
+}
+
+fn brew_path() -> Option<PathBuf> {
+    ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        .into_iter()
+        .map(PathBuf::from)
+        .find(|p| {
+            use std::os::unix::fs::PermissionsExt;
+            p.metadata()
+                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        })
+}
+fn install_components() -> Result<(), String> {
+    if !cfg!(target_os = "macos") {
+        return Err("Automatic component installation requires macOS".into());
+    }
+    let brew = brew_path().ok_or_else(|| "Install Homebrew first".to_string())?;
+    freelane::host_tools::run_installer(
+        Command::new(brew)
+            .args(["install", "qemu", "swtpm"])
+            .env("HOMEBREW_NO_AUTO_UPDATE", "1"),
+        Duration::from_secs(600),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod setup_tests {
+    use super::*;
+    #[test]
+    fn detected_tools_fill_empty_fields_without_replacing_manual_choices() {
+        let mut w = Wizard {
+            firmware: "/manual/code.fd".into(),
+            variables: String::new(),
+            qemu_img: "qemu-img".into(),
+            ..Wizard::default()
+        };
+        w.apply_tools(
+            "/auto/code.fd".into(),
+            "/auto/vars.fd".into(),
+            "/auto/qemu-img".into(),
+        );
+        assert_eq!(w.firmware, "/manual/code.fd");
+        assert_eq!(w.variables, "/auto/vars.fd");
+        assert_eq!(w.qemu_img, "/auto/qemu-img");
     }
 }

@@ -39,6 +39,7 @@ enum Event {
     AgentCapabilities(Option<freelane::agent_capabilities::Report>, String),
     SettingsPreview(freelane::settings_bundle::Bundle),
     WizardPicked(wizard::Field, Option<String>),
+    WizardTools(freelane::host_tools::Tools),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
     MobileNotice(String),
     MobileFrame(egui::ColorImage),
@@ -460,6 +461,14 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::WizardTools(tools)) => {
+                            self.wizard.apply_tools(
+                                tools.firmware.display().to_string(),
+                                tools.variables.display().to_string(),
+                                tools.image.display().to_string(),
+                            );
+                            self.notice = "VM components ready".into();
+                        }
                         Ok(Event::WizardPicked(field, value)) => {
                             if let Some(value) = value {
                                 self.wizard.picked(field, value);

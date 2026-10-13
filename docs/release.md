@@ -16,7 +16,7 @@ The package contains `FreeLane.app`, CLI, documentation, example configs, source
 
 The app uses local ad-hoc signing, **not Developer ID signing or Apple notarization**. macOS may block a downloaded experimental app. Inspect its origin and signature; use Apple's supported Open Anyway flow if you choose to run it. Do not disable system-wide security controls.
 
-QEMU/SDK tools must be reachable through your shell PATH or configured paths. For a Homebrew Apple Silicon installation, launch from Terminal so the desktop and its child processes receive the tool paths:
+The current wizard discovers installed QEMU/firmware and fills technical paths automatically. On Macs with Homebrew, its installation button installs QEMU and swtpm. Homebrew itself is not installed by FreeLane. Finder launch resolves a coherent Homebrew installation without requiring a Terminal launch. Mobile SDK/custom tools still need configured paths; a Terminal launch can supply those:
 
 ```sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -27,7 +27,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 ./FreeLane.app/Contents/MacOS/freelane mobile-plan /absolute/path/to/mobile.toml
 ```
 
-The desktop locates the sibling CLI automatically. Finder's PATH may differ from your Terminal's; a missing QEMU executable is a prerequisite error. MCP remains a source-checkout development workflow using `target/debug/freelane`; this standalone app does not configure MCP clients or replace the source wrapper.
+The desktop locates the sibling CLI automatically. QEMU remains a separate prerequisite; the wizard can install it when Homebrew is available. MCP remains a source-checkout development workflow using `target/debug/freelane`; this standalone app does not configure MCP clients or replace the source wrapper.
 
 Build the same package yourself on Mac with Xcode, Python3.11+ and the pinned Rust toolchain:
 

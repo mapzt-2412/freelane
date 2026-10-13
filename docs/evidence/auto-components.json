@@ -1,0 +1,15 @@
+{
+  "workspace_tests_passed": 109,
+  "workspace_tests_ignored": 6,
+  "clippy": "passed",
+  "desktop_build": "passed",
+  "mac_core_cross_check": "passed",
+  "linux_wizard_en_vi": "verified using real local QEMU/firmware in Homebrew-shaped fixture",
+  "manual_fields_preserved": "regression passed",
+  "partial_first_complete_second_prefix": "regression passed",
+  "installer_descendant_timeout": "fake installer regression RED then GREEN",
+  "actual_homebrew_install": false,
+  "native_mac_guest_boot": false,
+  "homebrew_bootstrap": false,
+  "qemu_bundled": false
+}

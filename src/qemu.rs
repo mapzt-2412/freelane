@@ -128,10 +128,10 @@ pub struct TpmConfig {
     pub binary: PathBuf,
 }
 fn default_swtpm() -> PathBuf {
-    "swtpm".into()
+    crate::host_tools::binary("swtpm")
 }
 fn default_binary() -> PathBuf {
-    "qemu-system-aarch64".into()
+    crate::host_tools::binary("qemu-system-aarch64")
 }
 fn canonical(base: &Path, path: &Path) -> Result<PathBuf> {
     fs::canonicalize(base.join(path))

@@ -10,6 +10,17 @@ impl Language {
             return english;
         }
         match english {
+            "VM components required" => "Cần cài thành phần máy ảo",
+            "Find installed components" => "Tìm thành phần đã cài",
+            "Install QEMU and TPM with Homebrew" => "Cài QEMU và TPM bằng Homebrew",
+            "Install Homebrew first" => "Cài Homebrew trước",
+            "Advanced components" => "Thành phần nâng cao",
+            "VM components not found" => "Chưa tìm thấy thành phần máy ảo",
+            "Installing VM components" => "Đang cài thành phần máy ảo",
+            "VM components ready" => "Thành phần máy ảo đã sẵn sàng",
+            "Component installation failed. Check Homebrew and retry." => "Cài thành phần thất bại. Kiểm tra Homebrew rồi thử lại.",
+            "Component installation timed out. Check Homebrew before retrying." => "Cài thành phần quá thời gian. Kiểm tra Homebrew trước khi thử lại.",
+
             "Unsupported settings version" => "Phiên bản cấu hình chưa được hỗ trợ",
             "Settings version/guest type does not match this VM" => "Phiên bản hoặc hệ điều hành trong cấu hình không khớp máy ảo này",
             "Settings media and shared-folder references must be absolute paths" => "Đường dẫn bộ cài và thư mục chia sẻ phải là đường dẫn tuyệt đối",
