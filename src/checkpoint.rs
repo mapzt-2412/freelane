@@ -403,9 +403,9 @@ fn standalone_disk(path: &Path) -> Result<()> {
             "Backing-chain checkpoints are not supported; use a standalone disk".into(),
         ));
     }
-    if version == 3 && u64::from_be_bytes(header[72..80].try_into().unwrap()) & 0b110 != 0 {
+    if version == 3 && u64::from_be_bytes(header[72..80].try_into().unwrap()) & 0b111 != 0 {
         return Err(Error(
-            "Corrupt or external-data-file qcow2 checkpoints are unsupported".into(),
+            "Dirty/corrupt or external-data-file qcow2 checkpoints are unsupported".into(),
         ));
     }
     Ok(())
@@ -520,6 +520,7 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
         path: pending.clone(),
         active: true,
     };
+    fs::write(pending.join(MARKER), b"incomplete restore").map_err(error)?;
     let mut hashes = BTreeMap::new();
     for (name, p) in source_files {
         let target = pending.join(&name);
@@ -542,5 +543,10 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
     }
     fs::rename(&pending, &final_path).map_err(error)?;
     guard.active = false;
+    fs::remove_file(final_path.join(MARKER)).map_err(|e| {
+        Error(format!(
+            "Restored data retained with startup marker; finalization failed: {e}"
+        ))
+    })?;
     Ok(final_path.join("vm.toml"))
 }
