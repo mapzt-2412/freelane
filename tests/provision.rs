@@ -107,3 +107,47 @@ fn loads_optional_connectivity_and_resolves_share_path() {
     );
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn fifo_creation_request_is_rejected_without_waiting_for_a_writer() {
+    use std::{
+        ffi::CString,
+        os::unix::{ffi::OsStrExt, fs::FileTypeExt},
+        process::{Command, Stdio},
+        time::{Duration, Instant},
+    };
+    let root = std::env::temp_dir().join(format!("fl-request-fifo-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    let path = root.join("request.pipe");
+    let name = CString::new(path.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_freelane"))
+        .arg("vm-create")
+        .arg(&path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_millis(500);
+    let mut blocked = false;
+    loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            assert!(!status.success());
+            break;
+        }
+        if Instant::now() >= deadline {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            blocked = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(fs::symlink_metadata(&path).unwrap().file_type().is_fifo());
+    fs::remove_dir_all(root).unwrap();
+    assert!(
+        !blocked,
+        "Creation request FIFO hung until forced termination"
+    );
+}

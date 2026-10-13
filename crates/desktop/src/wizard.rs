@@ -274,7 +274,7 @@ impl Desktop {
                             });
                         }
                         if !self.notice.is_empty() {
-                            ui.label(&self.notice);
+                            ui.add(egui::Label::new(lang.message(&self.notice)).wrap());
                         }
                     });
             });

@@ -10,6 +10,23 @@ impl Language {
             return english;
         }
         match english {
+            "Cannot verify ARM64 installer media. Choose an ISO containing EFI/BOOT/BOOTAA64.EFI." => "Không xác minh được bộ cài ARM64. Chọn ISO có EFI/BOOT/BOOTAA64.EFI.",
+            "Installer needs UDF inspection. Install 7-Zip (macOS: brew install sevenzip), then retry." => "Bộ cài dùng UDF cần 7-Zip. Trên macOS chạy brew install sevenzip rồi thử lại.",
+
+            "File dialog unavailable. Enter the path manually; on Linux install zenity." => "Chưa mở được hộp chọn tệp. Nhập đường dẫn thủ công; trên Linux cần cài zenity.",
+            "Unable to open the file dialog. Enter the path manually." => "Không mở được hộp chọn tệp. Hãy nhập đường dẫn thủ công.",
+            "Selected path is not UTF-8" => "Đường dẫn đã chọn không dùng UTF-8",
+            "Selected path cannot be represented by the form" => "Biểu mẫu không hỗ trợ đường dẫn này",
+            "Select an absolute path" => "Hãy chọn đường dẫn tuyệt đối",
+            "qemu-img is missing or not executable; install QEMU before creating a VM" => "Chưa tìm thấy qemu-img hoặc không có quyền chạy. Cài QEMU trước khi tạo máy ảo.",
+            "Choose a new, nonexisting VM directory; existing directories are preserved" => "Chọn thư mục máy ảo mới chưa tồn tại. Thư mục đã có được giữ nguyên.",
+            "Confirm your selected installer is ARM64" => "Hãy xác nhận bộ cài đã chọn là ARM64",
+            "Windows requires at least 2 CPUs, 4096 MiB RAM and a 64 GiB disk" => "Windows cần ít nhất 2 CPU, 4096 MiB RAM và ổ đĩa 64 GiB",
+            "HVF requires Apple Silicon macOS; select TCG explicitly on other hosts" => "HVF cần macOS trên Apple Silicon. Chọn TCG trên máy khác.",
+            "Shared folder must be an existing directory" => "Thư mục chia sẻ phải tồn tại",
+            "Read/write 9p sharing requires Ubuntu" => "Chia sẻ 9p đọc/ghi cần Ubuntu",
+            "Choose a destination parent owned by you without group/world write access" => "Chọn thư mục cha thuộc quyền sở hữu của bạn và chỉ bạn có quyền ghi",
+
             "Small" => "Nhẹ",
             "Standard" => "Tiêu chuẩn",
             "Large" => "Lớn",
@@ -40,7 +57,7 @@ impl Language {
             "Create virtual machine" => "Tạo máy ảo mới",
             "New VM directory" => "Thư mục máy ảo mới",
             "ARM64 installer ISO" => "ISO cài đặt ARM64",
-            "Firmware code" => "Firmware code",
+            "Firmware code" => "Mã firmware",
             "Variable template" => "Mẫu NVRAM",
             "Disk size (GiB)" => "Dung lượng đĩa (GiB)",
             "I confirm the installer is ARM64" => "Tôi xác nhận bộ cài là ARM64",
@@ -141,7 +158,7 @@ impl Language {
             "Network adapter" => "Card mạng",
             "USB network" => "Mạng USB",
             "Headless · hide native VM window" => "Không mở cửa sổ VM riêng",
-            "Guest agent channel" => "Kênh guest agent",
+            "Guest agent channel" => "Kênh agent máy khách",
             "Private serial console" => "Console serial riêng",
             "Physical USB devices" => "Thiết bị USB vật lý",
             "Add USB device" => "Thêm thiết bị USB",
@@ -168,7 +185,19 @@ impl Language {
         if self == Self::English {
             return message.to_owned();
         }
+        if let Some(tail) = message.strip_prefix("Creation failed: ") {
+            return format!(
+                "Tạo máy ảo thất bại: {}",
+                self.message(tail)
+                    .replace("Retained workspace:", "Thư mục được giữ lại:")
+                    .replace("Originals are preserved.", "Dữ liệu gốc được giữ nguyên.")
+            );
+        }
         for (english, vietnamese) in [
+            ("VM storage insufficient: ","Không đủ dung lượng lưu trữ: "),
+            ("Shared folder: ","Thư mục chia sẻ: "),
+            ("installer: ","Bộ cài: "),
+            ("variable template: ","Mẫu NVRAM: "),
             ("Settings saved for next start. Backup: ", "Đã lưu cho lần khởi động tới. Bản sao: "),
             ("Guest responded: ", "Máy ảo đã phản hồi: "),
             ("Guest reported process started (PID ", "Guest xác nhận tiến trình đã chạy (PID "),

@@ -306,10 +306,25 @@ impl Request {
 }
 /// Load an explicit creation request; relative inputs resolve against its file, not process cwd.
 pub fn load(path: &Path) -> Result<Request> {
-    if fs::metadata(path).map_err(|e| Error(e.to_string()))?.len() > 1024 * 1024 {
-        return Err(Error("Creation request exceeds 1 MiB".into()));
+    use std::{io::Read, os::unix::fs::OpenOptionsExt};
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|e| Error(e.to_string()))?;
+    let metadata = file.metadata().map_err(|e| Error(e.to_string()))?;
+    if !metadata.is_file() || metadata.len() > 1024 * 1024 {
+        return Err(Error(
+            "Creation request must be a regular file of at most 1 MiB".into(),
+        ));
     }
-    let text = fs::read_to_string(path).map_err(|e| Error(e.to_string()))?;
+    let mut text = String::new();
+    file.take(1024 * 1024 + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| Error(e.to_string()))?;
+    if text.len() > 1024 * 1024 {
+        return Err(Error("Creation request grew beyond 1 MiB".into()));
+    }
     let mut r: Request = toml::from_str(&text).map_err(|e| Error(e.to_string()))?;
     let base = path.parent().unwrap_or(Path::new("."));
     for p in [
@@ -466,7 +481,14 @@ mod tests {
 }
 
 /// Finish an interrupted, prepared creation into a fresh destination.
-pub fn recover_creation(source: &Path, destination: &Path) -> Result<PathBuf> {
+#[derive(Debug, Serialize)]
+pub struct Recovery {
+    pub config: PathBuf,
+    pub published: bool,
+    pub startup_allowed: bool,
+    pub warning: Option<String>,
+}
+pub fn recover_creation(source: &Path, destination: &Path) -> Result<Recovery> {
     use std::{
         io::Read,
         os::unix::fs::{MetadataExt, OpenOptionsExt},
@@ -476,9 +498,10 @@ pub fn recover_creation(source: &Path, destination: &Path) -> Result<PathBuf> {
     if !metadata.is_dir()
         || metadata.uid() != unsafe { libc::geteuid() }
         || metadata.mode() & 0o077 != 0
+        || metadata.mode() & 0o700 != 0o700
     {
         return Err(Error(
-            "Recovery source must be a private workspace owned by you".into(),
+            "Recovery source must be a private read/write workspace owned by you".into(),
         ));
     }
     let marker = source.join(MARKER);
@@ -590,18 +613,37 @@ pub fn recover_creation(source: &Path, destination: &Path) -> Result<PathBuf> {
     }
     // Atomic no-replace rename keeps originals intact when the destination collides.
     crate::storage::publish(&source, &target)?;
-    fs::remove_file(target.join(MARKER)).map_err(|e| {
-        Error(format!(
-            "Recovered data retained at {} with marker: {e}",
-            target.display()
-        ))
-    })?;
-    Ok(target.join("vm.toml"))
+    Ok(finalize_recovery(&target))
+}
+fn finalize_recovery(target: &Path) -> Recovery {
+    let warning=fs::remove_file(target.join(MARKER)).err().map(|e|format!("Publication committed; data retained at {} with a startup marker. Resolve directory permissions before finalizing: {e}",target.display()));
+    Recovery {
+        config: target.join("vm.toml"),
+        published: true,
+        startup_allowed: warning.is_none(),
+        warning,
+    }
 }
 #[cfg(test)]
 mod recovery_tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn committed_publication_reports_marker_failure_without_claiming_rollback() {
+        let root =
+            std::env::temp_dir().join(format!("fl-creation-finalization-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("vm.toml"), b"retained data").unwrap();
+        // Simulates a marker replacement race after atomic publication.
+        fs::create_dir(root.join(MARKER)).unwrap();
+        let result = finalize_recovery(&root);
+        assert!(result.published);
+        assert!(!result.startup_allowed);
+        assert!(result.warning.is_some());
+        assert!(root.join(MARKER).exists());
+        assert_eq!(fs::read(result.config).unwrap(), b"retained data");
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn prepared_creation_can_recover_without_replacing_a_collision() {
         let root =
@@ -656,7 +698,24 @@ mod recovery_tests {
         assert!(source.exists());
         assert!(!root.join("recovered").exists());
         fs::write(disk, original).unwrap();
-        let result = recover_creation(&source, &root.join("recovered")).unwrap();
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o500)).unwrap();
+        let attempt = recover_creation(&source, &root.join("readonly-recovery"));
+        let preserved = source.exists();
+        if preserved {
+            fs::set_permissions(&source, fs::Permissions::from_mode(0o700)).unwrap();
+        } else {
+            fs::set_permissions(
+                root.join("readonly-recovery"),
+                fs::Permissions::from_mode(0o700),
+            )
+            .unwrap();
+        }
+        assert!(attempt.is_err());
+        assert!(preserved, "Failed recovery moved its original source");
+        assert!(!root.join("readonly-recovery").exists());
+        let recovery = recover_creation(&source, &root.join("recovered")).unwrap();
+        assert!(recovery.published && recovery.startup_allowed && recovery.warning.is_none());
+        let result = recovery.config;
         assert!(result.exists());
         assert!(!source.exists());
         assert!(!result.parent().unwrap().join(MARKER).exists());

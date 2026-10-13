@@ -7,7 +7,10 @@ use std::{
 };
 const SECTOR: u64 = 2048;
 fn fail() -> Error {
-    Error("Cannot verify an ARM64 ISO9660 UEFI installer. Select media containing EFI/BOOT/BOOTAA64.EFI; For UDF media install 7-Zip. Cloud disk images are not supported by this wizard.".into())
+    Error(
+        "Cannot verify ARM64 installer media. Choose an ISO containing EFI/BOOT/BOOTAA64.EFI."
+            .into(),
+    )
 }
 struct Entry {
     sector: u32,
@@ -171,7 +174,7 @@ fn verify_with_7zip(path: &Path) -> Result<()> {
     let mut spawned = None;
     for tool in ["7zz", "7z"] {
         match Command::new(tool)
-            .args(["e", "-so", "-bd", "-y", "-ssc-"])
+            .args(["e", "-tudf", "-so", "-bd", "-y", "-ssc-"])
             .arg(&path)
             .arg("EFI/BOOT/BOOTAA64.EFI")
             .stdin(Stdio::null())

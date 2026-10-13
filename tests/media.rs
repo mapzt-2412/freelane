@@ -62,3 +62,14 @@ fn refuses_wrong_architecture_missing_loader_and_out_of_bounds_extents() {
     }
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn zip_with_arm64_loader_is_never_accepted_as_cd_media() {
+    let root = std::env::temp_dir().join(format!("fl-media-archive-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    let path = root.join("misnamed.iso");
+    fs::write(&path, include_bytes!("fixtures/not-an-iso-arm64.zip")).unwrap();
+    let result = freelane::media::verify_arm64_iso(&path);
+    fs::remove_dir_all(root).unwrap();
+    assert!(result.is_err(), "ZIP archive accepted as raw ISO/CD media");
+}
