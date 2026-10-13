@@ -16,6 +16,18 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, snapshot, output] if command == "checkpoint-restore" => {
+            let config=freelane::checkpoint::restore(Path::new(snapshot),Path::new(output))?;
+            println!("Restored to new workspace {}. Guest boot and TPM/data recovery remain unverified.",config.display());
+            Ok(())
+        }
+
+        [command, config, output, label] if command == "checkpoint-create" => {
+            let output = freelane::checkpoint::create(Path::new(config), Path::new(output), label, Path::new("qemu-img"))?;
+            println!("Created immutable offline checkpoint {}. Restore and guest validation are separate operations.", output.display());
+            Ok(())
+        }
+
         [command, path] if command == "vm-create" => {
             let request = freelane::provision::load(Path::new(path))?;
             let config = request.create()?;

@@ -2,6 +2,7 @@
 pub mod agent;
 pub mod app_launcher;
 pub mod benchmark;
+pub mod checkpoint;
 pub mod diagnostics;
 pub mod library;
 pub mod mobile;

@@ -159,6 +159,11 @@ pub fn runtime_dir(config: &Path) -> Result<PathBuf> {
 
 pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<String>> {
     config.validate()?;
+    if base.join(crate::checkpoint::MARKER).exists() {
+        return Err(Error(
+            "Checkpoint workspace is immutable; restore/import it before starting a guest".into(),
+        ));
+    }
     config.check_images(base)?;
     let runtime = config.runtime.as_ref().ok_or_else(|| {
         Error("Missing [runtime] settings (firmware, nvram and disk format)".into())
