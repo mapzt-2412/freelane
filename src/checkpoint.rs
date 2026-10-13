@@ -89,6 +89,11 @@ fn copy_file(
     root: &Path,
     hashes: &mut BTreeMap<String, String>,
 ) -> Result<()> {
+    if fs::symlink_metadata(target).is_ok() {
+        return Err(Error(
+            "Checkpoint/restore destination filenames collide; incomplete copy discarded".into(),
+        ));
+    }
     let before = hash(source)?;
     fs::copy(source, target).map_err(error)?;
     fs::set_permissions(target, fs::Permissions::from_mode(0o600)).map_err(error)?;
@@ -378,6 +383,11 @@ pub fn create(config_path: &Path, output: &Path, label: &str, qemu_img: &Path) -
             "Configuration/output changed during checkpoint; incomplete copy discarded".into(),
         ));
     }
+    for name in manifest.files_sha256.keys() {
+        fs::set_permissions(pending.join(name), fs::Permissions::from_mode(0o400))
+            .map_err(error)?;
+    }
+    fs::set_permissions(pending.join(MARKER), fs::Permissions::from_mode(0o400)).map_err(error)?;
     fs::rename(&pending, &final_path).map_err(error)?;
     guard.active = false;
     Ok(final_path)

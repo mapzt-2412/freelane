@@ -52,6 +52,7 @@ def main():
             assert (restored / 'tpm/state.bin').read_bytes() == (vm / 'tpm/state.bin').read_bytes()
             run(CLI, 'checkpoint-create', config, checkpoint, 'Overwrite', success=False)
             run(CLI, 'checkpoint-restore', checkpoint, restored, success=False)
+            (checkpoint / 'nvram.fd').chmod(0o600)  # Deliberate fixture corruption, not a normal app operation.
             (checkpoint / 'nvram.fd').write_bytes(b'CORRUPTED FIXTURE')
             run(CLI, 'checkpoint-restore', checkpoint, root / 'bad-restore', success=False)
             assert not (root / 'bad-restore').exists()
