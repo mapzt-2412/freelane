@@ -131,7 +131,11 @@ fn independent_cli_requests_do_not_reuse_response_ids() {
             let deadline = Instant::now() + Duration::from_secs(10);
             let mut socket = loop {
                 match listener.accept() {
-                    Ok((socket, _)) => break socket,
+                    Ok((socket, _)) => {
+                        // BSD/macOS may inherit O_NONBLOCK from the listening socket.
+                        socket.set_nonblocking(false).unwrap();
+                        break socket;
+                    }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         assert!(Instant::now() < deadline, "CLI did not connect");
                         thread::sleep(Duration::from_millis(10));
@@ -283,7 +287,10 @@ fn independent_app_clients_lease_the_serial_channel_until_reply() {
             let deadline = Instant::now() + Duration::from_secs(3);
             loop {
                 match listener.accept() {
-                    Ok(s) => break s.0,
+                    Ok(s) => {
+                        s.0.set_nonblocking(false).unwrap();
+                        break s.0;
+                    }
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                         assert!(Instant::now() < deadline);
                         thread::sleep(Duration::from_millis(10));
