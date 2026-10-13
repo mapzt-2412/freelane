@@ -8,7 +8,7 @@ Manage **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** and **Xcode iO
 
 FreeLane is experimental. Its long-term goal is a free alternative to Parallels Desktop. Current runtime evidence comes from Linux cloud testing; native Mac execution, everyday reliability and a performance advantage still need validation.
 
-![FreeLane desktop control center](docs/assets/desktop-mac-style.png)
+![FreeLane desktop control center](docs/assets/desktop-design-review.png)
 
 *Mac-style Vietnamese UI running on Linux Xvfb, showing a stopped Ubuntu configuration; this is not a guest desktop.*
 

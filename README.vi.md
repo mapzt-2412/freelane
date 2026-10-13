@@ -8,7 +8,7 @@ Quản lý **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** và **Xcod
 
 FreeLane đang ở giai đoạn thử nghiệm, hướng tới một lựa chọn miễn phí thay thế Parallels Desktop. Bằng chứng chạy thực tế hiện đến từ Linux cloud; chạy trên Mac thật, độ ổn định hằng ngày và lợi thế hiệu năng vẫn cần kiểm chứng.
 
-![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-mac-style.png)
+![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-design-review.png)
 
 *UI mới theo phong cách Mac, chạy thật trên Linux Xvfb. Ảnh này hiển thị cấu hình Ubuntu đang dừng, không phải desktop guest.*
 

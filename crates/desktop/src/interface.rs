@@ -151,7 +151,7 @@ impl Desktop {
                             .color(ACCENT),
                     );
                     ui.separator();
-                    ui.label(lang.text("Control Center"));
+                    ui.colored_label(MUTED, lang.text("Control Center"));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         egui::ComboBox::from_id_salt("language")
                             .selected_text(if self.language == Language::Vietnamese {
@@ -394,8 +394,11 @@ impl Desktop {
                 ),
                 ("Refresh status", "status", true),
             ] {
+                if !allowed {
+                    continue;
+                }
                 if ui
-                    .add_enabled(!busy && allowed, egui::Button::new(lang.text(label)))
+                    .add_enabled(!busy, egui::Button::new(lang.text(label)))
                     .clicked()
                 {
                     self.control(ctx, action);
@@ -428,8 +431,9 @@ impl Desktop {
                 card().show(ui, |ui| {
                     ui.set_min_width(width);
                     ui.vertical(|ui| {
-                        ui.small(lang.text(label));
-                        ui.label(egui::RichText::new(value).strong().size(17.0));
+                        ui.colored_label(MUTED, egui::RichText::new(lang.text(label)).size(12.0));
+                        ui.add_space(3.0);
+                        ui.label(egui::RichText::new(value).strong().size(19.0));
                     });
                 });
             }
@@ -465,7 +469,12 @@ impl Desktop {
                 let height =
                     (viewport_height - (ui.cursor().top() - content_top) - 85.0).max(150.0);
                 egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(29, 36, 49))
+                    .fill(if self.texture.is_some() {
+                        egui::Color32::from_rgb(29, 36, 49)
+                    } else {
+                        egui::Color32::WHITE
+                    })
+                    .stroke(egui::Stroke::new(1.0, BORDER))
                     .corner_radius(12)
                     .inner_margin(14)
                     .show(ui, |ui| {
@@ -503,7 +512,8 @@ impl Desktop {
                                                     "Start your VM, then refresh its display."
                                                 )
                                             ))
-                                            .color(egui::Color32::from_rgb(185, 199, 220)),
+                                            .size(16.0)
+                                            .color(MUTED),
                                         );
                                     },
                                 );
