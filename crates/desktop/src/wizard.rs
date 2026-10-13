@@ -10,6 +10,8 @@ pub enum Field {
 }
 pub struct Wizard {
     pub open: bool,
+    storage_result: Option<Result<freelane::storage::Destination, String>>,
+    storage_due: Option<Instant>,
     components_missing: bool,
     refresh_requested: bool,
     install_requested: bool,
@@ -33,6 +35,25 @@ pub struct Wizard {
     share_mode: qemu::ShareMode,
 }
 impl Wizard {
+    pub fn begin(&mut self) {
+        self.open = true;
+        self.refresh_requested = true;
+        self.storage_changed();
+    }
+    fn storage_changed(&mut self) {
+        self.storage_result = None;
+        self.storage_due = (!self.directory.trim().is_empty())
+            .then(|| Instant::now() + Duration::from_millis(600));
+    }
+    pub fn storage_received(
+        &mut self,
+        path: &str,
+        result: Result<freelane::storage::Destination, String>,
+    ) {
+        if path == self.directory.trim() {
+            self.storage_result = Some(result);
+        }
+    }
     pub fn apply_tools(&mut self, firmware: String, variables: String, image: String) {
         self.components_missing = false;
         if self.firmware.is_empty() {
@@ -48,10 +69,8 @@ impl Wizard {
     pub fn picked(&mut self, field: Field, value: String) {
         match field {
             Field::Directory => {
-                self.directory = PathBuf::from(value)
-                    .join("FreeLane VM")
-                    .display()
-                    .to_string()
+                self.directory = value;
+                self.storage_changed();
             }
             Field::Installer => {
                 self.installer = value;
@@ -69,6 +88,8 @@ impl Default for Wizard {
         let tools = freelane::host_tools::discover();
         Self {
             open: false,
+            storage_result: None,
+            storage_due: None,
             components_missing: tools.is_none(),
             refresh_requested: false,
             install_requested: false,
@@ -114,6 +135,7 @@ impl Desktop {
         let mut open = true;
         let mut create = false;
         let mut picker = None;
+        let mut directory_changed = false;
         let busy = self.pending.is_some();
         egui::Window::new(lang.text("Create virtual machine"))
             .id(egui::Id::new("new-vm-wizard"))
@@ -203,10 +225,22 @@ impl Desktop {
                                         egui::TextEdit::singleline(value),
                                     ).changed();
                                     if changed && matches!(field, Field::Installer) { self.wizard.confirmed=false; }
+                                    if changed && matches!(field,Field::Directory) {directory_changed=true;}
                                     if ui.button(lang.text("Browse")).clicked() {
                                         picker = Some(field);
                                     }
                                 });
+                            }
+                            if let Some(result)=&self.wizard.storage_result {
+                                match result {
+                                    Ok(report)=>{
+                                        ui.label(format!("{}: {:.1} GiB",lang.text("Free at destination"),report.available_bytes as f64/(1024.0*1024.0*1024.0))).on_hover_text(report.filesystem_path.display().to_string());
+                                        if self.wizard.windows && report.available_bytes<32*1024*1024*1024 {
+                                            ui.small(lang.text("Windows installation may need more free space."));
+                                        }
+                                    }
+                                    Err(error)=>{ui.label(lang.message(error));}
+                                }
                             }
                             if self.wizard.components_missing {
                                 ui.label(lang.text("VM components required"));
@@ -231,6 +265,7 @@ impl Desktop {
                                     ui.horizontal(|ui| {ui.text_edit_singleline(value);if ui.button(lang.text("Browse")).clicked(){picker=Some(field);}});
                                 }
                             });
+                            ui.small(lang.text("Disk grows as used on the selected storage."));
                             if self.wizard.cloud {
                                 ui.label(lang.text("NoCloud seed ISO (optional)")).on_hover_text(lang.text("Configure a login or SSH key in the seed. Seed contents are not verified."));
                                 ui.text_edit_singleline(&mut self.wizard.cloud_seed);
@@ -268,8 +303,8 @@ impl Desktop {
                                     egui::DragValue::new(&mut self.wizard.memory)
                                         .range(2048..=1_048_576),
                                 );
-                                ui.label(lang.text("Disk size (GiB)"));
-                                ui.add(egui::DragValue::new(&mut self.wizard.disk).range(8..=4096));
+                                ui.label(lang.text("Virtual disk capacity (GiB)"));
+                                ui.add(egui::DragValue::new(&mut self.wizard.disk).range(8..=u64::MAX/(1024*1024*1024)));
                             });
                             ui.horizontal(|ui| {
                                 ui.add_enabled_ui(freelane::supported_host(), |ui| {
@@ -360,20 +395,36 @@ impl Desktop {
                     });
             });
         self.wizard.open = open;
+        if directory_changed {
+            self.wizard.storage_changed();
+        }
         if let Some(field) = picker {
+            let name = self.wizard.name.clone();
             self.work(ctx, move || {
                 file_picker::choose(matches!(field, Field::Directory | Field::SharedFolder))
-                    .map(|path| Event::WizardPicked(field, path))
+                    .and_then(|path| {
+                        let path = if matches!(field, Field::Directory) {
+                            path.map(|parent| {
+                                freelane::storage::prepare_vm_parent(Path::new(&parent))
+                                    .map_err(|e| e.to_string())
+                                    .and_then(|parent| fresh_directory(&parent, &name))
+                            })
+                            .transpose()?
+                        } else {
+                            path
+                        };
+                        Ok(Event::WizardPicked(field, path))
+                    })
             });
         }
-        if std::mem::take(&mut self.wizard.refresh_requested) {
+        if !create && self.pending.is_none() && std::mem::take(&mut self.wizard.refresh_requested) {
             self.work(ctx, || {
                 freelane::host_tools::discover()
                     .map(Event::WizardTools)
                     .ok_or_else(|| "VM components not found".into())
             });
         }
-        if std::mem::take(&mut self.wizard.install_requested) {
+        if !create && self.pending.is_none() && std::mem::take(&mut self.wizard.install_requested) {
             self.notice = "Installing VM components".into();
             self.work(ctx, || {
                 install_components()?;
@@ -427,9 +478,47 @@ impl Desktop {
                     .map_err(|e| e.to_string())
             });
         }
+        if !create && self.pending.is_none() {
+            if let Some(due) = self.wizard.storage_due {
+                if Instant::now() >= due {
+                    self.wizard.storage_due = None;
+                    let path = self.wizard.directory.trim().to_string();
+                    self.work(ctx, move || {
+                        let result = freelane::storage::inspect_destination(Path::new(&path))
+                            .map_err(|e| e.to_string());
+                        Ok(Event::WizardStorage(path, result))
+                    });
+                } else {
+                    ctx.request_repaint_after(Duration::from_millis(200));
+                }
+            }
+        }
     }
 }
 
+fn fresh_directory(parent: &Path, name: &str) -> Result<String, String> {
+    let name: String = name
+        .chars()
+        .filter(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '_'))
+        .take(80)
+        .collect();
+    let name = if name.trim().is_empty() {
+        "Virtual machine"
+    } else {
+        name.trim()
+    };
+    for index in 0..10000 {
+        let target = parent.join(if index == 0 {
+            name.to_string()
+        } else {
+            format!("{name}-{index}")
+        });
+        if !target.try_exists().map_err(|e| e.to_string())? {
+            return Ok(target.display().to_string());
+        }
+    }
+    Err("Choose a folder with fewer conflicting VM names".into())
+}
 fn brew_path() -> Option<PathBuf> {
     ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
         .into_iter()
@@ -473,5 +562,27 @@ mod setup_tests {
         assert_eq!(w.firmware, "/manual/code.fd");
         assert_eq!(w.variables, "/auto/vars.fd");
         assert_eq!(w.qemu_img, "/auto/qemu-img");
+    }
+    #[test]
+    fn folder_selection_keeps_vm_on_selected_storage_and_preserves_existing_vm() {
+        let root = std::env::temp_dir().join(format!("fl-wizard-folder-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(root.join("Windows 11 ARM")).unwrap();
+        std::fs::write(root.join("Windows 11 ARM/user-data"), b"preserve").unwrap();
+        let mut wizard = Wizard::default();
+        wizard.picked(
+            Field::Directory,
+            fresh_directory(&root, &wizard.name).unwrap(),
+        );
+        assert_eq!(
+            PathBuf::from(&wizard.directory),
+            root.join("Windows 11 ARM-1")
+        );
+        assert!(!Path::new(&wizard.directory).exists());
+        assert_eq!(
+            std::fs::read(root.join("Windows 11 ARM/user-data")).unwrap(),
+            b"preserve"
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

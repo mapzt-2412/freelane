@@ -927,8 +927,21 @@ pub fn initialize_guest_sized(
     disk_gib: u64,
 ) -> Result<PathBuf> {
     initialize_guest_transaction(
-        directory, firmware, template, qemu_img, guest_os, disk_gib, false,
+        directory,
+        firmware,
+        template,
+        qemu_img,
+        guest_os,
+        disk_gib,
+        Creation {
+            retain_marker: false,
+            anchor: None,
+        },
     )
+}
+pub(crate) struct Creation<'a> {
+    pub retain_marker: bool,
+    pub anchor: Option<&'a crate::storage::ParentAnchor>,
 }
 pub(crate) fn initialize_guest_transaction(
     directory: &Path,
@@ -937,12 +950,16 @@ pub(crate) fn initialize_guest_transaction(
     qemu_img: &Path,
     guest_os: GuestOs,
     disk_gib: u64,
-    retain_marker: bool,
+    creation: Creation<'_>,
 ) -> Result<PathBuf> {
+    let Creation {
+        retain_marker,
+        anchor,
+    } = creation;
     let minimum = if guest_os == GuestOs::Windows { 64 } else { 8 };
-    if !(minimum..=4096).contains(&disk_gib) {
+    if disk_gib < minimum || disk_gib.checked_mul(1024 * 1024 * 1024).is_none() {
         return Err(Error(format!(
-            "Disk size must be {minimum}–4096 GiB for this guest"
+            "Virtual disk must be at least {minimum} GiB and fit the backend size representation"
         )));
     }
     let firmware = fs::canonicalize(firmware).map_err(|e| Error(format!("Firmware: {e}")))?;
@@ -961,12 +978,19 @@ pub(crate) fn initialize_guest_transaction(
         ));
     }
     // create_dir is the no-overwrite boundary. Failed setup leaves a clearly incomplete directory.
-    fs::create_dir(directory).map_err(|e| {
-        Error(format!(
-            "Create new VM directory {}: {e}",
-            directory.display()
-        ))
-    })?;
+    // Keep the private stage directory descriptor alive through component writes.
+    let _stage = match anchor {
+        Some(anchor) => Some(anchor.mkdir(directory)?),
+        None => {
+            fs::create_dir(directory).map_err(|e| {
+                Error(format!(
+                    "Create new VM directory {}: {e}",
+                    directory.display()
+                ))
+            })?;
+            None
+        }
+    };
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
         .map_err(|e| Error(e.to_string()))?;

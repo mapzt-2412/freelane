@@ -274,7 +274,7 @@ impl Desktop {
                     )
                     .clicked()
                 {
-                    self.wizard.open = true;
+                    self.wizard.begin();
                 }
                 if ui.button(lang.text("Android & iOS")).clicked() {
                     self.mobile_open = true;

@@ -10,6 +10,22 @@ impl Language {
             return english;
         }
         match english {
+            "Selected folder can be changed by other users; choose a private storage location"=>"Thư mục đã chọn dùng chung quyền ghi; chọn nơi lưu riêng cho máy ảo",
+
+            "Selected storage cannot provide a private VM folder; choose another folder or volume"=>"Ổ đã chọn không tạo được thư mục VM riêng; chọn thư mục hoặc ổ khác",
+            "Choose a folder with fewer conflicting VM names"=>"Chọn thư mục khác để tránh trùng tên máy ảo",
+
+            "Destination changed or disconnected; select the storage again"=>"Nơi lưu đã thay đổi hoặc mất kết nối; chọn lại ổ lưu máy ảo",
+
+            "Selected volume is unavailable. Reconnect it and choose the folder again."=>"Ổ đã chọn chưa kết nối. Kết nối lại ổ rồi chọn thư mục.",
+
+            "Virtual disk capacity (GiB)"=>"Dung lượng đĩa ảo (GiB)",
+            "Free at destination"=>"Chỗ trống tại nơi lưu",
+            "Disk grows as used on the selected storage."=>"Đĩa chỉ tăng theo dữ liệu trên ổ đã chọn.",
+            "Windows installation may need more free space."=>"Cài Windows có thể cần thêm chỗ trống.",
+            "Choose a VM destination folder"=>"Chọn thư mục lưu máy ảo",
+            "VM destination ancestor is not a directory"=>"Nơi lưu máy ảo không phải thư mục",
+
             "VM components required" => "Cần cài thành phần máy ảo",
             "Find installed components" => "Tìm thành phần đã cài",
             "Install QEMU and TPM with Homebrew" => "Cài QEMU và TPM bằng Homebrew",
@@ -244,6 +260,26 @@ impl Language {
                 self.message(tail)
                     .replace("Retained workspace:", "Thư mục được giữ lại:")
                     .replace("Originals are preserved.", "Dữ liệu gốc được giữ nguyên.")
+            );
+        }
+        if let Some(details) = message.strip_prefix("VM storage insufficient: ") {
+            return format!(
+                "Không đủ chỗ trống để tạo máy ảo: {}",
+                details
+                    .replace("need ", "cần ")
+                    .replace(
+                        " MiB for initial creation/import, available ",
+                        " MiB để tạo/nhập ban đầu, còn "
+                    )
+                    .replace(" MiB at ", " MiB tại ")
+                    .replace(
+                        "Select a destination with more free space.",
+                        "Chọn nơi lưu có thêm chỗ trống."
+                    )
+                    .replace(
+                        "The virtual disk grows as data is written.",
+                        "Đĩa ảo tăng theo dữ liệu được ghi."
+                    )
             );
         }
         for (english, vietnamese) in [

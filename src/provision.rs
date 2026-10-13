@@ -124,8 +124,8 @@ impl Request {
         } else {
             8
         };
-        if !(minimum..=4096).contains(&self.disk_gib) {
-            return Err(Error(format!("Disk must be {minimum}–4096 GiB")));
+        if self.disk_gib < minimum || self.disk_gib.checked_mul(1024 * 1024 * 1024).is_none() {
+            return Err(Error(format!("Virtual disk must be at least {minimum} GiB and fit the backend size representation")));
         }
         if self.accelerator == qemu::Accelerator::Hvf && !crate::supported_host() {
             return Err(Error(
@@ -152,42 +152,36 @@ impl Request {
                 "Firmware and variable template must be distinct files".into(),
             ));
         }
-        // Check the nearest existing ancestor without creating any directories.
-        let mut parent = self.directory.parent().unwrap_or(Path::new("."));
-        loop {
-            if parent.as_os_str().is_empty() {
-                parent = Path::new(".");
-            }
-            match fs::metadata(parent) {
-                Ok(m) if m.is_dir() => break,
-                Ok(_) => return Err(Error("VM destination ancestor is not a directory".into())),
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    parent = parent
-                        .parent()
-                        .ok_or_else(|| Error("No existing destination ancestor".into()))?;
-                }
-                Err(e) => return Err(Error(e.to_string())),
-            }
-        }
-        let required = (self.disk_gib * 1024 * 1024 * 1024)
-            .checked_add(f.len())
-            .and_then(|n| n.checked_add(v.len()))
+        // Empty qcow2 disks are sparse: virtual capacity is not an allocation request.
+        let metadata = self
+            .disk_gib
+            .checked_mul(32)
+            .ok_or_else(|| Error("VM storage estimate overflow".into()))?;
+        let initial = f
+            .len()
+            .checked_add(v.len())
             .and_then(|n| n.checked_add(64 * 1024 * 1024))
+            .and_then(|n| n.checked_add(metadata))
             .ok_or_else(|| Error("VM storage estimate overflow".into()))?;
         let required = if self.source == Source::UbuntuCloudImage {
-            required
-                .checked_add(
-                    fs::metadata(&self.installer)
-                        .map_err(|e| Error(e.to_string()))?
-                        .len(),
-                )
+            // Import needs a private source copy and room for converted source data.
+            // Resizing to the selected virtual maximum does not allocate that maximum.
+            let source_bytes = fs::metadata(&self.installer)
+                .map_err(|e| Error(e.to_string()))?
+                .len();
+            initial
+                .checked_add(crate::cloud_image::virtual_size(
+                    &self.installer,
+                    self.disk_gib,
+                )?)
+                .and_then(|n| n.checked_add(source_bytes))
                 .ok_or_else(|| Error("VM storage estimate overflow".into()))?
         } else {
-            required
+            initial
         };
-        let available = crate::storage::free_space(parent)?;
-        if available < required {
-            return Err(Error(format!("VM storage insufficient: require {} MiB for disk growth and firmware, available {} MiB. Choose a larger destination or a smaller disk. This check does not reserve space.", required / 1024 / 1024, available / 1024 / 1024)));
+        let destination = crate::storage::inspect_destination(&self.directory)?;
+        if destination.available_bytes < required {
+            return Err(Error(format!("VM storage insufficient: need {} MiB for initial creation/import, available {} MiB at {}. Select a destination with more free space. The virtual disk grows as data is written.",required/1024/1024,destination.available_bytes/1024/1024,destination.filesystem_path.display())));
         }
         Ok(())
     }
@@ -195,11 +189,22 @@ impl Request {
     fn build_staged(&self, installer: PathBuf) -> Result<PathBuf> {
         self.build_staged_progress(installer, &mut |_| {})
     }
+    #[cfg(test)]
     fn build_staged_progress(
         &self,
         installer: PathBuf,
         update: &mut impl FnMut(Stage),
     ) -> Result<PathBuf> {
+        let anchor = crate::storage::ParentAnchor::open(&self.directory)?;
+        self.build_with_anchor(installer, update, &anchor)
+    }
+    fn build_with_anchor(
+        &self,
+        installer: PathBuf,
+        update: &mut impl FnMut(Stage),
+        anchor: &crate::storage::ParentAnchor,
+    ) -> Result<PathBuf> {
+        anchor.verify(&self.directory)?;
         use std::{
             io::Write,
             os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
@@ -241,7 +246,10 @@ impl Request {
                 &self.qemu_img,
                 self.guest_os,
                 self.disk_gib,
-                true,
+                qemu::Creation {
+                    retain_marker: true,
+                    anchor: Some(anchor),
+                },
             )?;
             update(Stage::Configuring);
             let mut config =
@@ -331,9 +339,9 @@ impl Request {
                 .map_err(|e| Error(e.to_string()))?;
             fs::rename(temporary, pending.join(MARKER)).map_err(|e| Error(e.to_string()))?;
             update(Stage::Publishing);
-            crate::storage::publish(&pending, &final_path)?;
+            anchor.publish(&pending, &final_path)?;
             published = true;
-            fs::remove_file(final_path.join(MARKER)).map_err(|e| Error(e.to_string()))?;
+            anchor.remove_marker(&final_path)?;
             update(Stage::Complete);
             Ok(final_path.join("vm.toml"))
         })();
@@ -347,6 +355,7 @@ impl Request {
     pub fn create_with_progress(&self, mut update: impl FnMut(Stage)) -> Result<PathBuf> {
         update(Stage::CheckingInputs);
         self.validate()?;
+        let anchor = crate::storage::ParentAnchor::open(&self.directory)?;
         update(Stage::InspectingMedia);
         match self.source {
             Source::InstallerIso => crate::media::verify_arm64_iso(&self.installer)?,
@@ -355,7 +364,7 @@ impl Request {
             }
         }
         let installer = fs::canonicalize(&self.installer).map_err(|e| Error(e.to_string()))?;
-        self.build_staged_progress(installer, &mut update)
+        self.build_with_anchor(installer, &mut update, &anchor)
     }
     pub fn create(&self) -> Result<PathBuf> {
         self.create_with_progress(|_| {})

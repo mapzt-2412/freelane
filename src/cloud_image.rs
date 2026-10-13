@@ -24,6 +24,9 @@ fn open(source: &Path) -> Result<fs::File> {
     Ok(file)
 }
 pub fn validate(source: &Path, disk_gib: u64) -> Result<()> {
+    virtual_size(source, disk_gib).map(|_| ())
+}
+pub(crate) fn virtual_size(source: &Path, disk_gib: u64) -> Result<u64> {
     let mut file = open(source)?;
     let mut header = [0u8; 104];
     file.read_exact(&mut header[..72])
@@ -60,7 +63,7 @@ pub fn validate(source: &Path, disk_gib: u64) -> Result<()> {
             "Destination disk must be at least the cloud image virtual size".into(),
         ));
     }
-    Ok(())
+    Ok(u64_at(24))
 }
 fn run(tool: &Path, args: &[std::ffi::OsString]) -> Result<()> {
     let mut child = Command::new(tool)

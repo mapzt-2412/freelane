@@ -44,11 +44,10 @@ fn rejected_creation_preserves_existing_data_and_source_templates() {
     assert!(!r.directory.exists());
     r.variable_template = root.join("vars.fd");
     r.disk_gib = 4096;
-    assert!(r
-        .create()
-        .unwrap_err()
-        .to_string()
-        .contains("storage insufficient"));
+    // A 4 TiB virtual maximum must not require 4 TiB free when creating an empty qcow2 disk.
+    r.validate().unwrap();
+    r.disk_gib = 8192;
+    r.validate().unwrap();
     assert!(!r.directory.exists());
     r.disk_gib = 8;
     fs::create_dir(&r.directory).unwrap();

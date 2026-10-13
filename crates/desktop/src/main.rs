@@ -40,6 +40,7 @@ enum Event {
     SettingsPreview(freelane::settings_bundle::Bundle),
     WizardPicked(wizard::Field, Option<String>),
     WizardTools(freelane::host_tools::Tools),
+    WizardStorage(String, Result<freelane::storage::Destination, String>),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
     MobileNotice(String),
     MobileFrame(egui::ColorImage),
@@ -461,6 +462,9 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::WizardStorage(path, result)) => {
+                            self.wizard.storage_received(&path, result)
+                        }
                         Ok(Event::WizardTools(tools)) => {
                             self.wizard.apply_tools(
                                 tools.firmware.display().to_string(),
