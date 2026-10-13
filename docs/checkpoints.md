@@ -22,3 +22,10 @@ Creation checks destination capacity conservatively against virtual disk size pl
 - Real tool test: `python3 tests/checkpoint_real.py` uses an 8 MiB qcow2 file with known bytes, fake nonbootable firmware and fake TPM state. It checks qemu-img conversion/compare, qemu-io data, checksums, corruption/overwrite refusal, source preservation and fresh-workspace restore. No guest OS or real TPM recovery runs.
 - CI runs the file test on Debian/Linux and macOS with real qemu-img/qemu-io tools. Native file operations do not establish physical-Mac guest acceptance.
 - The existing cloud Windows disk cannot currently be copied: the cloud filesystem is about 32 GiB with less than 1 GiB free, while the conservative checkpoint needs over 64 GiB. The check refused the operation before creating output. Use a sufficiently large destination for real Windows/Ubuntu restore acceptance; do not delete the existing guests or installation media to force this test.
+
+
+## Ubuntu cloud guest acceptance
+
+A signature/checksum-verified Ubuntu ARM64 cloud guest completed first boot and a reboot with an exact marker value preserved. After clean shutdown, its offline checkpoint was restored into a new workspace and booted; the same marker value was observed and the restored guest shut down cleanly. Original VM file hashes stayed unchanged during the restored boot. [Evidence](evidence/ubuntu-cloud-checkpoint-guest.json).
+
+Checkpoint configurations detach installation media. For this NoCloud test, the original test seed was explicitly reattached using `settings-export` from the stopped source and `settings-import` on the restored VM; disk/firmware/NVRAM identity stayed with the restored target. External seed/ISO contents are not included in checkpoints. A cloud guest may need its original datasource reconnected; do not substitute seed contents or a new instance ID and assume unchanged guest identity. This Linux TCG check does not validate Windows protected storage/TPM or native Mac runtime.

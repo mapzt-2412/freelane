@@ -10,5 +10,10 @@
   "render_filesystem_gate": "removed; repair worker checks paths",
   "stalled_filesystem_acceptance": "not performed",
   "alias_deduplication": "canonical paths for accessible entries",
-  "canonical_alias_regression": "RED to GREEN on Linux; Mac CI rerun pending"
+  "canonical_alias_regression": "RED to GREEN on Linux; Mac portable CI passed",
+  "latest_code_ci": {
+    "commit": "1a5405c",
+    "url": "https://github.com/puma2k/freelane/actions/runs/38384374715",
+    "status": "Success"
+  }
 }

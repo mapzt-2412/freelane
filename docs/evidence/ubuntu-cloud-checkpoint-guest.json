@@ -1,0 +1,11 @@
+{
+  "platform": "Linux",
+  "accelerator": "tcg",
+  "guest_os": "Ubuntu 24.04",
+  "checkpoint_guest_marker_value_restored": true,
+  "restored_guest_clean_shutdown": true,
+  "source_vm_unchanged_during_restored_boot": true,
+  "NoCloud_seed_reattached_via_settings_import": true,
+  "windows_tpm_recovery_tested": false,
+  "native_mac_acceptance": false
+}
