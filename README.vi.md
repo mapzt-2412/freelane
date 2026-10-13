@@ -38,7 +38,7 @@ UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật đ�
 
 ## Tải bản thử nghiệm
 
-[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
+[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.4): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
 
 [Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+, backend cài riêng và cấu hình local; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
 
@@ -130,3 +130,5 @@ Lần chạy Linux được ghi nhận gần nhất đã qua **59 kiểm thử R
 Mã nguồn và tài liệu FreeLane dùng [MIT](LICENSE). Font giữ [giấy phép DejaVu](crates/desktop/assets/DejaVu-LICENSE.txt); QEMU, firmware, phần mềm TPM và SDK giữ giấy phép riêng.
 
 FreeLane độc lập với Apple, Microsoft, Google, Canonical và Parallels.
+
+[VM creation and persistent library](docs/vm-creation.md) · [Roadmap progress](docs/plans/progress.md) · [Mac acceptance](docs/mac-acceptance.md)

@@ -38,7 +38,7 @@ The desktop displays snapshots, with optional refresh for desktop VMs. Continuou
 
 ## Download an experimental build
 
-[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
+[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.4): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
 
 The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 
@@ -130,3 +130,5 @@ Priorities are native Apple Silicon testing, reliable setup/shutdown, Android st
 FreeLane source and documentation use the [MIT license](LICENSE). The bundled font retains its [DejaVu license](crates/desktop/assets/DejaVu-LICENSE.txt). QEMU, firmware, TPM software and SDKs retain their own licenses.
 
 FreeLane is independent and is not affiliated with Apple, Microsoft, Google, Canonical or Parallels.
+
+[VM creation and persistent library](docs/vm-creation.md) · [Roadmap progress](docs/plans/progress.md) · [Mac acceptance](docs/mac-acceptance.md)

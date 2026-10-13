@@ -1,0 +1,25 @@
+{
+  "p0_ci": "https://github.com/puma2k/freelane/actions/runs/38341927694",
+  "p1_ci": "https://github.com/puma2k/freelane/actions/runs/38343054624",
+  "latest_ci": "https://github.com/puma2k/freelane/actions/runs/38343264763",
+  "ci_result": "success",
+  "source_commit": "18014597ec918ba5a6e98de9fa87d8ecb1536b21",
+  "creation": {
+    "real_qemu_img_creation": "passed",
+    "virtual_disk_gib": 64,
+    "preflight": "passed",
+    "overwrite_refusal": "passed",
+    "source_nvram_unchanged": true,
+    "guest_booted": false,
+    "guest_os_installed": false,
+    "backend": "Linux QEMU tools; TCG selected explicitly"
+  },
+  "library_ui": {
+    "actual_ui_bookmark_save": "passed",
+    "restart_without_config_arguments": "passed: saved Ubuntu bookmark visibly present in actual UI screenshot",
+    "source_guest_config_modified": false,
+    "guest_started": false
+  },
+  "physical_mac_runtime": false,
+  "p1_milestone_accepted": false
+}
