@@ -37,6 +37,14 @@ fn rejected_creation_preserves_existing_data_and_source_templates() {
     assert!(r.create().unwrap_err().to_string().contains("distinct"));
     assert!(!r.directory.exists());
     r.variable_template = root.join("vars.fd");
+    r.disk_gib = 4096;
+    assert!(r
+        .create()
+        .unwrap_err()
+        .to_string()
+        .contains("storage insufficient"));
+    assert!(!r.directory.exists());
+    r.disk_gib = 8;
     fs::create_dir(&r.directory).unwrap();
     fs::write(r.directory.join("user.txt"), b"must survive").unwrap();
     assert!(r.create().unwrap_err().to_string().contains("existing"));

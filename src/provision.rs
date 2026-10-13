@@ -86,6 +86,32 @@ impl Request {
                 "Firmware and variable template must be distinct files".into(),
             ));
         }
+        // Check the nearest existing ancestor without creating any directories.
+        let mut parent = self.directory.parent().unwrap_or(Path::new("."));
+        loop {
+            if parent.as_os_str().is_empty() {
+                parent = Path::new(".");
+            }
+            match fs::metadata(parent) {
+                Ok(m) if m.is_dir() => break,
+                Ok(_) => return Err(Error("VM destination ancestor is not a directory".into())),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    parent = parent
+                        .parent()
+                        .ok_or_else(|| Error("No existing destination ancestor".into()))?;
+                }
+                Err(e) => return Err(Error(e.to_string())),
+            }
+        }
+        let required = (self.disk_gib * 1024 * 1024 * 1024)
+            .checked_add(f.len())
+            .and_then(|n| n.checked_add(v.len()))
+            .and_then(|n| n.checked_add(64 * 1024 * 1024))
+            .ok_or_else(|| Error("VM storage estimate overflow".into()))?;
+        let available = crate::storage::free_space(parent)?;
+        if available < required {
+            return Err(Error(format!("VM storage insufficient: require {} MiB for disk growth and firmware, available {} MiB. Choose a larger destination or a smaller disk. This check does not reserve space.", required / 1024 / 1024, available / 1024 / 1024)));
+        }
         Ok(())
     }
     pub fn create(&self) -> Result<PathBuf> {

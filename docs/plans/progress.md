@@ -9,7 +9,7 @@ Updated 2026-10-13. The roadmap is not complete.
 | P0 real Mac/HVF/Dock/sleep baseline | Deferred by user | Mac available later; no runtime pass claimed |
 | P1 fresh workspace creation | First path implemented and tested | UI form + `vm-create`; real qemu-img 64 GiB creation, repeat refusal, source NVRAM preservation; guest installation/boot not run |
 | P1 persistent VM library | Implemented and tested | Private/atomic bookmark updates, corrupt file preservation, actual UI restart without config arguments |
-| P1 full wizard/recovery | In progress; not accepted | Native pickers, automatic media architecture/guest checks, disk-space checks, installation readiness/progress, repair/recovery, interruption recovery and full native guest acceptance remain |
+| P1 full wizard/recovery | In progress; not accepted | Native pickers, automatic media architecture/guest checks, installation readiness/progress, repair/recovery, interruption recovery and full native guest acceptance remain |
 | P1 checkpoint/recovery-copy foundation | Implemented; limited acceptance | CLI full copy + fresh-directory restore; file-level tests Linux/Mac passed; real Windows/BitLocker recovery blocked by cloud capacity and pending native testing |
 | P2 clipboard/sharing/agent lifecycle | Not started | Depends on selected sharing backend and normal-user agent validation |
 | P3 app video/Coherence direction | Not started beyond existing snapshot prototype | Requires transport/driver feasibility and native Mac evidence |
@@ -26,6 +26,8 @@ Updated 2026-10-13. The roadmap is not complete.
 - Added structured, read-only VM preflight with input size limits and actionable failures.
 - Added first fresh-VM workspace creation and persistent library paths.
 
-Next work: complete P1 media/file selection, creation storage preflight, installation readiness and interruption recovery. The checkpoint foundation is now implemented; full guest restore acceptance requires sufficient storage. Native acceptance remains pending; these statuses do not authorize calling P0/P1 fully accepted or jumping to claims of complete Coherence.
+Next work: complete P1 media/file selection, installation readiness and interruption recovery. The checkpoint foundation is now implemented; full guest restore acceptance requires sufficient storage. Native acceptance remains pending; these statuses do not authorize calling P0/P1 fully accepted or jumping to claims of complete Coherence.
 
 [Checkpoint scope and tests](../checkpoints.md). Latest completed checkpoint CI: https://github.com/puma2k/freelane/actions/runs/38348621836 (Linux/Mac file roundtrip and required checks passed).
+
+Creation now rejects insufficient destination capacity before backend execution or directory creation. The conservative check includes full virtual disk growth; sparse allocation is not a reservation.

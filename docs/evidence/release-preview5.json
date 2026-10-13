@@ -1,0 +1,12 @@
+{
+  "tag": "v0.1.0-preview.5",
+  "source_commit": "632b721f3c1035b43e2f9b2722b242450a418ccc",
+  "asset": "FreeLane-0.1.0-632b721f3c10-macos-arm64.dmg",
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.5/FreeLane-0.1.0-632b721f3c10-macos-arm64.dmg",
+  "published_asset_downloaded": true,
+  "sha256_matches_published_checksum": true,
+  "sha256": "076c414a4fc00d1a28dad61e33edece4c5b2ddcd213cb60560d493c61da25206",
+  "udif_footer_verified": true,
+  "physical_mac_runtime_tested": false,
+  "note": "Creation capacity preflight added after this release; available on main."
+}

@@ -1,5 +1,5 @@
 //! Offline full-copy checkpoints. Original guest files are never replaced or modified.
-use crate::{qemu, Config, Error, Result};
+use crate::{qemu, storage::free_space, Config, Error, Result};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -36,16 +36,6 @@ fn command(tool: &Path, args: &[&str], paths: &[&Path]) -> Result<std::process::
         )));
     }
     Ok(output)
-}
-fn free_space(path: &Path) -> Result<u64> {
-    let name = CString::new(path.as_os_str().as_bytes()).map_err(error)?;
-    let mut value = std::mem::MaybeUninit::<libc::statvfs>::uninit();
-    // The C API initializes this structure on success; the path stays alive throughout.
-    if unsafe { libc::statvfs(name.as_ptr(), value.as_mut_ptr()) } != 0 {
-        return Err(error(std::io::Error::last_os_error()));
-    }
-    let value = unsafe { value.assume_init() };
-    Ok((value.f_bavail as u128 * value.f_frsize as u128).min(u64::MAX as u128) as u64)
 }
 fn private_dir(path: &Path) -> Result<()> {
     fs::create_dir(path).map_err(error)?;

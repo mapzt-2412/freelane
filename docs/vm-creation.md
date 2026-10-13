@@ -4,7 +4,7 @@ The manager now has **Create virtual machine / Tạo máy ảo mới**. Select W
 
 ![Creation form on Linux Xvfb](assets/vm-create-wizard.png)
 
-This is the first P1 creation path: it creates a sparse disk, private firmware/NVRAM/TPM state and a configuration. It does not install an OS, start a VM or infer that a guest is ready. Automatic ISO architecture inspection, native file pickers, free-space estimation, guided installation, setup recovery and checkpoints are still outstanding. QEMU/firmware/media must be supplied separately. Disk virtual size is not a reservation of physical free space.
+This is the first P1 creation path: it creates a sparse disk, private firmware/NVRAM/TPM state and a configuration. It does not install an OS, start a VM or infer that a guest is ready. Automatic ISO architecture inspection, native file pickers, guided installation and setup recovery are still outstanding. QEMU/firmware/media must be supplied separately. Before writing, creation checks the nearest existing destination filesystem for the full virtual disk size, firmware/NVRAM and 64 MiB of headroom. This conservative check prevents knowingly overcommitting sparse disks; it does not reserve space against other writers. Checkpoints are available separately through the [offline checkpoint CLI](checkpoints.md).
 
 The CLI equivalent uses [the creation-request example](../configs/create.windows.example.toml):
 
@@ -27,4 +27,4 @@ Default paths:
 
 ![Saved Ubuntu bookmark after restarting the actual manager without arguments](assets/vm-library-reopened.png)
 
-Recorded checks: real qemu-img created a 64 GiB virtual Windows disk, preflight passed, repeat creation refused overwrite and original NVRAM template bytes stayed unchanged. Actual Linux UI saved an Ubuntu bookmark and reloaded it after restart without configuration arguments. No new guest boot or installation was performed. Physical-Mac wizard/runtime acceptance is pending.
+Recorded checks before the conservative storage gate was introduced: real qemu-img created a 64 GiB virtual Windows disk, preflight passed, repeat creation refused overwrite and original NVRAM template bytes stayed unchanged. Actual Linux UI saved an Ubuntu bookmark and reloaded it after restart without configuration arguments. No new guest boot or installation was performed. Physical-Mac wizard/runtime acceptance is pending.
