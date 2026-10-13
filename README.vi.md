@@ -8,9 +8,9 @@ Quản lý **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** và **Xcod
 
 FreeLane đang ở giai đoạn thử nghiệm, hướng tới một lựa chọn miễn phí thay thế Parallels Desktop. Bằng chứng chạy thực tế hiện đến từ Linux cloud; chạy trên Mac thật, độ ổn định hằng ngày và lợi thế hiệu năng vẫn cần kiểm chứng.
 
-![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-soft-redesign.png)
+![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-overview-vi.png)
 
-*UI mới theo phong cách Mac, chạy thật trên Linux Xvfb. Ảnh này hiển thị cấu hình Ubuntu đang dừng, không phải desktop guest.*
+*UI tiếng Việt chạy thật trên Linux Xvfb với cấu hình Ubuntu đã mở. Chưa cập nhật trạng thái chạy; đây không phải ảnh desktop của hệ điều hành khách.*
 
 ## Nền tảng và trạng thái
 
@@ -88,14 +88,14 @@ Sao chép profile mobile rồi điền thông tin SDK/thiết bị đã chuẩn 
 - [Mẫu iOS](configs/mobile.ios.example.toml): UUID chính xác của Simulator và thư mục Xcode tùy chọn.
 
 ```sh
-./target/debug/freelane-desktop --mobile /duong/dan/mobile.toml
+./target/debug/freelane-desktop --mobile /duong/dan/mobile.toml --lang vi
 ```
 
 Bấm **Mở** trong mục **Android & iOS**, rồi khởi động, xem trạng thái, cài/mở app hoặc chụp ảnh. Cấu hình và điều khiển mobile hoạt động riêng với VM Windows/Ubuntu.
 
-![UI mobile thật với ảnh ứng dụng Android](docs/assets/mobile-manager.png)
+![Bảng điều khiển Android và iOS bằng tiếng Việt](docs/assets/mobile-panel-vi.png)
 
-*Ảnh trên Linux cloud sau khi phục hồi thủ công lỗi System UI. Cloud không có KVM; giả lập phần mềm vẫn chậm và chưa ổn định. Đây chưa phải kết quả chạy Mac hay iOS.*
+*UI tiếng Việt chụp trên Linux Xvfb với cấu hình Android đã mở; không khởi chạy giả lập để chụp ảnh này. Bằng chứng chụp ứng dụng Android trước đó và quá trình phục hồi lỗi System UI nằm trong [hướng dẫn mobile](docs/mobile.md).*
 
 [Hướng dẫn mobile](docs/mobile.md) có lệnh CLI, cách kiểm thử APK, script tạo lại môi trường Linux, cả lỗi chưa phục hồi và lần thử thành công sau phục hồi.
 

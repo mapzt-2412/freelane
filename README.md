@@ -8,9 +8,9 @@ Manage **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** and **Xcode iO
 
 FreeLane is experimental. Its long-term goal is a free alternative to Parallels Desktop. Current runtime evidence comes from Linux cloud testing; native Mac execution, everyday reliability and a performance advantage still need validation.
 
-![FreeLane desktop control center](docs/assets/desktop-soft-redesign.png)
+![FreeLane desktop control center](docs/assets/desktop-overview-en.png)
 
-*Mac-style Vietnamese UI running on Linux Xvfb, showing a stopped Ubuntu configuration; this is not a guest desktop.*
+*English UI running on Linux Xvfb with an Ubuntu configuration loaded. Runtime state has not been refreshed; this is not a guest desktop.*
 
 ## Platforms and current status
 
@@ -73,7 +73,7 @@ Create a new VM directory with matching firmware paths:
 `init` creates a sparse 64 GiB disk and private firmware state; it refuses an existing directory. Configure installation media before booting. Follow [Windows setup](docs/development.md) or [Ubuntu setup](docs/ubuntu.md); creating a profile does not install the OS. The recorded Ubuntu deployment uses an official preinstalled Server cloud image with NoCloud provisioning.
 
 ```sh
-./target/debug/freelane-desktop /absolute/path/to/windows-vm/vm.toml /absolute/path/to/ubuntu-vm/vm.toml --lang vi
+./target/debug/freelane-desktop /absolute/path/to/windows-vm/vm.toml /absolute/path/to/ubuntu-vm/vm.toml --lang en
 ```
 
 Select a library card or **Add virtual machine**. **Settings** groups hardware, graphics, files and devices; save while stopped. Profiles default to HVF on Apple Silicon. Linux testing requires explicitly selecting `accelerator = "tcg"`; networking defaults to off.
@@ -88,14 +88,14 @@ Copy a mobile profile and fill in existing SDK/device details:
 - [iOS example](configs/mobile.ios.example.toml): exact available Simulator UUID and optional Xcode developer directory.
 
 ```sh
-./target/debug/freelane-desktop --mobile /absolute/path/to/mobile.toml
+./target/debug/freelane-desktop --mobile /absolute/path/to/mobile.toml --lang en
 ```
 
 Click **Open / Mở** in **Android & iOS**, then start, inspect, install, launch or capture. Mobile configuration and controls operate separately from Windows/Ubuntu VMs.
 
-![Actual FreeLane mobile panel with Android app capture](docs/assets/mobile-manager.png)
+![FreeLane Android and iOS controls in English](docs/assets/mobile-panel-en.png)
 
-*Linux cloud capture after manual recovery from a System UI ANR. The cloud has no KVM; software emulation remains slow and unstable. This is not a native Mac or iOS run.*
+*English UI captured on Linux Xvfb with an Android profile loaded; no emulator was started for this screenshot. Earlier Android app-capture evidence and the System UI ANR recovery are documented in the [mobile guide](docs/mobile.md).*
 
 [Mobile guide](docs/mobile.md) includes CLI commands, APK testing, the reproducible Linux fixture and the unrecovered failure alongside the successful observation after recovery.
 
