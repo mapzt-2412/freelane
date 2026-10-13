@@ -16,7 +16,7 @@ The package contains `FreeLane.app`, CLI, documentation, example configs, source
 
 The app uses local ad-hoc signing, **not Developer ID signing or Apple notarization**. macOS may block a downloaded experimental app. Inspect its origin and signature; use Apple's supported Open Anyway flow if you choose to run it. Do not disable system-wide security controls.
 
-The current wizard discovers installed QEMU/firmware and fills technical paths automatically. On Macs with Homebrew, its installation button installs QEMU and swtpm. Homebrew itself is not installed by FreeLane. Finder launch resolves a coherent Homebrew installation without requiring a Terminal launch. Mobile SDK/custom tools still need configured paths; a Terminal launch can supply those:
+The current wizard discovers installed QEMU/firmware and fills technical paths automatically. On Macs with Homebrew, its installation button installs QEMU, swtpm and 7-Zip. Homebrew itself is not installed by FreeLane. Finder launch resolves a coherent Homebrew installation without requiring a Terminal launch. Mobile SDK/custom tools still need configured paths; a Terminal launch can supply those:
 
 ```sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"

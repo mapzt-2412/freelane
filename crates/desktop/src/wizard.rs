@@ -447,7 +447,7 @@ fn install_components() -> Result<(), String> {
     let brew = brew_path().ok_or_else(|| "Install Homebrew first".to_string())?;
     freelane::host_tools::run_installer(
         Command::new(brew)
-            .args(["install", "qemu", "swtpm"])
+            .args(["install", "qemu", "swtpm", "7zip"])
             .env("HOMEBREW_NO_AUTO_UPDATE", "1"),
         Duration::from_secs(600),
     )

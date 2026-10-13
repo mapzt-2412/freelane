@@ -1,10 +1,10 @@
-FreeLane v0.1.0-preview.7 for Apple Silicon Macs (macOS 14 or newer).
+FreeLane v0.1.0-preview.8 for Apple Silicon Macs (macOS 14 or newer).
 
 Download the `macos-arm64.dmg`, drag `FreeLane.app` to Applications, eject the image and open the app. ZIP and Windows ARM64 companion-agent packages are also available, with SHA256 files. QEMU, firmware, guest images and mobile SDKs remain separate prerequisites; follow the packaged `START-HERE.md`.
 
 This preview adds:
 
-- Automatic discovery of installed QEMU and ARM firmware, with technical paths tucked into Advanced components. Macs with Homebrew can install QEMU/swtpm from the wizard using a fixed command in a background worker; Finder launch resolves one coherent installed toolchain. Homebrew itself remains an external prerequisite; QEMU is not bundled. Actual Homebrew installation/native Mac guest execution remain unverified.
+- Automatic discovery of installed QEMU and ARM firmware, with technical paths tucked into Advanced components. Macs with Homebrew can install QEMU/swtpm/7-Zip from the wizard using a fixed command in a background worker; Finder launch resolves one coherent installed toolchain. Homebrew itself remains an external prerequisite; QEMU is not bundled. Actual Homebrew installation/native Mac guest execution remain unverified.
 - Read-only v3 guest-agent capability discovery in CLI and Details, retaining v1/v2 compatibility. Real Ubuntu ARM64 virtio discovery, UID1000 execution and English/Vietnamese UI probes passed.
 
 - Windows/Ubuntu creation presets, network/share options, native file dialogs and actual setup progress. ISO checks verify an ARM64 UEFI loader; UDF media requires 7-Zip.

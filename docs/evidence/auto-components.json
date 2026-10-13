@@ -11,5 +11,6 @@
   "actual_homebrew_install": false,
   "native_mac_guest_boot": false,
   "homebrew_bootstrap": false,
-  "qemu_bundled": false
+  "qemu_bundled": false,
+  "windows_udf_tool": "Homebrew 7zip included; media inspection resolves the coherent installation on Mac"
 }

@@ -29,7 +29,11 @@ fn discover_in(prefixes: &[PathBuf]) -> Option<Tools> {
         let variables = share.join("edk2-arm-vars.fd");
         if crate::diagnostics::executable(&image, Path::new("."))
             && crate::diagnostics::executable(&system, Path::new("."))
-            && (!cfg!(target_os = "macos") || crate::diagnostics::executable(&tpm, Path::new(".")))
+            && (!cfg!(target_os = "macos")
+                || (crate::diagnostics::executable(&tpm, Path::new("."))
+                    && ["7zz", "7z"].iter().any(|n| {
+                        crate::diagnostics::executable(&prefix.join("bin").join(n), Path::new("."))
+                    })))
             && [&firmware, &variables]
                 .iter()
                 .all(|p| p.metadata().is_ok_and(|m| m.is_file() && m.len() > 0))
@@ -119,7 +123,7 @@ mod tests {
         let image = root.join("bin/qemu-img");
         fs::write(&image, b"#!/bin/sh\nexit 0\n").unwrap();
         fs::set_permissions(&image, fs::Permissions::from_mode(0o700)).unwrap();
-        for name in ["qemu-system-aarch64", "swtpm"] {
+        for name in ["qemu-system-aarch64", "swtpm", "7zz"] {
             let path = root.join("bin").join(name);
             fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
             fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();

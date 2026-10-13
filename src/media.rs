@@ -173,7 +173,7 @@ fn verify_with_7zip(path: &Path) -> Result<()> {
     let start = Instant::now();
     let mut spawned = None;
     for tool in ["7zz", "7z"] {
-        match Command::new(tool)
+        match Command::new(crate::host_tools::binary(tool))
             .args(["e", "-tudf", "-so", "-bd", "-y", "-ssc-"])
             .arg(&path)
             .arg("EFI/BOOT/BOOTAA64.EFI")
