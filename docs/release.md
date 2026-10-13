@@ -4,6 +4,8 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
+[Latest UI preview: v0.1.0-preview.3](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3) includes the refreshed Mac-style interface and bounded snapshot timeout retry. [UI and build evidence](evidence/mac-ui-preview.json) records Linux visual checks, native Mac packaging and independent DMG download verification. Native Mac UI/guest execution remains unverified.
+
 New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Applications`, then eject it. The native Mac job verifies the disk image, mounts it read-only and rechecks the app signature, ARM64 architecture and Applications shortcut before upload. SHA256 files accompany DMG and ZIP downloads.
 
 [Download v0.1.0-preview.2](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2): Mac ARM64 DMG/ZIP, Windows ARM64 agent ZIP and SHA256 files, built from `9c5272e`. [Release workflow](https://github.com/puma2k/freelane/actions/runs/38277664939) builds and verifies the packages before publishing. [DMG verification evidence](evidence/published-dmg-preview.json) records native mounting/signature checks and an independent downloaded-file checksum. Native Mac guest execution and Dock quick-open remain unverified.

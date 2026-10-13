@@ -1,0 +1,21 @@
+{
+  "source_commit": "fe403910b5459be5808107598337b9d60a2a0dac",
+  "release": "https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3",
+  "workflow": "https://github.com/puma2k/freelane/actions/runs/38326333174",
+  "ui_validation": "Actual Linux Xvfb: welcome, library, Ubuntu selection and centered settings; Vietnamese rendering checked; no VM boot or settings save",
+  "build_checks": [
+    "desktop clippy all targets passed",
+    "desktop debug build passed",
+    "Mac ARM64 desktop cross check passed",
+    "native Mac release packaging and DMG checks passed"
+  ],
+  "native_mac_ui_runtime_test": false,
+  "system_font_runtime_test": false,
+  "download": {
+    "file": "FreeLane-0.1.0-fe403910b545-macos-arm64.dmg",
+    "bytes": 10080095,
+    "sha256": "2e3306e5012f00ff5075b13300a6318fe5269afb50404f8610d981f0e42ee29d",
+    "checksum": "passed",
+    "UDIF_footer": "passed"
+  }
+}
