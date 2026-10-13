@@ -4,7 +4,7 @@ FreeLane experimental preview for Apple Silicon Macs (macOS 14 or newer).
 - For Windows app windows, also download the Windows ARM64 agent ZIP and install the updated agent inside the guest using the included per-user installer. See `docs/app-windows.md` in the Mac package.
 - SHA256 files accompany all packages.
 
-Includes Windows/Ubuntu VM configuration, Vietnamese and English UI, mobile environment controls, experimental separate Windows app snapshot viewers and per-app Dock launcher export.
+Includes a refreshed Mac-style interface with blue accents, a compact sidebar, OS icons, centered settings dialogs and optional local macOS system typography; Windows/Ubuntu VM configuration, Vietnamese and English UI, mobile environment controls, experimental separate Windows app snapshot viewers and per-app Dock launcher export.
 
 This is an ad-hoc signed preview, without Apple notarization. QEMU, firmware, Windows/Ubuntu images and mobile SDKs are separate prerequisites; follow the included `START-HERE.md`. An iOS Simulator requires macOS/Xcode and does not run arbitrary App Store binaries.
 

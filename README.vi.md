@@ -8,9 +8,9 @@ Quản lý **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** và **Xcod
 
 FreeLane đang ở giai đoạn thử nghiệm, hướng tới một lựa chọn miễn phí thay thế Parallels Desktop. Bằng chứng chạy thực tế hiện đến từ Linux cloud; chạy trên Mac thật, độ ổn định hằng ngày và lợi thế hiệu năng vẫn cần kiểm chứng.
 
-![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-manager.png)
+![Trung tâm điều khiển FreeLane tiếng Việt](docs/assets/desktop-mac-style.png)
 
-*UI thật trên Linux Xvfb, hiển thị guest thử nghiệm EFI dùng cấu hình Ubuntu.*
+*UI mới theo phong cách Mac, chạy thật trên Linux Xvfb. Ảnh này hiển thị cấu hình Ubuntu đang dừng, không phải desktop guest.*
 
 ## Nền tảng và trạng thái
 
@@ -38,7 +38,7 @@ UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật đ�
 
 ## Tải bản thử nghiệm
 
-[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
+[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
 
 [Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+, backend cài riêng và cấu hình local; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
 
@@ -59,7 +59,7 @@ Chuẩn bị thành phần cần cho tính năng muốn dùng:
 | iOS | macOS, Xcode đầy đủ, Simulator runtime và UUID thiết bị có sẵn |
 | MCP | Python 3.11+; server chạy trên máy chứa SDK/VM |
 
-Build UI trên Linux cần các thư viện trong [hướng dẫn phụ thuộc](docs/dependencies.md). Chưa có bộ cài Mac đóng gói một bước. Người dùng lấy Windows, SDK và ứng dụng thương mại riêng theo giấy phép tương ứng.
+Build UI trên Linux cần các thư viện trong [hướng dẫn phụ thuộc](docs/dependencies.md). DMG Mac đã có trên GitHub Releases; QEMU, firmware và bộ cài hệ điều hành vẫn cần chuẩn bị riêng. Người dùng lấy Windows, SDK và ứng dụng thương mại riêng theo giấy phép tương ứng.
 
 ## Windows và Ubuntu
 

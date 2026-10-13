@@ -1,8 +1,8 @@
 use super::*;
-const ACCENT: egui::Color32 = egui::Color32::from_rgb(228, 76, 91);
-const INK: egui::Color32 = egui::Color32::from_rgb(35, 44, 65);
-const MUTED: egui::Color32 = egui::Color32::from_rgb(112, 123, 143);
-const BORDER: egui::Color32 = egui::Color32::from_rgb(226, 231, 239);
+const ACCENT: egui::Color32 = egui::Color32::from_rgb(0, 122, 255);
+const INK: egui::Color32 = egui::Color32::from_rgb(30, 30, 30);
+const MUTED: egui::Color32 = egui::Color32::from_rgb(113, 116, 123);
+const BORDER: egui::Color32 = egui::Color32::from_rgb(224, 225, 230);
 #[derive(Default, PartialEq, Eq)]
 pub enum View {
     #[default]
@@ -22,7 +22,7 @@ fn card() -> egui::Frame {
     egui::Frame::new()
         .fill(egui::Color32::WHITE)
         .stroke(egui::Stroke::new(1.0, BORDER))
-        .corner_radius(14)
+        .corner_radius(12)
         .inner_margin(16)
 }
 fn primary(text: &str) -> egui::Button<'_> {
@@ -36,18 +36,43 @@ fn primary(text: &str) -> egui::Button<'_> {
 }
 fn icon(ui: &mut egui::Ui, os: GuestOs, size: f32) {
     let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
-    let (color, letter) = match os {
-        GuestOs::Windows => (egui::Color32::from_rgb(67, 132, 226), "W"),
-        GuestOs::Ubuntu => (egui::Color32::from_rgb(233, 113, 63), "U"),
+    let color = match os {
+        GuestOs::Windows => egui::Color32::from_rgb(42, 133, 245),
+        GuestOs::Ubuntu => egui::Color32::from_rgb(237, 112, 49),
     };
     ui.painter().rect_filled(rect, 12, color);
-    ui.painter().text(
-        rect.center(),
-        egui::Align2::CENTER_CENTER,
-        letter,
-        egui::FontId::proportional(size * 0.5),
-        egui::Color32::WHITE,
-    );
+    let painter = ui.painter();
+    match os {
+        GuestOs::Windows => {
+            let panes = rect.shrink(size * 0.24);
+            let gap = size * 0.045;
+            let half = (panes.width() - gap) / 2.0;
+            for row in 0..2 {
+                for column in 0..2 {
+                    let origin = panes.min
+                        + egui::vec2(column as f32 * (half + gap), row as f32 * (half + gap));
+                    painter.rect_filled(
+                        egui::Rect::from_min_size(origin, egui::vec2(half, half)),
+                        1,
+                        egui::Color32::WHITE,
+                    );
+                }
+            }
+        }
+        GuestOs::Ubuntu => {
+            painter.circle_stroke(
+                rect.center(),
+                size * 0.19,
+                egui::Stroke::new(size * 0.055, egui::Color32::WHITE),
+            );
+            for index in 0..3 {
+                let angle = index as f32 * std::f32::consts::TAU / 3.0;
+                let point = rect.center() + egui::vec2(angle.cos(), angle.sin()) * size * 0.26;
+                painter.circle_filled(point, size * 0.085, color);
+                painter.circle_filled(point, size * 0.058, egui::Color32::WHITE);
+            }
+        }
+    }
 }
 pub fn install_style(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
@@ -62,18 +87,37 @@ pub fn install_style(ctx: &egui::Context) {
         .entry(egui::FontFamily::Proportional)
         .or_default()
         .insert(0, "FreeLane UI".into());
+    #[cfg(target_os = "macos")]
+    if let Ok(data) = std::fs::read("/System/Library/Fonts/SFNS.ttf") {
+        fonts.font_data.insert(
+            "macOS system".into(),
+            std::sync::Arc::new(egui::FontData::from_owned(data)),
+        );
+        fonts
+            .families
+            .entry(egui::FontFamily::Proportional)
+            .or_default()
+            .insert(0, "macOS system".into());
+    }
     ctx.set_fonts(fonts);
     ctx.set_theme(egui::Theme::Light);
     ctx.global_style_mut(|style| {
-        style.visuals.panel_fill = egui::Color32::from_rgb(247, 249, 252);
+        style.visuals.panel_fill = egui::Color32::from_rgb(248, 248, 250);
         style.visuals.window_fill = egui::Color32::WHITE;
-        style.visuals.extreme_bg_color = egui::Color32::from_rgb(245, 247, 251);
+        style.visuals.widgets.noninteractive.bg_fill = egui::Color32::WHITE;
+        style.visuals.window_stroke = egui::Stroke::new(1.0, BORDER);
+        style.visuals.window_corner_radius = egui::CornerRadius::same(12);
+        style.visuals.extreme_bg_color = egui::Color32::from_rgb(243, 244, 246);
         style.visuals.override_text_color = Some(INK);
-        style.visuals.selection.bg_fill = egui::Color32::from_rgb(244, 211, 216);
+        style.visuals.selection.bg_fill = egui::Color32::from_rgb(214, 232, 255);
         style.visuals.selection.stroke = egui::Stroke::new(1.0, INK);
-        style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(237, 241, 247);
-        style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(225, 231, 242);
-        style.spacing.item_spacing = egui::vec2(10.0, 10.0);
+        style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(239, 240, 243);
+        style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(226, 231, 239);
+        style.visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(6);
+        style.visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(6);
+        style.visuals.widgets.active.corner_radius = egui::CornerRadius::same(6);
+        style.visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(205, 224, 250);
+        style.spacing.item_spacing = egui::vec2(10.0, 9.0);
         style.spacing.button_padding = egui::vec2(13.0, 8.0);
         style
             .text_styles
@@ -96,7 +140,7 @@ impl Desktop {
             .frame(
                 egui::Frame::new()
                     .fill(egui::Color32::WHITE)
-                    .inner_margin(18),
+                    .inner_margin(12),
             )
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
@@ -131,11 +175,11 @@ impl Desktop {
                 });
             });
         egui::Panel::left("library")
-            .default_size(250.0)
-            .size_range(220.0..=320.0)
+            .default_size(230.0)
+            .size_range(210.0..=300.0)
             .frame(
                 egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(240, 243, 248))
+                    .fill(egui::Color32::from_rgb(235, 236, 240))
                     .inner_margin(16),
             )
             .show(ui, |ui| {
@@ -153,16 +197,13 @@ impl Desktop {
                             let selected = self.vm.as_ref().is_some_and(|vm| vm.path == *path);
                             let response = egui::Frame::new()
                                 .fill(if selected {
-                                    egui::Color32::WHITE
+                                    egui::Color32::from_rgb(216, 230, 250)
                                 } else {
-                                    egui::Color32::from_rgb(240, 243, 248)
+                                    egui::Color32::from_rgb(235, 236, 240)
                                 })
-                                .stroke(egui::Stroke::new(
-                                    1.0,
-                                    if selected { ACCENT } else { BORDER },
-                                ))
-                                .corner_radius(12)
-                                .inner_margin(12)
+                                .stroke(egui::Stroke::new(1.0, egui::Color32::TRANSPARENT))
+                                .corner_radius(8)
+                                .inner_margin(10)
                                 .show(ui, |ui| {
                                     ui.set_min_width(ui.available_width());
                                     ui.horizontal(|ui| {
@@ -214,7 +255,7 @@ impl Desktop {
                 if ui.button(lang.text("Android & iOS")).clicked() {
                     self.mobile_open = true;
                 }
-                ui.add_space(20.0);
+                ui.add_space((ui.available_height() - 80.0).max(20.0));
                 ui.small(lang.text("Closing FreeLane leaves the VM running."));
                 ui.add_space(8.0);
                 ui.colored_label(MUTED, lang.text("Experimental · Apple Silicon target"));
@@ -222,7 +263,7 @@ impl Desktop {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(247, 249, 252))
+                    .fill(egui::Color32::from_rgb(248, 248, 250))
                     .inner_margin(24),
             )
             .show(ui, |ui| {
@@ -232,7 +273,14 @@ impl Desktop {
                         self.machine_ui(ui, ctx, viewport_height);
                     } else {
                         ui.vertical_centered(|ui| {
-                            ui.add_space(110.0);
+                            ui.add_space(75.0);
+                            ui.horizontal(|ui| {
+                                let offset = ((ui.available_width() - 150.0) / 2.0).max(0.0);
+                                ui.add_space(offset);
+                                icon(ui, GuestOs::Windows, 64.0);
+                                icon(ui, GuestOs::Ubuntu, 64.0);
+                            });
+                            ui.add_space(24.0);
                             ui.heading(lang.text("Your next workspace starts here"));
                             ui.label(lang.text("Open a Windows or Ubuntu configuration to begin."));
                             ui.add_space(18.0);
@@ -264,6 +312,7 @@ impl Desktop {
                 .id(egui::Id::new("open-dialog"))
                 .open(&mut open)
                 .default_width(550.0)
+                .default_pos(ctx.content_rect().center() - egui::vec2(275.0, 100.0))
                 .show(ctx, |ui| {
                     ui.label(lang.text("Configuration file"));
                     ui.add(
@@ -417,7 +466,7 @@ impl Desktop {
                     (viewport_height - (ui.cursor().top() - content_top) - 85.0).max(150.0);
                 egui::Frame::new()
                     .fill(egui::Color32::from_rgb(29, 36, 49))
-                    .corner_radius(14)
+                    .corner_radius(12)
                     .inner_margin(14)
                     .show(ui, |ui| {
                         ui.set_min_width(ui.available_width());
@@ -552,7 +601,7 @@ impl Desktop {
         let mut open = true;
         let mut save = false;
         egui::Window::new(lang.text("Virtual machine settings")).id(egui::Id::new("settings"))
-            .open(&mut open).default_width(610.0).default_height(480.0).show(ctx, |ui| {
+            .open(&mut open).default_pos(ctx.content_rect().center() - egui::vec2(305.0, 240.0)).default_width(610.0).default_height(480.0).show(ctx, |ui| {
             ui.small(lang.text("Changes apply on the next start. Shut down before saving."));
             ui.horizontal_wrapped(|ui| {
                 ui.selectable_value(&mut self.settings_tab, SettingsTab::Hardware, lang.text("Hardware"));

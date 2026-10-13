@@ -196,86 +196,92 @@ impl eframe::App for Viewer {
                 }
             }
         }
-        egui::Panel::top("toolbar").show(ui, |ui| {
-            ui.heading(&self.profile.name);
-            ui.small("Cửa sổ Windows riêng · bản thử nghiệm ảnh chụp");
-            ui.horizontal_wrapped(|ui| {
-                let old = self.selected;
-                egui::ComboBox::from_id_salt("guest-window")
-                    .selected_text(
-                        self.windows
-                            .get(self.selected)
-                            .map(|w| w.title.as_str())
-                            .unwrap_or("Chưa có cửa sổ"),
-                    )
-                    .show_ui(ui, |ui| {
-                        for (index, window) in self.windows.iter().enumerate() {
-                            ui.selectable_value(&mut self.selected, index, &window.title);
-                        }
-                    });
-                if old != self.selected {
-                    self.texture = None;
-                    self.queue.clear();
-                    self.next = Instant::now();
-                }
-                ui.checkbox(&mut self.live, "Cập nhật mỗi giây");
-                if ui
-                    .add_enabled(
-                        self.worker.is_none() && self.target().is_some(),
-                        egui::Button::new("Chụp lại"),
-                    )
-                    .clicked()
-                {
-                    self.capture(&ctx);
-                }
-                if ui
-                    .add_enabled(
-                        self.worker.is_none() && self.pid.is_some(),
-                        egui::Button::new("Danh sách cửa sổ"),
-                    )
-                    .clicked()
-                {
-                    let vm = self.profile.vm.clone();
-                    let pid = self.pid.unwrap();
-                    self.task(&ctx, move || {
-                        match agent::window_request(&vm, Action::Windows { pid })
-                            .map_err(|e| e.to_string())?
-                            .outcome
-                        {
-                            Outcome::Windows { windows } => Ok(Event::Windows(windows)),
-                            _ => Err("Phản hồi cửa sổ không hợp lệ".into()),
-                        }
-                    });
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.text)
-                        .hint_text("Văn bản gửi tới ô đang focus trong app Windows"),
-                );
-                if ui
-                    .add_enabled(
-                        self.target().is_some() && !self.text.is_empty(),
-                        egui::Button::new("Gửi chữ"),
-                    )
-                    .clicked()
-                {
-                    if self.text.len() <= 1024 {
-                        let text = std::mem::take(&mut self.text);
-                        self.enqueue(Action::WindowText {
-                            target: self.target().unwrap(),
-                            text,
+        egui::Panel::top("toolbar")
+            .frame(
+                egui::Frame::new()
+                    .fill(egui::Color32::WHITE)
+                    .inner_margin(16),
+            )
+            .show(ui, |ui| {
+                ui.heading(&self.profile.name);
+                ui.small("Cửa sổ Windows riêng · bản thử nghiệm ảnh chụp");
+                ui.horizontal_wrapped(|ui| {
+                    let old = self.selected;
+                    egui::ComboBox::from_id_salt("guest-window")
+                        .selected_text(
+                            self.windows
+                                .get(self.selected)
+                                .map(|w| w.title.as_str())
+                                .unwrap_or("Chưa có cửa sổ"),
+                        )
+                        .show_ui(ui, |ui| {
+                            for (index, window) in self.windows.iter().enumerate() {
+                                ui.selectable_value(&mut self.selected, index, &window.title);
+                            }
                         });
-                    } else {
-                        self.notice = "Giới hạn 1024 byte mỗi lần gửi.".into();
+                    if old != self.selected {
+                        self.texture = None;
+                        self.queue.clear();
+                        self.next = Instant::now();
                     }
+                    ui.checkbox(&mut self.live, "Cập nhật mỗi giây");
+                    if ui
+                        .add_enabled(
+                            self.worker.is_none() && self.target().is_some(),
+                            egui::Button::new("Chụp lại"),
+                        )
+                        .clicked()
+                    {
+                        self.capture(&ctx);
+                    }
+                    if ui
+                        .add_enabled(
+                            self.worker.is_none() && self.pid.is_some(),
+                            egui::Button::new("Danh sách cửa sổ"),
+                        )
+                        .clicked()
+                    {
+                        let vm = self.profile.vm.clone();
+                        let pid = self.pid.unwrap();
+                        self.task(&ctx, move || {
+                            match agent::window_request(&vm, Action::Windows { pid })
+                                .map_err(|e| e.to_string())?
+                                .outcome
+                            {
+                                Outcome::Windows { windows } => Ok(Event::Windows(windows)),
+                                _ => Err("Phản hồi cửa sổ không hợp lệ".into()),
+                            }
+                        });
+                    }
+                });
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.text)
+                            .hint_text("Văn bản gửi tới ô đang focus trong app Windows"),
+                    );
+                    if ui
+                        .add_enabled(
+                            self.target().is_some() && !self.text.is_empty(),
+                            egui::Button::new("Gửi chữ"),
+                        )
+                        .clicked()
+                    {
+                        if self.text.len() <= 1024 {
+                            let text = std::mem::take(&mut self.text);
+                            self.enqueue(Action::WindowText {
+                                target: self.target().unwrap(),
+                                text,
+                            });
+                        } else {
+                            self.notice = "Giới hạn 1024 byte mỗi lần gửi.".into();
+                        }
+                    }
+                });
+                if self.worker.is_some() {
+                    ui.spinner();
                 }
+                ui.label(&self.notice);
             });
-            if self.worker.is_some() {
-                ui.spinner();
-            }
-            ui.label(&self.notice);
-        });
         egui::CentralPanel::default().show(ui,|ui|{
    if let Some(texture)=&self.texture {
     let response=ui.add(egui::Image::new(texture).max_size(ui.available_size()).sense(egui::Sense::click()));

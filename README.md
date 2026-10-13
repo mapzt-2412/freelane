@@ -8,9 +8,9 @@ Manage **Windows 11 ARM**, **Ubuntu ARM64**, **Android Emulator** and **Xcode iO
 
 FreeLane is experimental. Its long-term goal is a free alternative to Parallels Desktop. Current runtime evidence comes from Linux cloud testing; native Mac execution, everyday reliability and a performance advantage still need validation.
 
-![FreeLane desktop control center](docs/assets/desktop-manager.png)
+![FreeLane desktop control center](docs/assets/desktop-mac-style.png)
 
-*Actual Vietnamese UI on Linux Xvfb, showing an Ubuntu-profile EFI test guest.*
+*Mac-style Vietnamese UI running on Linux Xvfb, showing a stopped Ubuntu configuration; this is not a guest desktop.*
 
 ## Platforms and current status
 
@@ -38,7 +38,7 @@ The desktop displays snapshots, with optional refresh for desktop VMs. Continuou
 
 ## Download an experimental build
 
-[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
+[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.3): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
 
 The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 
