@@ -28,7 +28,7 @@ jobs:
       - name: Install signed distribution packages
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends ca-certificates curl git python3 build-essential qemu-system-arm qemu-utils qemu-efi-aarch64 swtpm mtools xorriso seabios
+          apt-get install -y --no-install-recommends ca-certificates curl git python3 build-essential procps qemu-system-arm qemu-utils qemu-efi-aarch64 swtpm mtools xorriso seabios
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:

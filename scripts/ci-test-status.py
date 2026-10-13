@@ -31,14 +31,19 @@ def main():
     process = subprocess.Popen(commands[sys.argv[1]], cwd=ROOT, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
     failed = set()
+    error_codes = set()
     # Preserve the existing command's console output; new annotations contain names only.
     for line in iter(process.stdout.readline, b""):
         sys.stdout.buffer.write(line)
         sys.stdout.buffer.flush()
-        failed.update(failed_test_names(line.decode(errors="replace"), allowed))
+        text = line.decode(errors="replace")
+        failed.update(failed_test_names(text, allowed))
+        error_codes.update(int(n) for n in re.findall(r"\(os error ([0-9]{1,3})\)", text) if 0 < int(n) <= 133)
     status = process.wait()
     process.stdout.close()
     if status:
+        if error_codes:
+            print("::error title=OS error status::Codes observed: " + ", ".join(map(str, sorted(error_codes))))
         for name in sorted(failed):
             print("::error title=Test status::FAILED: " + name)
         if not failed:
