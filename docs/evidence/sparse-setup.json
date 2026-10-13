@@ -23,5 +23,16 @@
   "native_mac_guest": false,
   "physical_ssd_disconnect": false,
   "disk_pooling": false,
-  "cloud_import_capacity": "source virtual bytes + snapshot file bytes + metadata; target growth not reserved"
+  "cloud_import_capacity": "source virtual bytes + snapshot file bytes + metadata; target growth not reserved",
+  "ci_source_commit": "508a89a",
+  "ci_runs": [
+    {
+      "url": "https://github.com/puma2k/freelane/actions/runs/38431241527",
+      "status": "Success"
+    },
+    {
+      "url": "https://github.com/puma2k/freelane/actions/runs/38431240596",
+      "status": "Success"
+    }
+  ]
 }
