@@ -33,3 +33,99 @@ fn bookmark_updates_preserve_other_vms_and_reject_corrupt_library() {
     assert_eq!(fs::read(&path).unwrap(), original);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn relink_repairs_moved_workspace_without_changing_guest_files() {
+    let root = std::env::temp_dir().join(format!("fl-relink-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let old = root.join("old");
+    fs::create_dir(&old).unwrap();
+    let text = "name='Moved'\ncpus=2\nmemory_mib=4096\ndisk='disk.qcow2'\n";
+    fs::write(old.join("vm.toml"), text).unwrap();
+    fs::write(old.join("disk.qcow2"), b"guest bytes").unwrap();
+    let library = root.join("library.toml");
+    let original = old.join("vm.toml");
+    library::record(
+        &library,
+        Entry {
+            path: original.clone(),
+            name: "Moved".into(),
+            guest_os: GuestOs::Windows,
+        },
+    )
+    .unwrap();
+    let moved = root.join("moved");
+    fs::rename(&old, &moved).unwrap();
+    library::relink(&library, &original, &moved.join("vm.toml")).unwrap();
+    let entries = library::read(&library).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].path, moved.join("vm.toml"));
+    assert_eq!(fs::read_to_string(moved.join("vm.toml")).unwrap(), text);
+    assert_eq!(fs::read(moved.join("disk.qcow2")).unwrap(), b"guest bytes");
+    let saved = fs::read(&library).unwrap();
+    assert!(library::relink(&library, &moved.join("vm.toml"), &moved.join("vm.toml")).is_err());
+    assert_eq!(fs::read(&library).unwrap(), saved);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn failed_relink_preserves_library_for_invalid_duplicate_and_busy_targets() {
+    use fs2::FileExt;
+    let root = std::env::temp_dir().join(format!("fl-relink-fail-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let library = root.join("library.toml");
+    let old = root.join("missing.toml");
+    let new = root.join("new.toml");
+    library::record(
+        &library,
+        Entry {
+            path: old.clone(),
+            name: "Missing".into(),
+            guest_os: GuestOs::Windows,
+        },
+    )
+    .unwrap();
+    let original = fs::read(&library).unwrap();
+    for content in [
+        "invalid",
+        "name='Other'\nguest_os='ubuntu'\ncpus=2\nmemory_mib=4096\ndisk='disk.qcow2'\n",
+        "name='Moved'\ncpus=2\nmemory_mib=4096\ndisk='absent.qcow2'\n",
+    ] {
+        fs::write(&new, content).unwrap();
+        fs::write(root.join("disk.qcow2"), b"disk").unwrap();
+        assert!(library::relink(&library, &old, &new).is_err());
+        assert_eq!(fs::read(&library).unwrap(), original);
+    }
+    fs::write(
+        &new,
+        "name='Moved'\ncpus=2\nmemory_mib=4096\ndisk='disk.qcow2'\n",
+    )
+    .unwrap();
+    let lock = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(root.join("library.lock"))
+        .unwrap();
+    lock.lock_exclusive().unwrap();
+    assert!(library::relink(&library, &old, &new)
+        .unwrap_err()
+        .to_string()
+        .contains("busy"));
+    assert_eq!(fs::read(&library).unwrap(), original);
+    drop(lock);
+    library::record(
+        &library,
+        Entry {
+            path: new.clone(),
+            name: "Already saved".into(),
+            guest_os: GuestOs::Windows,
+        },
+    )
+    .unwrap();
+    let saved = fs::read(&library).unwrap();
+    assert!(library::relink(&library, &old, &new).is_err());
+    assert_eq!(fs::read(&library).unwrap(), saved);
+    fs::remove_dir_all(root).unwrap();
+}

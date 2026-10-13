@@ -45,3 +45,5 @@ P1 review fixes: request parsing now uses a nonblocking regular-file descriptor 
 P1 settings templates: versioned mutable-settings export/import implemented; private no-overwrite export, existing-VM backups, busy-lock refusal and storage identity preservation tested. UI import previews before Save changes. Native file dialogs and full backup/relocation acceptance remain pending.
 
 Settings UI acceptance on Linux: preview preserved the saved file, export used saved values while the draft differed, Save applied the requested CPU/RAM and preserved storage hashes. Dialog selection used a test-only zenity stub; native dialogs remain pending. Full workspace: 92 passed, 6 ignored; clippy and Apple Silicon core cross-check passed. [Evidence](../evidence/settings-bundles.json).
+
+P1 library path recovery: explicit missing-bookmark relink in CLI and localized UI, with guest-file preservation and rejection tests. Linux UI exercised the repair with a test-only dialog stub. Full suite 94 passed, 6 ignored; clippy passed. Runtime migration and native guest relocation remain unverified. [Guide](../library-recovery.md).

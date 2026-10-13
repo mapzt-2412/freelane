@@ -190,6 +190,7 @@ impl Desktop {
                 );
                 ui.add_space(8.0);
                 let mut chosen = None;
+                let mut repair = None;
                 egui::ScrollArea::vertical()
                     .max_height((ui.available_height() - 140.0).max(120.0))
                     .show(ui, |ui| {
@@ -236,9 +237,23 @@ impl Desktop {
                             {
                                 chosen = Some(path.clone());
                             }
+                            if ui
+                                .add_enabled(
+                                    self.pending.is_none()
+                                        && self.child.is_none()
+                                        && !self.settings_open,
+                                    egui::Button::new(lang.text("Locate VM")),
+                                )
+                                .clicked()
+                            {
+                                repair = Some(path.clone());
+                            }
                             ui.add_space(4.0);
                         }
                     });
+                if let Some(path) = repair {
+                    self.repair_bookmark(ctx, path);
+                }
                 if let Some(path) = chosen {
                     self.draft_path = path.display().to_string();
                     self.open(ctx);

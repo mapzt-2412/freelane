@@ -1,0 +1,13 @@
+{
+  "tests_passed": 94,
+  "tests_ignored": 6,
+  "clippy": "passed",
+  "linux_ui_relink": "passed",
+  "dialog": "test-only zenity stub; native Mac dialog unverified",
+  "guest_started": false,
+  "guest_assets_written": false,
+  "mac_arm64_core_check": "passed",
+  "render_filesystem_gate": "removed; repair worker checks paths",
+  "stalled_filesystem_acceptance": "not performed",
+  "alias_deduplication": "literal path only; canonical aliases deferred"
+}

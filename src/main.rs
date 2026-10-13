@@ -16,6 +16,12 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, library, old, new] if command == "library-relink" => {
+            freelane::library::relink(Path::new(library), Path::new(old), Path::new(new))?;
+            println!("VM bookmark reconnected; guest files unchanged. Runtime and app-launcher paths require separate checks.");
+            Ok(())
+        }
+
         [command, snapshot, output] if command == "checkpoint-restore" => {
             let config=freelane::checkpoint::restore(Path::new(snapshot),Path::new(output))?;
             println!("Restored to new workspace {}. Guest boot and TPM/data recovery remain unverified.",config.display());

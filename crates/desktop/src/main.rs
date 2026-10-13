@@ -35,6 +35,7 @@ struct VmInfo {
 enum Event {
     Loaded(VmInfo, Option<String>),
     Created(PathBuf),
+    LibraryRepaired(Vec<freelane::library::Entry>),
     SettingsPreview(freelane::settings_bundle::Bundle),
     WizardPicked(wizard::Field, Option<String>),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
@@ -175,6 +176,22 @@ impl Desktop {
         std::thread::spawn(move || {
             let _ = sender.send(task());
             ctx.request_repaint();
+        });
+    }
+    fn repair_bookmark(&mut self, ctx: &egui::Context, old: PathBuf) {
+        self.work(ctx, move || {
+            let result: WorkResult = (|| {
+                let Some(new) = file_picker::choose(false)? else {
+                    return Ok(Event::Notice(String::new()));
+                };
+                let library = freelane::library::default_path().map_err(|e| e.to_string())?;
+                freelane::library::relink(&library, &old, Path::new(&new))
+                    .map_err(|e| e.to_string())?;
+                freelane::library::read(&library)
+                    .map(Event::LibraryRepaired)
+                    .map_err(|e| e.to_string())
+            })();
+            Ok(result.unwrap_or_else(Event::Notice))
         });
     }
     fn open(&mut self, ctx: &egui::Context) {
@@ -459,6 +476,15 @@ impl Desktop {
                                     Err(error) => self.notice = error.to_string(),
                                 }
                             }
+                        }
+                        Ok(Event::LibraryRepaired(entries)) => {
+                            self.library = entries
+                                .into_iter()
+                                .map(|entry| (entry.path, entry.name, entry.guest_os))
+                                .collect();
+                            self.library_notice.clear();
+                            self.notice =
+                                "VM bookmark reconnected. Open the VM to check its runtime.".into();
                         }
                         Ok(Event::Created(path)) => {
                             self.wizard.open = false;

@@ -4,7 +4,7 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::Write,
+    io::{Read, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
 };
@@ -49,18 +49,29 @@ pub fn default_path() -> Result<PathBuf> {
     Ok(root.join("library.toml"))
 }
 pub fn read(path: &Path) -> Result<Vec<Entry>> {
-    let metadata = match fs::symlink_metadata(path) {
-        Ok(m) => m,
+    let file = match fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
+        .open(path)
+    {
+        Ok(file) => file,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(e) => return Err(Error(e.to_string())),
     };
+    let metadata = file.metadata().map_err(|e| Error(e.to_string()))?;
     if !metadata.is_file() || metadata.len() > 1024 * 1024 {
         return Err(Error("Library must be a regular file under 1 MiB".into()));
     }
-    let data: Library = toml::from_str(
-        &fs::read_to_string(path).map_err(|e| Error(e.to_string()))?,
-    )
-    .map_err(|_| Error("Library is invalid; preserve it and repair/import explicitly".into()))?;
+    let mut text = String::new();
+    file.take(1024 * 1024 + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| Error(e.to_string()))?;
+    if text.len() > 1024 * 1024 {
+        return Err(Error("Library exceeds 1 MiB".into()));
+    }
+    let data: Library = toml::from_str(&text).map_err(|_| {
+        Error("Library is invalid; preserve it and repair/import explicitly".into())
+    })?;
     if data.version != 1 || data.entries.len() > 1000 || data.entries.iter().any(|e| !valid(e)) {
         return Err(Error(
             "Unsupported or invalid library; original file preserved".into(),
@@ -73,6 +84,19 @@ pub fn record(path: &Path, entry: Entry) -> Result<()> {
         return Err(Error(
             "Library and VM bookmark paths must be absolute with a valid name".into(),
         ));
+    }
+    update(path, |entries| {
+        if let Some(old) = entries.iter_mut().find(|e| e.path == entry.path) {
+            *old = entry;
+        } else {
+            entries.push(entry);
+        }
+        Ok(())
+    })
+}
+fn update(path: &Path, change: impl FnOnce(&mut Vec<Entry>) -> Result<()>) -> Result<()> {
+    if !path.is_absolute() {
+        return Err(Error("Library path must be absolute".into()));
     }
     let parent = path
         .parent()
@@ -109,17 +133,14 @@ pub fn record(path: &Path, entry: Entry) -> Result<()> {
         .write(true)
         .create(true)
         .truncate(false)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .mode(0o600)
         .open(lock_path)
         .map_err(|e| Error(e.to_string()))?;
     lock.try_lock_exclusive()
         .map_err(|_| Error("Library busy; bookmark not saved".into()))?;
     let mut entries = read(path)?;
-    if let Some(old) = entries.iter_mut().find(|e| e.path == entry.path) {
-        *old = entry;
-    } else {
-        entries.push(entry);
-    }
+    change(&mut entries)?;
     if entries.len() > 1000 {
         return Err(Error("Library limit reached".into()));
     }
@@ -150,4 +171,64 @@ pub fn record(path: &Path, entry: Entry) -> Result<()> {
         let _ = fs::remove_file(temporary);
     }
     result
+}
+
+/// Explicitly reconnect a missing bookmark; never move or rewrite guest assets.
+pub fn relink(library: &Path, old: &Path, new: &Path) -> Result<()> {
+    if !old.is_absolute() || !new.is_absolute() {
+        return Err(Error("Relink paths must be absolute".into()));
+    }
+    let new = fs::canonicalize(new).map_err(|e| Error(e.to_string()))?;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(&new)
+        .map_err(|e| Error(e.to_string()))?;
+    let metadata = file.metadata().map_err(|e| Error(e.to_string()))?;
+    if !metadata.is_file() || metadata.len() > 1024 * 1024 {
+        return Err(Error(
+            "VM configuration must be a regular file under 1 MiB".into(),
+        ));
+    }
+    let mut text = String::new();
+    file.take(1024 * 1024 + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| Error(e.to_string()))?;
+    if text.len() > 1024 * 1024 {
+        return Err(Error("VM configuration exceeds 1 MiB".into()));
+    }
+    let config = crate::Config::parse(&text)?;
+    config.check_images(new.parent().unwrap())?;
+    update(library, |entries| {
+        match fs::symlink_metadata(old) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            _ => {
+                return Err(Error(
+                    "Original VM path still exists or cannot be checked; bookmark preserved".into(),
+                ))
+            }
+        }
+        if entries.iter().any(|entry| entry.path == new) {
+            return Err(Error("Replacement VM is already bookmarked".into()));
+        }
+        let entry = entries
+            .iter_mut()
+            .find(|entry| entry.path == old)
+            .ok_or_else(|| Error("Original bookmark not found".into()))?;
+        if entry.guest_os != config.guest_os {
+            return Err(Error(
+                "Replacement guest type does not match the bookmark".into(),
+            ));
+        }
+        let replacement = Entry {
+            path: new,
+            name: config.name,
+            guest_os: config.guest_os,
+        };
+        if !valid(&replacement) {
+            return Err(Error("Replacement bookmark is invalid".into()));
+        }
+        *entry = replacement;
+        Ok(())
+    })
 }
