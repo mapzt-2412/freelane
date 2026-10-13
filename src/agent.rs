@@ -3,6 +3,7 @@ use crate::{qemu, Error, Result};
 use freelane_agent_protocol::{Action, Request, Response, MAX_FRAME, VERSION};
 use std::{
     io::{BufRead, BufReader},
+    os::fd::AsRawFd,
     os::unix::net::UnixStream,
     path::Path,
     time::{Duration, Instant},
@@ -91,13 +92,16 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
     let deadline = Instant::now() + Duration::from_secs(5);
     let mut bytes = Vec::new();
     loop {
-        let remaining = deadline
-            .checked_duration_since(Instant::now())
-            .ok_or_else(|| Error("Guest agent response deadline exceeded".into()))?;
-        reader
-            .get_ref()
-            .set_read_timeout(Some(remaining))
-            .map_err(|e| Error(e.to_string()))?;
+        if Instant::now() >= deadline {
+            return Err(Error("Guest agent response deadline exceeded".into()));
+        }
+        if reader.buffer().is_empty() {
+            crate::socket_wait::readable(reader.get_ref().as_raw_fd(), deadline).map_err(|e| {
+                Error(format!(
+                    "Guest agent response deadline or socket error: {e}"
+                ))
+            })?;
+        }
         let chunk = reader.fill_buf().map_err(|error| {
             if matches!(
                 error.kind(),

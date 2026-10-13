@@ -713,6 +713,7 @@ dependencies = [
  "freelane-agent-protocol",
  "fs2",
  "getrandom",
+ "libc",
  "serde",
  "serde_json",
  "toml",

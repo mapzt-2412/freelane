@@ -104,3 +104,7 @@ Average FPS is total frame count divided by total capture duration. The 1% low i
 Compare FreeLane and Parallels only with matched Mac/macOS/Windows versions, VM resources, game/app build, scene, settings and measurement method. Repeat runs and preserve raw captures. The synthetic data in unit tests is not a performance result.
 
 For headless mouse input, `freelane click /absolute/path/to/vm.toml X Y` uses normalized coordinates 0–32767. It requires a running VM and sends a primary press/release through the USB tablet. QMP acceptance means delivery was requested; inspect the guest screen for the effect. GUI snapshots map clicks automatically.
+
+## Read-only VM preflight
+
+`freelane doctor-json /absolute/path/to/vm.toml` returns structured checks and remedies for configuration, image/backend paths, executable discovery and HVF host support. It never starts or contacts a VM, executes a configured backend or modifies guest state. Failed prerequisites return a nonzero exit code while stdout retains the JSON report. `preflight_passed` only means structural prerequisites passed; `guest_runtime_verified` remains false. Firmware/OS architecture, Secure Boot, executable versions, drivers and performance still require separate validation.

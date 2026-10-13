@@ -16,6 +16,12 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, path] if command == "doctor-json" => {
+            let report = freelane::diagnostics::inspect(Path::new(path));
+            println!("{}", serde_json::to_string_pretty(&report).map_err(|e| Error(e.to_string()))?);
+            if report.preflight_passed { Ok(()) } else { Err(Error("VM preflight failed; see diagnostic checks and remedies".into())) }
+        }
+
         [command,path] if command=="app-capabilities" => {
             let response=freelane::agent::window_request(Path::new(path),freelane_agent_protocol::Action::Ping)?;
             println!("{}",serde_json::to_string(&response).map_err(|e|Error(e.to_string()))?);Ok(())

@@ -2,9 +2,11 @@
 pub mod agent;
 pub mod app_launcher;
 pub mod benchmark;
+pub mod diagnostics;
 pub mod mobile;
 pub mod qemu;
 pub mod qmp;
+mod socket_wait;
 
 use serde::{Deserialize, Serialize};
 use std::{fmt, path::PathBuf};

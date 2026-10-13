@@ -2,6 +2,7 @@
 use crate::{Error, Result};
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -15,9 +16,6 @@ impl Qmp {
     pub fn connect(path: &Path) -> Result<Self> {
         let stream =
             UnixStream::connect(path).map_err(|e| Error(format!("QMP {}: {e}", path.display())))?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(3)))
-            .map_err(io_error)?;
         stream
             .set_write_timeout(Some(Duration::from_secs(3)))
             .map_err(io_error)?;
@@ -35,13 +33,13 @@ impl Qmp {
     fn read_message(&mut self, deadline: Instant) -> Result<Value> {
         let mut bytes = Vec::new();
         loop {
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .ok_or_else(|| Error("QMP message deadline exceeded".into()))?;
-            self.reader
-                .get_ref()
-                .set_read_timeout(Some(remaining))
-                .map_err(io_error)?;
+            if Instant::now() >= deadline {
+                return Err(Error("QMP message deadline exceeded".into()));
+            }
+            if self.reader.buffer().is_empty() {
+                crate::socket_wait::readable(self.reader.get_ref().as_raw_fd(), deadline)
+                    .map_err(io_error)?;
+            }
             let chunk = self.reader.fill_buf().map_err(io_error)?;
             if chunk.is_empty() {
                 return Err(Error("QMP connection closed".into()));
@@ -73,13 +71,6 @@ impl Qmp {
         // A deadline bounds event floods as well as socket inactivity.
         let deadline = std::time::Instant::now() + Duration::from_secs(3);
         loop {
-            let remaining = deadline
-                .checked_duration_since(std::time::Instant::now())
-                .ok_or_else(|| Error("QMP command deadline exceeded".into()))?;
-            self.reader
-                .get_ref()
-                .set_read_timeout(Some(remaining))
-                .map_err(io_error)?;
             let message = self.read_message(deadline)?;
             if message.get("event").is_some() {
                 continue;
