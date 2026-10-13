@@ -11,7 +11,7 @@ use std::{
 pub fn request(config: &Path, action: Action) -> Result<Response> {
     request_vm(config, action, VERSION)
 }
-fn request_vm(config: &Path, action: Action, version: u16) -> Result<Response> {
+pub(crate) fn request_vm(config: &Path, action: Action, version: u16) -> Result<Response> {
     use fs2::FileExt;
     use std::{
         fs::{self, OpenOptions},
@@ -142,6 +142,10 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
                 freelane_agent_protocol::Outcome::Capabilities { .. }
             )
             | (
+                Action::Ping,
+                freelane_agent_protocol::Outcome::AgentInfo { .. }
+            )
+            | (
                 Action::Windows { .. },
                 freelane_agent_protocol::Outcome::Windows { .. }
             )
@@ -160,6 +164,9 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
     );
     let expected = expected
         && match (&request.action, &response.outcome) {
+            (Action::Ping, freelane_agent_protocol::Outcome::AgentInfo { info }) => {
+                version == freelane_agent_protocol::CAPABILITY_VERSION && info.validate().is_ok()
+            }
             (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. }) => version == VERSION,
             (Action::Ping, freelane_agent_protocol::Outcome::Capabilities { .. }) => {
                 version == freelane_agent_protocol::WINDOW_VERSION

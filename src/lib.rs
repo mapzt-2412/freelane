@@ -273,3 +273,5 @@ pub mod readiness;
 pub mod settings_bundle;
 
 pub mod cloud_image;
+
+pub mod agent_capabilities;

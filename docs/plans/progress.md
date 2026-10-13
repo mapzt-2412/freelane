@@ -11,7 +11,7 @@ Updated 2026-10-13. The roadmap is not complete.
 | P1 persistent VM library | Implemented and tested | Private/atomic bookmark updates, corrupt file preservation, actual UI restart without config arguments |
 | P1 full wizard/recovery | In progress; not accepted | File pickers and ARM64 UEFI-loader inspection implemented; physical dialog acceptance, full guest checks, installation readiness/progress, repair/recovery and interruption recovery remain |
 | P1 checkpoint/recovery-copy foundation | Implemented; limited acceptance | CLI full copy + fresh-directory restore; file-level tests Linux/Mac passed; real Windows/BitLocker recovery blocked by cloud capacity and pending native testing |
-| P2 clipboard/sharing/agent lifecycle | Not started | Depends on selected sharing backend and normal-user agent validation |
+| P2 clipboard/sharing/agent lifecycle | In progress | Read-only v3 capability discovery implemented; clipboard/transfer and agent lifecycle remain pending |
 | P3 app video/Coherence direction | Not started beyond existing snapshot prototype | Requires transport/driver feasibility and native Mac evidence |
 | P4 complete snapshot/clone/backup UX | Not started | Consistent disk/NVRAM/TPM transactions precede restore/clone |
 | P5 optimization | Not started | Measure a native baseline before performance claims |
@@ -57,3 +57,5 @@ Ubuntu guest checkpoint acceptance: offline checkpoint created after clean shutd
 Required CI for code commit 1a5405c passed, including Linux/Mac portable suites, real ARM checks, guest-agent builds and Mac checkpoint file roundtrip: https://github.com/puma2k/freelane/actions/runs/38384374715 . Native Mac guest/HVF/Dock acceptance is still deferred.
 
 P1 reviewable preview published: v0.1.0-preview.6, source a50687e. Mac app/DMG and Windows ARM64 agent workflow passed; the public DMG was downloaded and its SHA256/UDIF footer independently checked. [Release](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.6), [package evidence](../evidence/release-preview6.json). This is an ad-hoc preview and does not accept P0/P1 native runtime or complete P2–P7.
+
+P2 capability discovery: read-only v3 metadata and bounded v3→v2→v1 fallback implemented in CLI and asynchronous desktop Details probe, retaining legacy unknown semantics. 106 workspace tests passed, 6 ignored; 11 MCP tests, clippy, desktop build and Apple Silicon core cross-check passed. Linux/Windows ARM64 agents built. Real v3 guest transport/UI acceptance remains in progress; clipboard, transfer and lifecycle are pending. Preview.6 predates this change.

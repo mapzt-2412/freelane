@@ -21,6 +21,32 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             message: error.to_string(),
         },
         Ok(()) => match request.action {
+            Action::Ping if request.version == freelane_agent_protocol::CAPABILITY_VERSION => {
+                let mut features = vec![freelane_agent_protocol::Feature {
+                    name: "launch".into(),
+                    protocol: VERSION,
+                }];
+                if launcher.window_support() {
+                    features.push(freelane_agent_protocol::Feature {
+                        name: "window_snapshots".into(),
+                        protocol: freelane_agent_protocol::WINDOW_VERSION,
+                    });
+                }
+                Outcome::AgentInfo {
+                    info: freelane_agent_protocol::AgentInfo {
+                        agent_version: env!("CARGO_PKG_VERSION").into(),
+                        os: std::env::consts::OS.into(),
+                        arch: std::env::consts::ARCH.into(),
+                        protocols: vec![
+                            VERSION,
+                            freelane_agent_protocol::WINDOW_VERSION,
+                            freelane_agent_protocol::CAPABILITY_VERSION,
+                        ],
+                        features,
+                        max_frame: freelane_agent_protocol::MAX_FRAME as u32,
+                    },
+                }
+            }
             Action::Ping if request.version == freelane_agent_protocol::WINDOW_VERSION => {
                 Outcome::Capabilities {
                     window_snapshots: launcher.window_support(),
@@ -47,7 +73,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
         },
     };
     Response {
-        version: if request.version == freelane_agent_protocol::WINDOW_VERSION {
+        version: if [
+            freelane_agent_protocol::WINDOW_VERSION,
+            freelane_agent_protocol::CAPABILITY_VERSION,
+        ]
+        .contains(&request.version)
+        {
             request.version
         } else {
             VERSION
@@ -237,5 +268,52 @@ mod tests {
             assert_eq!(reply.id, id);
             assert!(matches!(reply.outcome, Outcome::Pong { .. }));
         }
+    }
+}
+
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+    struct NoLaunch;
+    impl Launcher for NoLaunch {
+        fn launch(&mut self, _: &str, _: &[String]) -> io::Result<u32> {
+            panic!("Discovery must not launch anything")
+        }
+    }
+    #[test]
+    fn v3_discovery_reports_versions_and_actual_features_without_mutating() {
+        let mut launcher = NoLaunch;
+        let response = handle(
+            Request {
+                version: 3,
+                id: 91,
+                action: Action::Ping,
+            },
+            &mut launcher,
+        );
+        let json = serde_json::to_value(response).unwrap();
+        assert_eq!(json["version"], 3);
+        assert_eq!(json["outcome"]["status"], "agent_info");
+        assert_eq!(
+            json["outcome"]["info"]["protocols"],
+            serde_json::json!([1, 2, 3])
+        );
+        assert_eq!(
+            json["outcome"]["info"]["features"],
+            serde_json::json!([{"name":"launch","protocol":1}])
+        );
+        assert_eq!(json["outcome"]["info"]["max_frame"], 65536);
+        let response = handle(
+            Request {
+                version: 3,
+                id: 92,
+                action: Action::Launch {
+                    executable: "must-not-run".into(),
+                    arguments: vec![],
+                },
+            },
+            &mut launcher,
+        );
+        assert!(matches!(response.outcome, Outcome::Failed { .. }));
     }
 }

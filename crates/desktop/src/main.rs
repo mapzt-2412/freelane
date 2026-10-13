@@ -36,6 +36,7 @@ enum Event {
     Loaded(VmInfo, Option<String>),
     Created(PathBuf),
     LibraryRepaired(Vec<freelane::library::Entry>),
+    AgentCapabilities(Option<freelane::agent_capabilities::Report>, String),
     SettingsPreview(freelane::settings_bundle::Bundle),
     WizardPicked(wizard::Field, Option<String>),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
@@ -64,6 +65,7 @@ struct Desktop {
     creation_progress: Option<mpsc::Receiver<freelane::provision::Stage>>,
     creation_stage: Option<freelane::provision::Stage>,
     agent_status: String,
+    agent_info: Option<freelane::agent_capabilities::Report>,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
     library_notice: String,
@@ -177,6 +179,16 @@ impl Desktop {
             let _ = sender.send(task());
             ctx.request_repaint();
         });
+    }
+    fn probe_agent_capabilities(&mut self, ctx: &egui::Context) {
+        let Some(vm) = &self.vm else {
+            return;
+        };
+        let path = vm.path.clone();
+        self.work(ctx,move || Ok(match freelane::agent_capabilities::inspect(&path) {
+            Ok(info)=>Event::AgentCapabilities(Some(info),String::new()),
+            Err(_)=>Event::AgentCapabilities(None,"Agent capabilities unavailable. Check the channel and guest agent installation.".into()),
+        }));
     }
     fn repair_bookmark(&mut self, ctx: &egui::Context, old: PathBuf) {
         self.work(ctx, move || {
@@ -537,6 +549,7 @@ impl Desktop {
                             self.notice.clear();
                             self.status = "Not checked".into();
                             self.agent_status = "not_checked".into();
+                            self.agent_info = None;
                             self.control(ctx, "status");
                         }
                         Ok(Event::Saved(vm, notice, warning)) => {
@@ -552,10 +565,26 @@ impl Desktop {
                             self.settings_open = false;
                             self.status = "Not checked".into();
                             self.agent_status = "not_checked".into();
+                            self.agent_info = None;
                             self.texture = None;
                             self.auto_display = false;
                         }
+                        Ok(Event::AgentCapabilities(info, notice)) => {
+                            self.agent_status = if info.is_some() {
+                                "connected"
+                            } else if self.status == "running" {
+                                "unavailable"
+                            } else {
+                                "not_checked"
+                            }
+                            .into();
+                            self.agent_info = info;
+                            self.notice = notice;
+                        }
                         Ok(Event::Readiness(report)) => {
+                            if report.agent != "connected" || report.backend != "running" {
+                                self.agent_info = None;
+                            }
                             self.status = report.backend;
                             self.agent_status = report.agent;
                             self.notice.clear();
@@ -563,6 +592,7 @@ impl Desktop {
                         Ok(Event::Status(status)) => {
                             self.status = status;
                             self.agent_status = "not_checked".into();
+                            self.agent_info = None;
                             self.notice.clear();
                         }
                         Ok(Event::Frame(image, announce)) => {
@@ -580,6 +610,7 @@ impl Desktop {
                             self.auto_display = false;
                             self.status = "Unknown".into();
                             self.agent_status = "not_checked".into();
+                            self.agent_info = None;
                             self.notice = error;
                         }
                     }
@@ -588,6 +619,7 @@ impl Desktop {
                     self.auto_display = false;
                     self.pending = None;
                     self.notice = "VM worker disconnected".into();
+                    self.agent_info = None;
                 }
                 Err(mpsc::TryRecvError::Empty) => {
                     ctx.request_repaint_after(Duration::from_millis(100))
@@ -609,6 +641,8 @@ impl Desktop {
                     self.child = None;
                     self.auto_display = false;
                     self.status = "Unknown".into();
+                    self.agent_status = "not_checked".into();
+                    self.agent_info = None;
                     self.refresh_at = None;
                 }
                 Ok(None) => ctx.request_repaint_after(Duration::from_millis(500)),
@@ -732,6 +766,7 @@ fn main() -> eframe::Result {
                 mobile_open: !mobile_path.is_empty(),
                 mobile_path,
                 agent_status: "not_checked".into(),
+                agent_info: None,
                 language,
                 library,
                 library_notice,

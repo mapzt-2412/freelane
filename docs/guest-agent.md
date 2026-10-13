@@ -50,6 +50,10 @@ A host response timeout leaves execution outcome unknown. The client does not au
 
 ## Protocol and validation
 
+On current main, `freelane agent-capabilities /absolute/path/to/vm.toml` and the desktop Details probe query version 3, then fall back to versions 2 and 1. Discovery sends only Ping requests. Version 3 reports the agent package version, OS, architecture, advertised protocol versions and bounded feature metadata. Version 2 reports snapshot support; other unreported legacy features remain unknown. Failed probes clear cached metadata. These changes postdate preview.6.
+
+Discovery does not install the agent, grant permissions or establish that a guest desktop is usable. Clipboard and file transfer are not advertised until implemented. Each operation still uses its own supported protocol; version 3 rejects mutations.
+
 Protocol version 1 uses newline-delimited UTF-8 JSON, capped at 64 KiB per frame. Requests have a nonzero ID; responses must echo that ID and the version. Unknown fields, malformed/truncated/oversized frames, NUL characters, excessive argument counts and unsupported versions are rejected. Host reads have a five-second total deadline.
 
 ```json

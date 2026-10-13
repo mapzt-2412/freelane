@@ -744,6 +744,7 @@ version = "0.1.0"
 dependencies = [
  "freelane-agent-protocol",
  "image",
+ "serde_json",
 ]
 
 [[package]]

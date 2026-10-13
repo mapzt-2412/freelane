@@ -8,3 +8,6 @@ freelane-agent-protocol = { path = "../agent-protocol" }
 
 [target.'cfg(windows)'.dependencies]
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
+
+[dev-dependencies]
+serde_json = "1"

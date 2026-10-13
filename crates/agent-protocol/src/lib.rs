@@ -4,6 +4,8 @@ use std::io::{self, BufRead, Read, Write};
 pub const VERSION: u16 = 1;
 /// Optional window extension; v1 ping/launch remain compatible.
 pub const WINDOW_VERSION: u16 = 2;
+/// Read-only extensible capability discovery; existing mutation protocols stay unchanged.
+pub const CAPABILITY_VERSION: u16 = 3;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -53,6 +55,67 @@ pub struct WindowInfo {
     pub target: WindowTarget,
     pub title: String,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct Feature {
+    pub name: String,
+    pub protocol: u16,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AgentInfo {
+    pub agent_version: String,
+    pub os: String,
+    pub arch: String,
+    pub protocols: Vec<u16>,
+    pub features: Vec<Feature>,
+    pub max_frame: u32,
+}
+impl AgentInfo {
+    pub fn validate(&self) -> io::Result<()> {
+        let text = |value: &str| {
+            !value.is_empty()
+                && value.len() <= 64
+                && value.is_ascii()
+                && !value.chars().any(char::is_control)
+        };
+        if !text(&self.agent_version)
+            || !text(&self.os)
+            || !text(&self.arch)
+            || self.max_frame != MAX_FRAME as u32
+            || self.protocols.is_empty()
+            || self.protocols.len() > 16
+            || !self.protocols.contains(&CAPABILITY_VERSION)
+            || self.protocols.contains(&0)
+            || self.features.len() > 32
+        {
+            return Err(invalid("Invalid guest capability metadata"));
+        }
+        let mut protocols = std::collections::HashSet::new();
+        if self
+            .protocols
+            .iter()
+            .any(|version| !protocols.insert(*version))
+        {
+            return Err(invalid("Duplicate guest protocol versions"));
+        }
+        let mut names = std::collections::HashSet::new();
+        for feature in &self.features {
+            if feature.name.is_empty()
+                || feature.name.len() > 48
+                || !feature
+                    .name
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_')
+                || !names.insert(&feature.name)
+                || !self.protocols.contains(&feature.protocol)
+            {
+                return Err(invalid("Invalid guest capability feature"));
+            }
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Response {
@@ -63,6 +126,9 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    AgentInfo {
+        info: AgentInfo,
+    },
     Pong {
         os: String,
         arch: String,
@@ -89,11 +155,14 @@ pub enum Outcome {
 }
 impl Request {
     pub fn validate(&self) -> io::Result<()> {
-        if self.version != VERSION && self.version != WINDOW_VERSION {
+        if ![VERSION, WINDOW_VERSION, CAPABILITY_VERSION].contains(&self.version) {
             return Err(invalid("Unsupported guest protocol version"));
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
+            return Err(invalid("Protocol v3 is read-only capability discovery"));
         }
         let window_action = !matches!(self.action, Action::Ping | Action::Launch { .. });
         if window_action && self.version != WINDOW_VERSION {
@@ -220,5 +289,63 @@ mod tests {
         let mut bytes = Vec::new();
         assert!(write_frame(&mut bytes, &request).is_err());
         assert!(bytes.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod capability_tests {
+    use super::*;
+    fn info() -> AgentInfo {
+        AgentInfo {
+            agent_version: "0.1.0".into(),
+            os: "linux".into(),
+            arch: "aarch64".into(),
+            protocols: vec![1, 2, 3],
+            features: vec![Feature {
+                name: "launch".into(),
+                protocol: 1,
+            }],
+            max_frame: MAX_FRAME as u32,
+        }
+    }
+    #[test]
+    fn discovery_metadata_bounds_reject_controls_duplicates_and_unadvertised_protocols() {
+        let original = info();
+        assert!(original.validate().is_ok());
+        let mut value = original.clone();
+        value.agent_version = "x".repeat(65);
+        assert!(value.validate().is_err());
+        let mut value = original.clone();
+        value.os = "linux\nprivate".into();
+        assert!(value.validate().is_err());
+        let mut value = original.clone();
+        value.protocols.push(3);
+        assert!(value.validate().is_err());
+        let mut value = original.clone();
+        value.features.push(value.features[0].clone());
+        assert!(value.validate().is_err());
+        let mut value = original.clone();
+        value.features[0].protocol = 4;
+        assert!(value.validate().is_err());
+        let mut value = original;
+        value.max_frame += 1;
+        assert!(value.validate().is_err());
+    }
+    #[test]
+    fn future_feature_protocols_can_be_discovered_without_enabling_new_request_actions() {
+        let mut value = info();
+        value.protocols.push(4);
+        value.features.push(Feature {
+            name: "future_feature".into(),
+            protocol: 4,
+        });
+        assert!(value.validate().is_ok());
+        assert!(Request {
+            version: 4,
+            id: 1,
+            action: Action::Ping
+        }
+        .validate()
+        .is_err());
     }
 }

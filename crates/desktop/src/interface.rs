@@ -729,6 +729,36 @@ impl Desktop {
                     ui.label(path.display().to_string());
                     ui.label(lang.text("Guest agent"));
                     ui.label(lang.text(&self.agent_status));
+                    if ui
+                        .add_enabled(
+                            agent_enabled && !busy,
+                            egui::Button::new(lang.text("Probe capabilities")),
+                        )
+                        .clicked()
+                    {
+                        self.probe_agent_capabilities(ctx);
+                    }
+                    if let Some(info) = &self.agent_info {
+                        ui.label(format!(
+                            "{}: v{}",
+                            lang.text("Protocol"),
+                            info.negotiated_protocol
+                        ));
+                        if let Some(version) = &info.agent_version {
+                            ui.label(format!("{}: {}", lang.text("Agent version"), version));
+                        }
+                        for (label, name, protocol) in [
+                            ("Launch applications", "launch", 1),
+                            ("Window snapshots", "window_snapshots", 2),
+                        ] {
+                            let state = match info.supports(name, protocol) {
+                                Some(true) => "Supported",
+                                Some(false) => "Unavailable",
+                                None => "Unknown",
+                            };
+                            ui.label(format!("{}: {}", lang.text(label), lang.text(state)));
+                        }
+                    }
                     ui.label(lang.text("Configured acceleration"));
                     ui.label(lang.text(acceleration));
                     ui.collapsing(lang.text("Advanced controls"), |ui| {
