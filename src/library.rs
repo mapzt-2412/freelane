@@ -208,7 +208,9 @@ pub fn relink(library: &Path, old: &Path, new: &Path) -> Result<()> {
                 ))
             }
         }
-        if entries.iter().any(|entry| entry.path == new) {
+        if entries.iter().any(|entry| {
+            entry.path == new || fs::canonicalize(&entry.path).is_ok_and(|path| path == new)
+        }) {
             return Err(Error("Replacement VM is already bookmarked".into()));
         }
         let entry = entries

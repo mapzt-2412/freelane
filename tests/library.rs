@@ -60,7 +60,10 @@ fn relink_repairs_moved_workspace_without_changing_guest_files() {
     library::relink(&library, &original, &moved.join("vm.toml")).unwrap();
     let entries = library::read(&library).unwrap();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].path, moved.join("vm.toml"));
+    assert_eq!(
+        entries[0].path,
+        fs::canonicalize(moved.join("vm.toml")).unwrap()
+    );
     assert_eq!(fs::read_to_string(moved.join("vm.toml")).unwrap(), text);
     assert_eq!(fs::read(moved.join("disk.qcow2")).unwrap(), b"guest bytes");
     let saved = fs::read(&library).unwrap();
@@ -127,5 +130,41 @@ fn failed_relink_preserves_library_for_invalid_duplicate_and_busy_targets() {
     let saved = fs::read(&library).unwrap();
     assert!(library::relink(&library, &old, &new).is_err());
     assert_eq!(fs::read(&library).unwrap(), saved);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn relink_rejects_an_existing_bookmark_through_a_directory_symlink() {
+    let root = std::env::temp_dir().join(format!("fl-relink-alias-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    let new = root.join("new.toml");
+    fs::write(
+        &new,
+        "name='Moved'\ncpus=2\nmemory_mib=4096\ndisk='disk.qcow2'\n",
+    )
+    .unwrap();
+    fs::write(root.join("disk.qcow2"), b"guest disk").unwrap();
+    let alias = root.join("alias");
+    std::os::unix::fs::symlink(&root, &alias).unwrap();
+    let path = root.join("library.toml");
+    let missing = root.join("missing.toml");
+    for entry in [
+        Entry {
+            path: missing.clone(),
+            name: "Missing".into(),
+            guest_os: GuestOs::Windows,
+        },
+        Entry {
+            path: alias.join("new.toml"),
+            name: "Aliased".into(),
+            guest_os: GuestOs::Windows,
+        },
+    ] {
+        library::record(&path, entry).unwrap();
+    }
+    let original = fs::read(&path).unwrap();
+    assert!(library::relink(&path, &missing, &new).is_err());
+    assert_eq!(fs::read(&path).unwrap(), original);
     fs::remove_dir_all(root).unwrap();
 }
