@@ -1,5 +1,5 @@
 use super::*;
-const ACCENT: egui::Color32 = egui::Color32::from_rgb(0, 122, 255);
+const ACCENT: egui::Color32 = egui::Color32::from_rgb(99, 82, 221);
 const INK: egui::Color32 = egui::Color32::from_rgb(30, 30, 30);
 const MUTED: egui::Color32 = egui::Color32::from_rgb(113, 116, 123);
 const BORDER: egui::Color32 = egui::Color32::from_rgb(224, 225, 230);
@@ -109,14 +109,14 @@ pub fn install_style(ctx: &egui::Context) {
         style.visuals.window_corner_radius = egui::CornerRadius::same(12);
         style.visuals.extreme_bg_color = egui::Color32::from_rgb(243, 244, 246);
         style.visuals.override_text_color = Some(INK);
-        style.visuals.selection.bg_fill = egui::Color32::from_rgb(214, 232, 255);
+        style.visuals.selection.bg_fill = egui::Color32::from_rgb(231, 225, 253);
         style.visuals.selection.stroke = egui::Stroke::new(1.0, INK);
         style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::from_rgb(239, 240, 243);
         style.visuals.widgets.hovered.weak_bg_fill = egui::Color32::from_rgb(226, 231, 239);
         style.visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(6);
         style.visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(6);
         style.visuals.widgets.active.corner_radius = egui::CornerRadius::same(6);
-        style.visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(205, 224, 250);
+        style.visuals.widgets.active.weak_bg_fill = egui::Color32::from_rgb(218, 210, 251);
         style.spacing.item_spacing = egui::vec2(10.0, 9.0);
         style.spacing.button_padding = egui::vec2(13.0, 8.0);
         style
@@ -179,7 +179,7 @@ impl Desktop {
             .size_range(210.0..=300.0)
             .frame(
                 egui::Frame::new()
-                    .fill(egui::Color32::from_rgb(235, 236, 240))
+                    .fill(egui::Color32::from_rgb(244, 243, 249))
                     .inner_margin(16),
             )
             .show(ui, |ui| {
@@ -197,9 +197,9 @@ impl Desktop {
                             let selected = self.vm.as_ref().is_some_and(|vm| vm.path == *path);
                             let response = egui::Frame::new()
                                 .fill(if selected {
-                                    egui::Color32::from_rgb(216, 230, 250)
+                                    egui::Color32::from_rgb(230, 224, 251)
                                 } else {
-                                    egui::Color32::from_rgb(235, 236, 240)
+                                    egui::Color32::from_rgb(244, 243, 249)
                                 })
                                 .stroke(egui::Stroke::new(1.0, egui::Color32::TRANSPARENT))
                                 .corner_radius(8)
@@ -354,21 +354,37 @@ impl Desktop {
                 .map(|r| r.graphics)
                 .unwrap_or_default(),
         );
-        ui.horizontal(|ui| {
-            icon(ui, os, 56.0);
-            ui.vertical(|ui| {
-                ui.heading(name);
-                ui.colored_label(MUTED, lang.text("Last observed state"));
-                ui.colored_label(
-                    if self.status == "running" {
-                        egui::Color32::from_rgb(31, 146, 105)
-                    } else {
-                        MUTED
-                    },
-                    lang.text(&self.status),
-                );
+        egui::Frame::new()
+            .fill(egui::Color32::from_rgb(235, 231, 253))
+            .corner_radius(22)
+            .inner_margin(24)
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    icon(ui, os, 72.0);
+                    ui.add_space(10.0);
+                    ui.vertical(|ui| {
+                        ui.label(
+                            egui::RichText::new(lang.text(match os {
+                                GuestOs::Windows => "Windows workspace",
+                                GuestOs::Ubuntu => "Ubuntu workspace",
+                            }))
+                            .size(11.0)
+                            .color(ACCENT)
+                            .strong(),
+                        );
+                        ui.label(egui::RichText::new(name).size(30.0).strong());
+                        ui.colored_label(
+                            MUTED,
+                            format!(
+                                "{} · {}",
+                                lang.text("Last observed state"),
+                                lang.text(&self.status)
+                            ),
+                        );
+                    });
+                });
             });
-        });
         ui.add_space(12.0);
         let busy = self.pending.is_some();
         ui.horizontal_wrapped(|ui| {
@@ -415,7 +431,7 @@ impl Desktop {
         ui.add_space(10.0);
         let width = ((ui.available_width() - 24.0) / 3.0 - 34.0).max(90.0);
         ui.horizontal_wrapped(|ui| {
-            for (label, value) in [
+            for (index, (label, value)) in [
                 ("Virtual CPUs", cpus.to_string()),
                 ("Memory", format!("{:.1} GiB", memory as f64 / 1024.0)),
                 (
@@ -427,15 +443,30 @@ impl Desktop {
                     })
                     .to_owned(),
                 ),
-            ] {
-                card().show(ui, |ui| {
-                    ui.set_min_width(width);
-                    ui.vertical(|ui| {
-                        ui.colored_label(MUTED, egui::RichText::new(lang.text(label)).size(12.0));
-                        ui.add_space(3.0);
-                        ui.label(egui::RichText::new(value).strong().size(19.0));
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let tint = [
+                    egui::Color32::from_rgb(231, 239, 255),
+                    egui::Color32::from_rgb(232, 245, 237),
+                    egui::Color32::from_rgb(255, 240, 228),
+                ][index];
+                egui::Frame::new()
+                    .fill(tint)
+                    .corner_radius(16)
+                    .inner_margin(16)
+                    .show(ui, |ui| {
+                        ui.set_min_width(width);
+                        ui.vertical(|ui| {
+                            ui.colored_label(
+                                MUTED,
+                                egui::RichText::new(lang.text(label)).size(12.0),
+                            );
+                            ui.add_space(3.0);
+                            ui.label(egui::RichText::new(value).strong().size(19.0));
+                        });
                     });
-                });
             }
         });
         ui.add_space(14.0);
@@ -501,22 +532,59 @@ impl Desktop {
                             }
                         } else {
                             ui.allocate_ui(egui::vec2(ui.available_width(), height - 28.0), |ui| {
-                                ui.with_layout(
-                                    egui::Layout::centered_and_justified(egui::Direction::TopDown),
-                                    |ui| {
-                                        ui.label(
-                                            egui::RichText::new(format!(
-                                                "{}\n{}",
-                                                lang.text("No display snapshot yet"),
-                                                lang.text(
-                                                    "Start your VM, then refresh its display."
-                                                )
-                                            ))
-                                            .size(16.0)
-                                            .color(MUTED),
-                                        );
-                                    },
-                                );
+                                ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                                    ui.add_space(((height - 230.0) / 2.0).max(12.0));
+                                    let (rect, _) = ui.allocate_exact_size(
+                                        egui::vec2(150.0, 100.0),
+                                        egui::Sense::hover(),
+                                    );
+                                    let painter = ui.painter();
+                                    painter.circle_filled(
+                                        rect.center() + egui::vec2(-35.0, -5.0),
+                                        48.0,
+                                        egui::Color32::from_rgb(238, 234, 253),
+                                    );
+                                    painter.circle_filled(
+                                        rect.center() + egui::vec2(40.0, 0.0),
+                                        35.0,
+                                        egui::Color32::from_rgb(226, 239, 253),
+                                    );
+                                    let screen = egui::Rect::from_center_size(
+                                        rect.center() - egui::vec2(0.0, 8.0),
+                                        egui::vec2(100.0, 65.0),
+                                    );
+                                    painter.rect_filled(screen, 10, egui::Color32::WHITE);
+                                    painter.rect_stroke(
+                                        screen,
+                                        10,
+                                        egui::Stroke::new(2.0, ACCENT),
+                                        egui::StrokeKind::Inside,
+                                    );
+                                    painter.line_segment(
+                                        [
+                                            rect.center() + egui::vec2(0.0, 25.0),
+                                            rect.center() + egui::vec2(0.0, 38.0),
+                                        ],
+                                        egui::Stroke::new(3.0, ACCENT),
+                                    );
+                                    painter.line_segment(
+                                        [
+                                            rect.center() + egui::vec2(-18.0, 39.0),
+                                            rect.center() + egui::vec2(18.0, 39.0),
+                                        ],
+                                        egui::Stroke::new(3.0, ACCENT),
+                                    );
+                                    ui.add_space(14.0);
+                                    ui.label(
+                                        egui::RichText::new(lang.text("No display snapshot yet"))
+                                            .size(20.0)
+                                            .strong(),
+                                    );
+                                    ui.colored_label(
+                                        MUTED,
+                                        lang.text("Start your VM, then refresh its display."),
+                                    );
+                                });
                             });
                         }
                     });

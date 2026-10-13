@@ -10,6 +10,8 @@ impl Language {
             return english;
         }
         match english {
+            "Windows workspace" => "Không gian Windows",
+            "Ubuntu workspace" => "Không gian Ubuntu",
             "Android & iOS" => "Android & iOS",
             "Mobile profile" => "Cấu hình thiết bị di động",
             "Available devices" => "Thiết bị có sẵn",
