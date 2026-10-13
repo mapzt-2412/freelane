@@ -30,7 +30,7 @@ Next work: P1 installation readiness and interruption recovery; native dialog/gu
 
 [Checkpoint scope and tests](../checkpoints.md). Latest completed checkpoint CI: https://github.com/puma2k/freelane/actions/runs/38348621836 (Linux/Mac file roundtrip and required checks passed).
 
-Creation now rejects insufficient destination capacity before backend execution or directory creation. The conservative check includes full virtual disk growth; sparse allocation is not a reservation.
+Creation now rejects insufficient destination capacity before backend execution or directory creation. The earlier full-virtual-growth check is superseded by preview.9 initial-allocation checks; sparse allocation is not a reservation. Checkpoint/copy budgets remain separate.
 
 P1 media check passed on the actual supplied Windows ARM64 ISO (UDF bridge, extracted ARM64 PE bootloader). Synthetic ISO tests cover wrong architecture, missing loader and invalid extents. This is not a fresh guest installation. P0 owner checklist: [Mac acceptance](../mac-acceptance.md).
 
@@ -67,3 +67,5 @@ Mac wizard onboarding: discovers a coherent Homebrew QEMU/firmware installation,
 Onboarding follow-up includes Homebrew 7-Zip and Finder-safe media-tool discovery, required for Windows UDF ISO inspection. Full 109-test suite/clippy/build/Mac core recheck passed. Preview.8 supersedes preview.7 with this prerequisite fix.
 
 Preview.8 published from 0851c83: native Mac package/DMG verification and Windows agent packaging succeeded, public DMG SHA256 and UDIF footer independently verified. [Release](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.8), [evidence](../evidence/release-preview8.json). Actual Homebrew installation and physical Mac guest acceptance remain pending.
+
+Sparse-storage/setup milestone: empty qcow2 initial capacity no longer requires the full virtual maximum free; 4TiB application cap removed with checked arithmetic. Wizard reports selected filesystem capacity asynchronously, resolves collision names in the picker worker and refreshes setup on reopen. Pinned parent/stage descriptors and guarded no-replace publication refuse changed/disconnected destinations. 116 tests/6ignored, 11MCP, clippy/build/Mac core check passed. Actual Linux UI created Windows128GiB with16.7GiB free and200704-byte disk; real QEMU8TiB sparse creation passed. No Windows install/native Mac/external-device acceptance claimed. [Guide](../setup.md), [evidence](../evidence/sparse-setup.json).

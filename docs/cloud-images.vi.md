@@ -9,3 +9,5 @@ Tải ảnh từ [Ubuntu chính thức](https://cloud-images.ubuntu.com/noble/cu
 Giữ đường dẫn seed còn truy cập được tới khi provisioning hoàn tất. Cloud-init có thể chờ lâu nếu mạng tắt hoặc cấu hình NIC không đúng; QEMU đang chạy chưa có nghĩa là guest sẵn sàng. Kênh guest agent không tự cài agent.
 
 Xem [mẫu cấu hình CLI và NoCloud network-config](cloud-images.md). Kiểm thử Mac thực tế và Ubuntu Desktop vẫn còn chờ.
+
+Xem [thiết lập nơi lưu và đĩa tăng dần](setup.vi.md). Không yêu cầu chỗ trống bằng dung lượng tối đa của đĩa mới; khi nhập ảnh vẫn tính chỗ cho snapshot nguồn và chuyển đổi.

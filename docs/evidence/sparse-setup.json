@@ -1,0 +1,27 @@
+{
+  "workspace_tests_passed": 116,
+  "workspace_tests_ignored": 6,
+  "mcp_tests_passed": 11,
+  "clippy": "passed",
+  "desktop_build": "passed",
+  "mac_core_cross_check": "passed",
+  "ui_languages": [
+    "en",
+    "vi"
+  ],
+  "ui_dialogs": "test-only zenity selection fixture; native dialogs not exercised",
+  "windows_ui_virtual_gib": 128,
+  "ui_free_gib_before_creation": 16.7,
+  "windows_disk_allocated_bytes": 200704,
+  "windows_guest_booted": false,
+  "real_qemu_virtual_gib": 8192,
+  "real_qemu_allocated_under_bytes": 67108864,
+  "destination_alias_capacity": "canonical selected ancestor verified; inspection creates no workspace",
+  "selected_parent_replacement": "refuses staging/publication; replacement remains empty",
+  "stage_same_filesystem_replacement": "regression RED then GREEN before payload writes",
+  "folder_collision": "worker selects new name and preserves existing data",
+  "native_mac_guest": false,
+  "physical_ssd_disconnect": false,
+  "disk_pooling": false,
+  "cloud_import_capacity": "source virtual bytes + snapshot file bytes + metadata; target growth not reserved"
+}

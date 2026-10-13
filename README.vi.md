@@ -136,3 +136,5 @@ FreeLane độc lập với Apple, Microsoft, Google, Canonical và Parallels.
 [Offline checkpoint/recovery-copy foundation](docs/checkpoints.md)
 
 [Tạo Ubuntu từ ảnh cloud ARM64](docs/cloud-images.vi.md) · [Nhập/xuất cấu hình](docs/settings-bundles.md) · [Tìm lại VM đã chuyển thư mục](docs/library-recovery.md)
+
+[Thiết lập tạo VM và nơi lưu](docs/setup.vi.md).
