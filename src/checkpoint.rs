@@ -1,15 +1,15 @@
 //! Offline full-copy checkpoints. Original guest files are never replaced or modified.
-use crate::{qemu, storage::free_space, Config, Error, Result};
+use crate::{
+    qemu,
+    storage::{free_space, publish},
+    Config, Error, Result,
+};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    ffi::CString,
     fs,
-    os::unix::{
-        ffi::OsStrExt,
-        fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
-    },
+    os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
@@ -41,7 +41,7 @@ fn private_dir(path: &Path) -> Result<()> {
     fs::create_dir(path).map_err(error)?;
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(error)
 }
-fn hash(path: &Path) -> Result<String> {
+pub(crate) fn hash(path: &Path) -> Result<String> {
     let out = if cfg!(target_os = "macos") {
         command(Path::new("/usr/bin/shasum"), &["-a", "256"], &[path])?
     } else {
@@ -551,40 +551,6 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
     Ok(final_path.join("vm.toml"))
 }
 
-fn publish(source: &Path, target: &Path) -> Result<()> {
-    let source = CString::new(source.as_os_str().as_bytes()).map_err(error)?;
-    let target = CString::new(target.as_os_str().as_bytes()).map_err(error)?;
-    // Both live C strings are borrowed only for this atomic no-replace rename.
-    #[cfg(target_os = "linux")]
-    let status = unsafe {
-        libc::renameat2(
-            libc::AT_FDCWD,
-            source.as_ptr(),
-            libc::AT_FDCWD,
-            target.as_ptr(),
-            libc::RENAME_NOREPLACE,
-        )
-    };
-    #[cfg(target_os = "macos")]
-    let status = unsafe {
-        libc::renameatx_np(
-            libc::AT_FDCWD,
-            source.as_ptr(),
-            libc::AT_FDCWD,
-            target.as_ptr(),
-            libc::RENAME_EXCL,
-        )
-    };
-    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-    return Err(Error(
-        "Atomic no-replace checkpoint publication is unavailable on this platform".into(),
-    ));
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    if status != 0 {
-        return Err(error(std::io::Error::last_os_error()));
-    }
-    Ok(())
-}
 #[cfg(test)]
 mod tests {
     use super::*;

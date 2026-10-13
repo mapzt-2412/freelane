@@ -158,6 +158,32 @@ pub fn runtime_dir(config: &Path) -> Result<PathBuf> {
 }
 
 pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<String>> {
+    arguments_inner(config, base, socket, false)
+}
+pub(crate) fn creation_arguments(
+    config: &Config,
+    base: &Path,
+    socket: &Path,
+) -> Result<Vec<String>> {
+    arguments_inner(config, base, socket, true)
+}
+fn arguments_inner(
+    config: &Config,
+    base: &Path,
+    socket: &Path,
+    preparing: bool,
+) -> Result<Vec<String>> {
+    if !preparing
+        && base
+            .join(crate::provision::MARKER)
+            .symlink_metadata()
+            .is_ok()
+    {
+        return Err(Error(
+            "VM creation is incomplete; use creation-recover for a prepared workspace, or retry in a new directory"
+                .into(),
+        ));
+    }
     config.validate()?;
     if base.join(crate::checkpoint::MARKER).exists() {
         return Err(Error(
@@ -507,6 +533,18 @@ pub struct QemuBackend {
 impl QemuBackend {
     pub fn new(config_path: &Path) -> Result<Self> {
         let config_path = fs::canonicalize(config_path).map_err(|e| Error(e.to_string()))?;
+        if config_path
+            .parent()
+            .unwrap()
+            .join(crate::provision::MARKER)
+            .symlink_metadata()
+            .is_ok()
+        {
+            return Err(Error(
+                "VM creation is incomplete; use creation-recover for a prepared workspace, or retry in a new directory"
+                    .into(),
+            ));
+        }
         Ok(Self {
             base: config_path.parent().unwrap().into(),
             directory: runtime_dir(&config_path)?,
@@ -886,6 +924,19 @@ pub fn initialize_guest_sized(
     guest_os: GuestOs,
     disk_gib: u64,
 ) -> Result<PathBuf> {
+    initialize_guest_transaction(
+        directory, firmware, template, qemu_img, guest_os, disk_gib, false,
+    )
+}
+pub(crate) fn initialize_guest_transaction(
+    directory: &Path,
+    firmware: &Path,
+    template: &Path,
+    qemu_img: &Path,
+    guest_os: GuestOs,
+    disk_gib: u64,
+    retain_marker: bool,
+) -> Result<PathBuf> {
     let minimum = if guest_os == GuestOs::Windows { 64 } else { 8 };
     if !(minimum..=4096).contains(&disk_gib) {
         return Err(Error(format!(
@@ -916,6 +967,18 @@ pub fn initialize_guest_sized(
     })?;
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(directory, fs::Permissions::from_mode(0o700))
+        .map_err(|e| Error(e.to_string()))?;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut marker = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(directory.join(crate::provision::MARKER))
+        .map_err(|e| Error(e.to_string()))?;
+    marker
+        .write_all(br#"{"version":1,"status":"creating"}"#)
+        .and_then(|_| marker.sync_all())
         .map_err(|e| Error(e.to_string()))?;
     fs::copy(firmware, directory.join("firmware.fd")).map_err(|e| Error(e.to_string()))?;
     fs::copy(template, directory.join("nvram.fd")).map_err(|e| Error(e.to_string()))?;
@@ -979,13 +1042,18 @@ pub fn initialize_guest_sized(
     };
     let path = directory.join("vm.toml");
     let serialized = toml::to_string_pretty(&config).map_err(|e| Error(e.to_string()))?;
-    use std::io::Write;
-    OpenOptions::new()
+    let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
+        .mode(0o600)
         .open(&path)
-        .map_err(|e| Error(e.to_string()))?
-        .write_all(serialized.as_bytes())
         .map_err(|e| Error(e.to_string()))?;
+    file.write_all(serialized.as_bytes())
+        .map_err(|e| Error(e.to_string()))?;
+    file.sync_all().map_err(|e| Error(e.to_string()))?;
+    if !retain_marker {
+        fs::remove_file(directory.join(crate::provision::MARKER))
+            .map_err(|e| Error(e.to_string()))?;
+    }
     Ok(path)
 }

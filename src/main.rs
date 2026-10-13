@@ -28,6 +28,11 @@ fn run() -> Result<()> {
             Ok(())
         }
 
+        [command, source, destination] if command == "creation-recover" => {
+            let path=freelane::provision::recover_creation(Path::new(source),Path::new(destination))?;
+            println!("Recovered creation workspace {}. Guest installation is not verified.",path.display());
+            Ok(())
+        }
         [command, path] if command == "vm-readiness" => {
             let report=freelane::readiness::inspect(Path::new(path))?;
             println!("{}",serde_json::to_string_pretty(&report).map_err(|e| Error(e.to_string()))?);

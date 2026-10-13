@@ -10,6 +10,7 @@ impl Language {
             return english;
         }
         match english {
+            "incomplete" => "Tạo chưa hoàn tất",
             "Guest agent" => "Agent máy khách",
             "connected" => "Đã kết nối",
             "disabled" => "Đã tắt",

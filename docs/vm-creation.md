@@ -14,7 +14,7 @@ freelane vm-create /absolute/path/to/create-request.toml
 freelane doctor-json /absolute/path/to/new-vm/vm.toml
 ```
 
-Relative file paths in a request resolve against its directory; qemu-img may be a PATH executable or an explicit path. Windows requests require at least two CPUs, 4096 MiB RAM and 64 GiB disk. Ubuntu disks may start at 8 GiB. Existing VM directories and source firmware/templates are preserved. Backend failures after directory creation retain the incomplete directory for inspection; do not retry with that same path or delete user data automatically.
+Relative file paths in a request resolve against its directory; qemu-img may be a PATH executable or an explicit path. Windows requests require at least two CPUs, 4096 MiB RAM and 64 GiB disk. Ubuntu disks may start at 8 GiB. Existing VM directories and source firmware/templates are preserved. Creation prepares a private `.freelane-create-*.pending` directory beside the destination, then atomically publishes without replacing anything. The parent must already exist, be owned by you and have no group/world write access. An incomplete creation marker prevents backend startup. Failures retain the pending directory for inspection, never erase source templates or an existing destination.
 
 ## Library
 
@@ -33,3 +33,13 @@ Recorded checks before the conservative storage gate was introduced: real qemu-i
 ## Observed runtime state
 
 `freelane vm-readiness /absolute/path/to/vm.toml` queries QMP and, only while the backend is observed running and its agent channel is enabled, sends a bounded agent ping. It reports backend and agent independently. Missing/unreachable QMP is `unknown`, never assumed stopped or installed. A running backend or responding agent does not prove installation completion; `installation_complete` remains null. JSON command success means observation completed, not guest acceptance. Desktop Refresh status uses the same observer; Details shows the agent state.
+
+## Interrupted creation
+
+A successfully prepared workspace has a versioned creation marker with SHA-256 digests for configuration, disk, firmware and NVRAM. If publication fails (for example another process creates the destination), recover it into a fresh directory:
+
+```sh
+freelane creation-recover /absolute/path/to/.freelane-create-ID.pending /absolute/path/to/recovered-vm
+```
+
+Recovery validates private ownership, the manifest, contained regular files/checksums, empty initial TPM state and the device plan before an atomic no-replace move. This is completion of a never-started workspace, not guest recovery or OS-installation resumption. A changed/missing component, existing destination, unsupported manifest or earlier `creating` stage is refused with the source preserved. For early failures, keep the pending files for inspection and retry creation with a new destination. Cross-filesystem moves are refused rather than silently copying. Do not remove markers or run QEMU directly against pending directories. Power-loss durability and automatic cleanup of abandoned workspaces are not guaranteed.

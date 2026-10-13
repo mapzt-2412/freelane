@@ -28,6 +28,19 @@ pub fn inspect(path: &Path) -> Result<Report> {
         return Err(Error("Config grew beyond 1 MiB".into()));
     }
     let config = Config::parse(std::str::from_utf8(&bytes).map_err(|e| Error(e.to_string()))?)?;
+    if path
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join(crate::provision::MARKER)
+        .symlink_metadata()
+        .is_ok()
+    {
+        return Ok(Report {
+            backend: "incomplete".into(),
+            agent: "not_checked".into(),
+            installation_complete: None,
+        });
+    }
     let backend = match qemu::control(path, "status") {
         Ok(value) => match (value["status"].as_str(), value["running"].as_bool()) {
             (Some("running"), Some(true)) => "running",
