@@ -19,7 +19,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: rustfmt --edition 2021 --check tests/fixtures/uefi_guest.rs tests/fixtures/linux_9p_guest.rs tests/fixtures/linux_gpu_guest.rs
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
-      - run: cargo test --locked --workspace
+      - run: python3 scripts/ci-test-status.py portable
       - run: cargo build --locked --workspace
   arm-emulation:
     runs-on: ubuntu-latest
@@ -41,7 +41,7 @@ jobs:
           FREELANE_TEST_NVRAM: /usr/share/AAVMF/AAVMF_VARS.fd
         run: |
           cargo build --locked
-          python3 tests/mcp_real_smoke.py
+          python3 scripts/ci-test-status.py arm
   guest-agent-windows:
     runs-on: windows-latest
     steps:
