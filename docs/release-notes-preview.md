@@ -1,17 +1,19 @@
-FreeLane experimental preview for Apple Silicon Macs (macOS 14 or newer).
+FreeLane v0.1.0-preview.6 for Apple Silicon Macs (macOS 14 or newer).
 
-- Download the `macos-arm64.dmg`, open it and drag `FreeLane.app` onto the `Applications` shortcut. Eject the disk image and open FreeLane from Applications. The ZIP remains available as an alternative.
-- For Windows app windows, also download the Windows ARM64 agent ZIP and install the updated agent inside the guest using the included per-user installer. See `docs/app-windows.md` in the Mac package.
-- SHA256 files accompany all packages.
+Download the `macos-arm64.dmg`, drag `FreeLane.app` to Applications, eject the image and open the app. ZIP and Windows ARM64 companion-agent packages are also available, with SHA256 files. QEMU, firmware, guest images and mobile SDKs remain separate prerequisites; follow the packaged `START-HERE.md`.
 
-Includes a refreshed Mac-style interface with blue accents, a compact sidebar, OS icons, centered settings dialogs and optional local macOS system typography; Windows/Ubuntu VM configuration, Vietnamese and English UI, mobile environment controls, experimental separate Windows app snapshot viewers and per-app Dock launcher export.
+This preview adds:
 
-This is an ad-hoc signed preview, without Apple notarization. QEMU, firmware, Windows/Ubuntu images and mobile SDKs are separate prerequisites; follow the included `START-HERE.md`. An iOS Simulator requires macOS/Xcode and does not run arbitrary App Store binaries.
+- Windows/Ubuntu creation presets, network/share options, native file dialogs and actual setup progress. ISO checks verify an ARM64 UEFI loader; UDF media requires 7-Zip.
+- Ubuntu ARM64 cloud-image selection, private standalone qcow2 conversion and disk growth without changing the source image. Optional NoCloud media configures first boot; architecture/authenticity must be confirmed separately.
+- Versioned mutable-settings import/export with preview, saved-versus-draft distinction, backups and preserved disk/firmware/NVRAM/TPM identity.
+- Explicit recovery of missing VM bookmarks, including canonical aliases; protected staged creation/recovery; offline checkpoints restored only into fresh workspaces.
+- Runtime observations that separate backend state and guest-agent connectivity from unverified installation completion.
 
-Mac packaging, architecture, bundle signatures and native offline Dock export are checked by the release workflow. Real Windows Notepad client capture, targeted text entry, host UI text submission and live viewer display were verified under Linux ARM emulation in a Windows Audit session. Closing the host viewer preserved the guest app and VM. A guest-reported snapshot timeout gets one bounded read-only retry; input and transport failures are never replayed. Normal-user startup and Windows/Dock interaction on a physical Mac remain unverified. Snapshot viewers have limited input and refresh rate; full Parallels Coherence, GPU/USB passthrough and universal Windows app compatibility are not established. Required Rust/ARM CI passed for the readiness/wizard revision. Physical-Mac guest/runtime acceptance is pending.
+The code revision passed required Linux/Mac/ARM CI: https://github.com/puma2k/freelane/actions/runs/38384374715 . Linux TCG acceptance used a signature/checksum-verified Ubuntu Server ARM64 image: UI creation, observed aarch64/Ubuntu first boot, exact guest-data persistence after reboot, clean shutdowns, unchanged image source, and guest marker recovery after checkpoint restore. Native Mac guest/HVF/Dock, Windows protected-storage/TPM restore and Ubuntu Desktop acceptance remain pending.
 
-Tiếng Việt: Đây là bản thử nghiệm cho Mac Apple Silicon. Mở DMG và kéo FreeLane vào Applications; nếu dùng cửa sổ app Windows riêng, cài agent ARM64 mới trong Windows. Cần chuẩn bị QEMU/firmware và bộ cài hệ điều hành riêng. Chưa kiểm thử đầy đủ thao tác Windows và mở từ Dock trên Mac thật.
+The existing Vietnamese/English interface, Android Emulator/Xcode Simulator management, experimental Windows app snapshot viewers and Dock launcher export remain available. App viewers are not full Coherence or a video transport. Universal Windows compatibility and superior performance have not been demonstrated.
 
-New in this candidate: structured read-only `doctor-json`, first fresh-workspace creation wizard/`vm-create`, and private persisted VM bookmarks. Workspace creation does not install or boot an OS; automatic media verification, disk-space checks and full checkpoint/recovery acceptance is unfinished. See `docs/vm-creation.md` and `docs/mac-acceptance.md` in the package.
+This is an ad-hoc signed, unnotarized prerelease. NoCloud seed structure/contents are not automatically verified; use a seed you intend to run. External seed/ISO media is not included in checkpoints and may need explicit reconnection.
 
-Offline checkpoint/recovery-copy CLI is now available for clean standalone qcow2 workspaces. It preserves sources and only restores to fresh directories, with checksums, startup markers, read-only checkpoint files and atomic no-replace publication. Linux/Mac file-roundtrip CI passed; no real Windows/BitLocker restore or live/memory snapshot is claimed. See `docs/checkpoints.md`.
+Tiếng Việt: Preview này thêm tạo Ubuntu từ ảnh cloud ARM64, nhập/xuất cấu hình có xem trước, tìm lại VM đã chuyển thư mục và khôi phục workspace/checkpoint. Đã kiểm thử boot, giữ dữ liệu qua reboot và phục hồi marker guest trên Linux; CI Linux/Mac/ARM đều qua. Kiểm thử guest trên Mac thật và Windows TPM vẫn để sau. Bản DMG ký ad-hoc, chưa notarize; cần QEMU/firmware riêng và seed NoCloud phù hợp nếu dùng ảnh cloud.
