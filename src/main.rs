@@ -33,6 +33,14 @@ fn run() -> Result<()> {
             println!("{}",serde_json::to_string_pretty(&report).map_err(|e|Error(e.to_string()))?);
             Ok(())
         }
+        [command, config, output] if command == "settings-export" => {
+            let path=freelane::settings_bundle::export_saved(Path::new(config),Path::new(output))?;
+            println!("Exported mutable settings {}",path.display());Ok(())
+        }
+        [command, config, settings] if command == "settings-import" => {
+            let backup=freelane::settings_bundle::import_saved(Path::new(config),Path::new(settings))?;
+            println!("Imported settings for the next start. Backup: {}",backup.display());Ok(())
+        }
         [command, path] if command == "vm-readiness" => {
             let report=freelane::readiness::inspect(Path::new(path))?;
             println!("{}",serde_json::to_string_pretty(&report).map_err(|e| Error(e.to_string()))?);

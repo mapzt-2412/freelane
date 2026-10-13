@@ -3,6 +3,7 @@ mod file_picker;
 mod i18n;
 mod interface;
 mod mobile_ui;
+mod settings_io;
 mod wizard;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
@@ -34,6 +35,7 @@ struct VmInfo {
 enum Event {
     Loaded(VmInfo, Option<String>),
     Created(PathBuf),
+    SettingsPreview(freelane::settings_bundle::Bundle),
     WizardPicked(wizard::Field, Option<String>),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
     MobileNotice(String),
@@ -432,6 +434,30 @@ impl Desktop {
                         Ok(Event::WizardPicked(field, value)) => {
                             if let Some(value) = value {
                                 self.wizard.picked(field, value);
+                            }
+                        }
+                        Ok(Event::SettingsPreview(bundle)) => {
+                            if let Some(target) = &self.settings {
+                                match bundle.apply(target) {
+                                    Ok(updated) => {
+                                        self.installer_path = updated
+                                            .installer
+                                            .as_ref()
+                                            .map(|p| p.display().to_string())
+                                            .unwrap_or_default();
+                                        self.shared_path = updated
+                                            .runtime
+                                            .as_ref()
+                                            .and_then(|r| r.shared_directory.as_ref())
+                                            .map(|p| p.display().to_string())
+                                            .unwrap_or_default();
+                                        self.settings = Some(updated);
+                                        self.notice =
+                                            "Settings imported for review. Save changes to apply."
+                                                .into();
+                                    }
+                                    Err(error) => self.notice = error.to_string(),
+                                }
                             }
                         }
                         Ok(Event::Created(path)) => {

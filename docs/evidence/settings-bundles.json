@@ -1,0 +1,13 @@
+{
+  "dialog": "test-only zenity stub; native dialogs unverified",
+  "preview_preserves_saved_config": true,
+  "export_uses_saved_not_draft": true,
+  "saved_cpus": 4,
+  "saved_memory_mib": 4096,
+  "storage_hashes_unchanged": true,
+  "guest_booted": false,
+  "tests_passed": 92,
+  "tests_ignored": 6,
+  "clippy": "passed",
+  "mac_arm64_core_check": "passed"
+}

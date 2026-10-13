@@ -736,6 +736,8 @@ impl Desktop {
         let lang = self.language;
         let mut open = true;
         let mut save = false;
+        let mut import = false;
+        let mut export = false;
         egui::Window::new(lang.text("Virtual machine settings")).id(egui::Id::new("settings"))
             .open(&mut open).default_pos(ctx.content_rect().center() - egui::vec2(305.0, 240.0)).default_width(610.0).default_height(480.0).show(ctx, |ui| {
             ui.small(lang.text("Changes apply on the next start. Shut down before saving."));
@@ -809,12 +811,20 @@ impl Desktop {
                     }
                 }
             }); ui.separator();
-            if ui.add_enabled(self.pending.is_none() && self.child.is_none(),primary(lang.text("Save changes"))).clicked() { save = true; }
+            ui.horizontal_wrapped(|ui| {
+                if ui.add_enabled(self.pending.is_none() && self.child.is_none(),primary(lang.text("Save changes"))).clicked() { save = true; }
+                if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Import settings"))).clicked(){import=true;}
+                if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Export saved settings"))).clicked(){export=true;}
+            });
             if !self.notice.is_empty() { ui.label(lang.message(&self.notice)); }
         });
         self.settings_open = open;
         if save {
             self.save_settings(ctx);
+        } else if import {
+            self.import_settings_ui(ctx);
+        } else if export {
+            self.export_settings_ui(ctx);
         }
     }
 }

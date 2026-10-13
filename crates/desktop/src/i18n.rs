@@ -10,6 +10,17 @@ impl Language {
             return english;
         }
         match english {
+            "Unsupported settings version" => "Phiên bản cấu hình chưa được hỗ trợ",
+            "Settings version/guest type does not match this VM" => "Phiên bản hoặc hệ điều hành trong cấu hình không khớp máy ảo này",
+            "Settings media and shared-folder references must be absolute paths" => "Đường dẫn bộ cài và thư mục chia sẻ phải là đường dẫn tuyệt đối",
+            "Settings input must be a regular file of at most 1 MiB" => "Tệp cấu hình phải là tệp thường, tối đa 1 MiB",
+            "Settings input grew beyond 1 MiB" => "Tệp cấu hình vượt quá 1 MiB",
+            "Configure the VM runtime before importing settings" => "Thiết lập môi trường chạy máy ảo trước khi nhập cấu hình",
+            "Configure the VM runtime before exporting settings" => "Thiết lập môi trường chạy máy ảo trước khi xuất cấu hình",
+            "Import settings" => "Nhập cấu hình",
+            "Export saved settings" => "Xuất cấu hình đã lưu",
+            "Settings imported for review. Save changes to apply." => "Đã nhập cấu hình để xem trước. Bấm Lưu thay đổi để áp dụng.",
+
             "Cannot verify ARM64 installer media. Choose an ISO containing EFI/BOOT/BOOTAA64.EFI." => "Không xác minh được bộ cài ARM64. Chọn ISO có EFI/BOOT/BOOTAA64.EFI.",
             "Installer needs UDF inspection. Install 7-Zip (macOS: brew install sevenzip), then retry." => "Bộ cài dùng UDF cần 7-Zip. Trên macOS chạy brew install sevenzip rồi thử lại.",
 
@@ -194,6 +205,8 @@ impl Language {
             );
         }
         for (english, vietnamese) in [
+            ("Invalid settings JSON at line ", "JSON cấu hình không hợp lệ tại dòng "),
+            ("Settings exported: ","Đã xuất cấu hình: "),
             ("VM storage insufficient: ","Không đủ dung lượng lưu trữ: "),
             ("Shared folder: ","Thư mục chia sẻ: "),
             ("installer: ","Bộ cài: "),

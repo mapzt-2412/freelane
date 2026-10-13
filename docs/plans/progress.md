@@ -41,3 +41,7 @@ P1 interruption foundation: protected staging, no-replace publication and `creat
 P1 wizard resources/connectivity/progress: implemented and tested. Actual Linux UI created a 16 GiB Ubuntu workspace using signature/checksum-verified Ubuntu 24.04.5 media, saved its library entry and reopened the configuration. No guest start or installation was performed. Full workspace: 83 passed, 6 ignored. Native acceptance and guided OS installation remain pending.
 
 P1 review fixes: request parsing now uses a nonblocking regular-file descriptor and capped read; UDF fallback explicitly rejects generic archives; read-only recovery sources are rejected before publication and post-publication marker failures have an explicit committed/warning result. These were reproduced with FIFO, ZIP-with-ARM64-loader and read-only-source regressions before fixing.
+
+P1 settings templates: versioned mutable-settings export/import implemented; private no-overwrite export, existing-VM backups, busy-lock refusal and storage identity preservation tested. UI import previews before Save changes. Native file dialogs and full backup/relocation acceptance remain pending.
+
+Settings UI acceptance on Linux: preview preserved the saved file, export used saved values while the draft differed, Save applied the requested CPU/RAM and preserved storage hashes. Dialog selection used a test-only zenity stub; native dialogs remain pending. Full workspace: 92 passed, 6 ignored; clippy and Apple Silicon core cross-check passed. [Evidence](../evidence/settings-bundles.json).

@@ -2,11 +2,19 @@
 use std::path::PathBuf;
 
 pub fn choose(folder: bool) -> Result<Option<String>, String> {
+    choose_kind(folder, false)
+}
+pub fn save() -> Result<Option<String>, String> {
+    choose_kind(false, true)
+}
+fn choose_kind(folder: bool, save: bool) -> Result<Option<String>, String> {
     use std::process::Command;
     let mut command = if cfg!(target_os = "macos") {
         let mut c = Command::new("/usr/bin/osascript");
         // Fixed scripts: user paths are never interpolated into AppleScript or a shell.
-        c.arg("-e").arg(if folder {
+        c.arg("-e").arg(if save {
+            "try\nreturn POSIX path of (choose file name with default name \"FreeLane-settings.json\")\non error number -128\nreturn \"\"\nend try"
+        } else if folder {
             "try\nreturn POSIX path of (choose folder)\non error number -128\nreturn \"\"\nend try"
         } else {
             "try\nreturn POSIX path of (choose file)\non error number -128\nreturn \"\"\nend try"
@@ -17,6 +25,9 @@ pub fn choose(folder: bool) -> Result<Option<String>, String> {
         c.arg("--file-selection");
         if folder {
             c.arg("--directory");
+        }
+        if save {
+            c.args(["--save", "--filename=FreeLane-settings.json"]);
         }
         c
     };
