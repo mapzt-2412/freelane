@@ -388,7 +388,7 @@ pub fn create(config_path: &Path, output: &Path, label: &str, qemu_img: &Path) -
             .map_err(error)?;
     }
     fs::set_permissions(pending.join(MARKER), fs::Permissions::from_mode(0o400)).map_err(error)?;
-    fs::rename(&pending, &final_path).map_err(error)?;
+    publish(&pending, &final_path)?;
     guard.active = false;
     Ok(final_path)
 }
@@ -551,7 +551,7 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
     if fs::symlink_metadata(&final_path).is_ok() {
         return Err(Error("Restore output changed; source preserved".into()));
     }
-    fs::rename(&pending, &final_path).map_err(error)?;
+    publish(&pending, &final_path)?;
     guard.active = false;
     fs::remove_file(final_path.join(MARKER)).map_err(|e| {
         Error(format!(
@@ -559,4 +559,64 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
         ))
     })?;
     Ok(final_path.join("vm.toml"))
+}
+
+fn publish(source: &Path, target: &Path) -> Result<()> {
+    let source = CString::new(source.as_os_str().as_bytes()).map_err(error)?;
+    let target = CString::new(target.as_os_str().as_bytes()).map_err(error)?;
+    // Both live C strings are borrowed only for this atomic no-replace rename.
+    #[cfg(target_os = "linux")]
+    let status = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            source.as_ptr(),
+            libc::AT_FDCWD,
+            target.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    };
+    #[cfg(target_os = "macos")]
+    let status = unsafe {
+        libc::renameatx_np(
+            libc::AT_FDCWD,
+            source.as_ptr(),
+            libc::AT_FDCWD,
+            target.as_ptr(),
+            libc::RENAME_EXCL,
+        )
+    };
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    return Err(Error(
+        "Atomic no-replace checkpoint publication is unavailable on this platform".into(),
+    ));
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if status != 0 {
+        return Err(error(std::io::Error::last_os_error()));
+    }
+    Ok(())
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn publication_never_replaces_even_an_empty_existing_directory() {
+        let root = std::env::temp_dir().join(format!("fl-publish-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let source = root.join("pending");
+        let target = root.join("existing");
+        fs::create_dir(&source).unwrap();
+        fs::create_dir(&target).unwrap();
+        fs::write(source.join("data"), b"owned staging data").unwrap();
+        assert!(publish(&source, &target).is_err());
+        assert!(source.join("data").exists());
+        assert!(target.read_dir().unwrap().next().is_none());
+        fs::remove_dir(&target).unwrap();
+        publish(&source, &target).unwrap();
+        assert_eq!(
+            fs::read(target.join("data")).unwrap(),
+            b"owned staging data"
+        );
+        assert!(!source.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
 }
