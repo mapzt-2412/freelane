@@ -28,6 +28,11 @@ fn run() -> Result<()> {
             Ok(())
         }
 
+        [command, path] if command == "media-check" => {
+            freelane::media::verify_arm64_iso(Path::new(path))?;
+            println!("ARM64 UEFI loader verified; OS installation and media authenticity not verified");
+            Ok(())
+        }
         [command, path] if command == "vm-create" => {
             let request = freelane::provision::load(Path::new(path))?;
             let config = request.create()?;

@@ -44,7 +44,7 @@ impl Request {
             ));
         }
         if !self.arm64_media_confirmed {
-            return Err(Error("Confirm your selected installer is ARM64; automatic ISO architecture verification is not implemented".into()));
+            return Err(Error("Confirm your selected installer is ARM64".into()));
         }
         if self.guest_os == GuestOs::Windows
             && (self.cpus < 2 || self.memory_mib < 4096 || self.disk_gib < 64)
@@ -116,6 +116,7 @@ impl Request {
     }
     pub fn create(&self) -> Result<PathBuf> {
         self.validate()?;
+        crate::media::verify_arm64_iso(&self.installer)?;
         let installer = fs::canonicalize(&self.installer).map_err(|e| Error(e.to_string()))?;
         let path = qemu::initialize_guest_sized(
             &self.directory,

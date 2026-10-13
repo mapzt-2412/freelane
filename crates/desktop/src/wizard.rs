@@ -1,4 +1,12 @@
 use super::*;
+#[derive(Clone, Copy)]
+pub enum Field {
+    Directory,
+    Installer,
+    Firmware,
+    Variables,
+    QemuImg,
+}
 pub struct Wizard {
     pub open: bool,
     windows: bool,
@@ -13,6 +21,25 @@ pub struct Wizard {
     disk: u64,
     accelerator: qemu::Accelerator,
     confirmed: bool,
+}
+impl Wizard {
+    pub fn picked(&mut self, field: Field, value: String) {
+        match field {
+            Field::Directory => {
+                self.directory = PathBuf::from(value)
+                    .join("FreeLane VM")
+                    .display()
+                    .to_string()
+            }
+            Field::Installer => {
+                self.installer = value;
+                self.confirmed = false;
+            }
+            Field::Firmware => self.firmware = value,
+            Field::Variables => self.variables = value,
+            Field::QemuImg => self.qemu_img = value,
+        }
+    }
 }
 impl Default for Wizard {
     fn default() -> Self {
@@ -45,6 +72,7 @@ impl Desktop {
         let lang = self.language;
         let mut open = true;
         let mut create = false;
+        let mut picker = None;
         let busy = self.pending.is_some();
         egui::Window::new(lang.text("Create virtual machine"))
             .id(egui::Id::new("new-vm-wizard"))
@@ -86,18 +114,38 @@ impl Desktop {
                                     .into();
                                 }
                             }
-                            for (label, value) in [
-                                ("VM name", &mut self.wizard.name),
-                                ("New VM directory", &mut self.wizard.directory),
-                                ("ARM64 installer ISO", &mut self.wizard.installer),
-                                ("Firmware code", &mut self.wizard.firmware),
-                                ("Variable template", &mut self.wizard.variables),
-                                ("qemu-img", &mut self.wizard.qemu_img),
+                            ui.label(lang.text("VM name"));
+                            ui.text_edit_singleline(&mut self.wizard.name);
+                            for (label, value, field) in [
+                                (
+                                    "New VM directory",
+                                    &mut self.wizard.directory,
+                                    Field::Directory,
+                                ),
+                                (
+                                    "ARM64 installer ISO",
+                                    &mut self.wizard.installer,
+                                    Field::Installer,
+                                ),
+                                ("Firmware code", &mut self.wizard.firmware, Field::Firmware),
+                                (
+                                    "Variable template",
+                                    &mut self.wizard.variables,
+                                    Field::Variables,
+                                ),
+                                ("qemu-img", &mut self.wizard.qemu_img, Field::QemuImg),
                             ] {
                                 ui.label(lang.text(label));
-                                ui.add(
-                                    egui::TextEdit::singleline(value).desired_width(f32::INFINITY),
-                                );
+                                ui.horizontal(|ui| {
+                                    ui.add(
+                                        egui::TextEdit::singleline(value).desired_width(
+                                            (ui.available_width() - 85.0).max(100.0),
+                                        ),
+                                    );
+                                    if ui.button(lang.text("Browse")).clicked() {
+                                        picker = Some(field);
+                                    }
+                                });
                             }
                             ui.horizontal_wrapped(|ui| {
                                 ui.label(lang.text("Virtual CPUs"));
@@ -145,6 +193,12 @@ impl Desktop {
                     });
             });
         self.wizard.open = open;
+        if let Some(field) = picker {
+            self.work(ctx, move || {
+                file_picker::choose(matches!(field, Field::Directory))
+                    .map(|path| Event::WizardPicked(field, path))
+            });
+        }
         if create {
             let w = &self.wizard;
             let request = freelane::provision::Request {

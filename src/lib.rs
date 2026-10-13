@@ -265,3 +265,5 @@ fn native_probe() -> Result<()> {
 }
 
 mod storage;
+
+pub mod media;

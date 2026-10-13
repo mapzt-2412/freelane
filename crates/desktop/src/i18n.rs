@@ -10,6 +10,7 @@ impl Language {
             return english;
         }
         match english {
+            "Browse" => "Chọn…",
             "Library not saved" => "Thư viện chưa được lưu",
             "VM name" => "Tên máy ảo",
             "Create virtual machine" => "Tạo máy ảo mới",

@@ -1,4 +1,5 @@
 mod app_ui;
+mod file_picker;
 mod i18n;
 mod interface;
 mod mobile_ui;
@@ -33,6 +34,7 @@ struct VmInfo {
 enum Event {
     Loaded(VmInfo, Option<String>),
     Created(PathBuf),
+    WizardPicked(wizard::Field, Option<String>),
     MobileLoaded(PathBuf, freelane::mobile::Profile),
     MobileNotice(String),
     MobileFrame(egui::ColorImage),
@@ -413,6 +415,11 @@ impl Desktop {
                 Ok(result) => {
                     self.pending = None;
                     match result {
+                        Ok(Event::WizardPicked(field, value)) => {
+                            if let Some(value) = value {
+                                self.wizard.picked(field, value);
+                            }
+                        }
                         Ok(Event::Created(path)) => {
                             self.wizard.open = false;
                             self.draft_path = path.display().to_string();

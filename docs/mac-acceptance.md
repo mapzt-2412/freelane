@@ -11,7 +11,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 /Applications/FreeLane.app/Contents/MacOS/freelane-desktop
 ```
 
-4. Create a **new** test workspace using the wizard. Confirm ARM64 media yourself; automatic architecture verification is unfinished. Choose HVF explicitly. Run preflight:
+4. Create a **new** test workspace using the wizard. Verify the ISO with `media-check`; this inspects its ARM64 UEFI loader, not media authenticity or full guest installation. Choose HVF explicitly. Run preflight:
 
 ```sh
 /Applications/FreeLane.app/Contents/MacOS/freelane doctor-json /absolute/path/to/test-vm/vm.toml
@@ -26,3 +26,7 @@ A passing preflight does not verify signing entitlements, OS boot, Secure Boot, 
 9. Record boot/app launch timings, idle/load CPU and memory, display/input behavior and all failures. Do not claim speed advantages without comparable workload measurements.
 
 Report each check as passed/failed/not run with the relevant revision and a concise result. Do not share credentials or clipboard/document contents in diagnostic results.
+
+## Owner-deferred acceptance
+
+P0 physical-Mac execution remains deferred to the owner. Portable P1 development continues; no HVF, Dock or sleep/wake pass is claimed. Add native file/folder selection and cancellation, library persistence, and checkpoint/recovery (guest data plus Windows TPM/BitLocker) to the disposable-VM results.

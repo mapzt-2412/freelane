@@ -13,3 +13,6 @@ configs/*.local.toml
 *.toml.pending-*
 
 *.app-start.lock
+
+# Per-plan execution scratch
+.superpowers/
