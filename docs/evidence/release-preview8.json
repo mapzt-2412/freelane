@@ -1,0 +1,15 @@
+{
+  "tag": "v0.1.0-preview.8",
+  "dmg": "FreeLane-0.1.0-0851c8337592-macos-arm64.dmg",
+  "sha256": "e37b3ed9b25b59145ff54a23221031d522075b5e9d62c4640e5d931021d214d6",
+  "bytes": 11890230,
+  "udif_footer": true,
+  "public_download_verified": true,
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.8/FreeLane-0.1.0-0851c8337592-macos-arm64.dmg",
+  "workflow": "https://github.com/puma2k/freelane/actions/runs/38414564645",
+  "native_packaging": "Success",
+  "ad_hoc_signed": true,
+  "notarized": false,
+  "actual_homebrew_install": false,
+  "native_guest_boot": false
+}
