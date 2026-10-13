@@ -264,10 +264,6 @@ impl Desktop {
                 if ui.button(lang.text("Android & iOS")).clicked() {
                     self.mobile_open = true;
                 }
-                ui.add_space((ui.available_height() - 80.0).max(20.0));
-                ui.small(lang.text("Closing FreeLane leaves the VM running."));
-                ui.add_space(8.0);
-                ui.colored_label(MUTED, lang.text("Experimental · Apple Silicon target"));
             });
         egui::CentralPanel::default()
             .frame(
@@ -504,6 +500,7 @@ impl Desktop {
                 ui.horizontal_wrapped(|ui| {
                     if ui
                         .add_enabled(!busy, egui::Button::new(lang.text("Refresh display")))
+                        .on_hover_text(lang.text("Snapshots, not live video"))
                         .clicked()
                     {
                         self.capture(ctx, true);
@@ -514,7 +511,6 @@ impl Desktop {
                     {
                         self.display_at = None;
                     }
-                    ui.colored_label(MUTED, lang.text("Snapshots, not live video"));
                 });
                 let height =
                     (viewport_height - (ui.cursor().top() - content_top) - 85.0).max(150.0);
@@ -599,15 +595,10 @@ impl Desktop {
                                             .size(20.0)
                                             .strong(),
                                     );
-                                    ui.colored_label(
-                                        MUTED,
-                                        lang.text("Start your VM, then refresh its display."),
-                                    );
                                 });
                             });
                         }
                     });
-                ui.small(lang.text("Use the native VM window for keyboard input."));
             }
             View::Applications => {
                 card().show(ui, |ui| {
@@ -652,17 +643,63 @@ impl Desktop {
                         ui.label(lang.text("App name"));
                         ui.add(egui::TextEdit::singleline(&mut self.app_name).hint_text("Notepad"));
                         ui.label(lang.text("New app profile path"));
-                        ui.add(egui::TextEdit::singleline(&mut self.app_profile_output).desired_width(f32::INFINITY).hint_text("/absolute/path/to/notepad.app.toml"));
-                        let ready=agent_enabled && !busy && !self.app_name.trim().is_empty() && !self.app_profile_output.trim().is_empty() && !self.app_path.trim().is_empty();
-                        ui.horizontal_wrapped(|ui|{
-                            if ui.add_enabled(ready,egui::Button::new(lang.text("Save app profile"))).clicked(){self.save_app_profile(ctx,false);}
-                            if ui.add_enabled(ready,egui::Button::new(lang.text("Save & open separate window"))).clicked(){self.save_app_profile(ctx,true);}
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.app_profile_output)
+                                .desired_width(f32::INFINITY)
+                                .hint_text("/absolute/path/to/notepad.app.toml"),
+                        );
+                        let ready = agent_enabled
+                            && !busy
+                            && !self.app_name.trim().is_empty()
+                            && !self.app_profile_output.trim().is_empty()
+                            && !self.app_path.trim().is_empty();
+                        ui.horizontal_wrapped(|ui| {
+                            if ui
+                                .add_enabled(
+                                    ready,
+                                    egui::Button::new(lang.text("Save app profile")),
+                                )
+                                .clicked()
+                            {
+                                self.save_app_profile(ctx, false);
+                            }
+                            if ui
+                                .add_enabled(
+                                    ready,
+                                    egui::Button::new(lang.text("Save & open separate window")),
+                                )
+                                .clicked()
+                            {
+                                self.save_app_profile(ctx, true);
+                            }
                         });
-                        if ui.add_enabled(!busy && !self.app_profile_output.trim().is_empty(),egui::Button::new(lang.text("Open saved app profile"))).clicked(){self.open_saved_app(ctx);}
+                        if ui
+                            .add_enabled(
+                                !busy && !self.app_profile_output.trim().is_empty(),
+                                egui::Button::new(lang.text("Open saved app profile")),
+                            )
+                            .clicked()
+                        {
+                            self.open_saved_app(ctx);
+                        }
                         ui.label(lang.text("New Dock .app path (Mac only)"));
-                        ui.add(egui::TextEdit::singleline(&mut self.dock_output).desired_width(f32::INFINITY).hint_text("/Users/you/Applications/Windows Notepad.app"));
-                        if ui.add_enabled(cfg!(target_os="macos") && !busy && !self.app_profile_output.trim().is_empty() && !self.dock_output.trim().is_empty(),egui::Button::new(lang.text("Export Dock launcher"))).clicked(){self.export_app_dock(ctx);}
-                        ui.small(lang.text("Requires updated Windows agent. Snapshot viewer; GPU apps, UAC, shortcuts and delegated processes may be unsupported. Existing files are never overwritten."));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.dock_output)
+                                .desired_width(f32::INFINITY)
+                                .hint_text("/Users/you/Applications/Windows Notepad.app"),
+                        );
+                        if ui
+                            .add_enabled(
+                                cfg!(target_os = "macos")
+                                    && !busy
+                                    && !self.app_profile_output.trim().is_empty()
+                                    && !self.dock_output.trim().is_empty(),
+                                egui::Button::new(lang.text("Export Dock launcher")),
+                            )
+                            .clicked()
+                        {
+                            self.export_app_dock(ctx);
+                        }
                     }
                     if !agent_enabled {
                         ui.small(
@@ -729,8 +766,7 @@ impl Desktop {
                     SettingsTab::Graphics => {
                         if let Some(runtime) = config.runtime.as_mut() {
                             ui.selectable_value(&mut runtime.graphics,qemu::Graphics::Ramfb,lang.text("Basic display"));
-                            ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| { ui.selectable_value(&mut runtime.graphics,qemu::Graphics::Virtio2d,lang.text("Virtio GPU · 2D")); });
-                            ui.small(lang.text("Virtio 2D requires an Ubuntu driver. It does not enable Metal, 3D or Windows GPU acceleration."));
+                            ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| { ui.selectable_value(&mut runtime.graphics,qemu::Graphics::Virtio2d,lang.text("Virtio GPU · 2D")).on_hover_text(lang.text("Virtio 2D requires an Ubuntu driver. It does not enable Metal, 3D or Windows GPU acceleration.")); });
                             ui.checkbox(&mut runtime.headless,lang.text("Headless · hide native VM window"));
                         }
                     }
@@ -756,8 +792,7 @@ impl Desktop {
                             }); }
                             ui.checkbox(&mut runtime.guest_agent,lang.text("Guest agent channel"));
                             ui.checkbox(&mut runtime.serial_console,lang.text("Private serial console"));
-                            ui.separator(); ui.label(lang.text("Physical USB devices"));
-                            ui.small(lang.text("Inspect IDs with scripts/list-usb.py. Device capture needs OS access; addresses may change."));
+                            ui.separator(); ui.label(lang.text("Physical USB devices")).on_hover_text(lang.text("Inspect IDs with scripts/list-usb.py. Device capture needs OS access; addresses may change."));
                             let mut remove = None;
                             for (index,device) in runtime.usb_devices.iter_mut().enumerate() { ui.horizontal_wrapped(|ui| {
                                 ui.label("Bus"); ui.add(egui::DragValue::new(&mut device.bus).range(1..=255));
@@ -773,7 +808,6 @@ impl Desktop {
                 }
             }); ui.separator();
             if ui.add_enabled(self.pending.is_none() && self.child.is_none(),primary(lang.text("Save changes"))).clicked() { save = true; }
-            ui.small(lang.text("A backup is created. Active VMs and conflicting edits are rejected."));
             if !self.notice.is_empty() { ui.label(lang.message(&self.notice)); }
         });
         self.settings_open = open;

@@ -126,32 +126,130 @@ impl Desktop {
         }
         let lang = self.language;
         let mut open = true;
-        egui::Window::new(lang.text("Android & iOS")).id(egui::Id::new("mobile-center")).open(&mut open).default_width(720.0).default_height(650.0).show(ctx,|ui|{
-            egui::ScrollArea::vertical().max_height(560.0).show(ui,|ui|{
-                ui.label(lang.text("Mobile profile"));ui.add(egui::TextEdit::singleline(&mut self.mobile_path).desired_width(f32::INFINITY).hint_text("/path/to/mobile.toml"));
-                if ui.add_enabled(self.pending.is_none() && self.mobile_child.is_none() && !self.mobile_path.trim().is_empty(),egui::Button::new(lang.text("Open"))).clicked(){self.load_mobile(ctx);}
-                if let Some((_,profile))=&self.mobile_profile{
-                    let ios=profile.platform==Platform::Ios;
-                    ui.heading(&profile.name);ui.small(if ios{"Apple Xcode Simulator"}else{"Android Emulator · ADB"});
-                    if ios{ui.small(lang.text("iOS needs macOS/Xcode and Simulator-target apps; App Store IPA files are not supported."));}
-                    else if let Some(a)=&profile.android{ui.label(format!("AVD: {} · {} CPU · {} MiB · {:?} / {:?}",a.avd,a.cpus,a.memory_mib,a.acceleration,a.gpu));}
-                    let busy=self.pending.is_some();
-                    ui.horizontal_wrapped(|ui|{
-                        if ui.add_enabled(!busy && self.mobile_child.is_none(),egui::Button::new(lang.text("Start"))).clicked(){self.start_mobile();}
-                        for (label,action) in [("Refresh status","status"),("Available devices","devices"),("Shutdown","stop"),("Refresh display","capture")]{if ui.add_enabled(!busy,egui::Button::new(lang.text(label))).clicked(){self.mobile_action(ctx,action);}}
-                        if ios && ui.add_enabled(!busy,egui::Button::new(lang.text("Open Simulator window"))).clicked(){self.mobile_action(ctx,"window");}
+        egui::Window::new(lang.text("Android & iOS"))
+            .id(egui::Id::new("mobile-center"))
+            .open(&mut open)
+            .default_width(720.0)
+            .default_height(650.0)
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(560.0)
+                    .show(ui, |ui| {
+                        ui.label(lang.text("Mobile profile"));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.mobile_path)
+                                .desired_width(f32::INFINITY)
+                                .hint_text("/path/to/mobile.toml"),
+                        );
+                        if ui
+                            .add_enabled(
+                                self.pending.is_none()
+                                    && self.mobile_child.is_none()
+                                    && !self.mobile_path.trim().is_empty(),
+                                egui::Button::new(lang.text("Open")),
+                            )
+                            .clicked()
+                        {
+                            self.load_mobile(ctx);
+                        }
+                        if let Some((_, profile)) = &self.mobile_profile {
+                            let ios = profile.platform == Platform::Ios;
+                            ui.heading(&profile.name);
+                            ui.small(if ios {
+                                "Apple Xcode Simulator"
+                            } else {
+                                "Android Emulator · ADB"
+                            });
+                            if let Some(a) = &profile.android {
+                                ui.label(format!(
+                                    "AVD: {} · {} CPU · {} MiB · {:?} / {:?}",
+                                    a.avd, a.cpus, a.memory_mib, a.acceleration, a.gpu
+                                ));
+                            }
+                            let busy = self.pending.is_some();
+                            ui.horizontal_wrapped(|ui| {
+                                if ui
+                                    .add_enabled(
+                                        !busy && self.mobile_child.is_none(),
+                                        egui::Button::new(lang.text("Start")),
+                                    )
+                                    .clicked()
+                                {
+                                    self.start_mobile();
+                                }
+                                for (label, action) in [
+                                    ("Refresh status", "status"),
+                                    ("Available devices", "devices"),
+                                    ("Shutdown", "stop"),
+                                    ("Refresh display", "capture"),
+                                ] {
+                                    if ui
+                                        .add_enabled(!busy, egui::Button::new(lang.text(label)))
+                                        .clicked()
+                                    {
+                                        self.mobile_action(ctx, action);
+                                    }
+                                }
+                                if ios
+                                    && ui
+                                        .add_enabled(
+                                            !busy,
+                                            egui::Button::new(lang.text("Open Simulator window")),
+                                        )
+                                        .clicked()
+                                {
+                                    self.mobile_action(ctx, "window");
+                                }
+                            });
+                            ui.separator();
+                            ui.label(lang.text("APK / Simulator .app path"));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.mobile_package)
+                                    .desired_width(f32::INFINITY),
+                            );
+                            if ui
+                                .add_enabled(
+                                    !busy && !self.mobile_package.trim().is_empty(),
+                                    egui::Button::new(lang.text("Install application")),
+                                )
+                                .clicked()
+                            {
+                                self.mobile_action(ctx, "install");
+                            }
+                            ui.label(lang.text("Android package/activity or iOS bundle ID"));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.mobile_application)
+                                    .desired_width(f32::INFINITY)
+                                    .hint_text(if ios {
+                                        "com.example.app"
+                                    } else {
+                                        "com.android.settings/.Settings"
+                                    }),
+                            );
+                            if ui
+                                .add_enabled(
+                                    !busy && !self.mobile_application.trim().is_empty(),
+                                    egui::Button::new(lang.text("Launch app")),
+                                )
+                                .clicked()
+                            {
+                                self.mobile_action(ctx, "launch");
+                            }
+                            if let Some(texture) = &self.mobile_texture {
+                                ui.add(
+                                    egui::Image::new(texture)
+                                        .max_size(egui::vec2(ui.available_width(), 340.0)),
+                                );
+                            }
+                        }
+                        if self.pending.is_some() {
+                            ui.spinner();
+                        }
+                        if !self.mobile_notice.is_empty() {
+                            ui.label(&self.mobile_notice);
+                        }
                     });
-                    ui.separator();ui.label(lang.text("APK / Simulator .app path"));ui.add(egui::TextEdit::singleline(&mut self.mobile_package).desired_width(f32::INFINITY));
-                    if ui.add_enabled(!busy && !self.mobile_package.trim().is_empty(),egui::Button::new(lang.text("Install application"))).clicked(){self.mobile_action(ctx,"install");}
-                    ui.label(lang.text("Android package/activity or iOS bundle ID"));ui.add(egui::TextEdit::singleline(&mut self.mobile_application).desired_width(f32::INFINITY).hint_text(if ios{"com.example.app"}else{"com.android.settings/.Settings"}));
-                    if ui.add_enabled(!busy && !self.mobile_application.trim().is_empty(),egui::Button::new(lang.text("Launch app"))).clicked(){self.mobile_action(ctx,"launch");}
-                    ui.small(lang.text("Edit the profile file while stopped to change SDK, AVD, CPU, RAM or rendering. No automatic retry of app installs/launches."));
-                    if let Some(texture)=&self.mobile_texture{ui.add(egui::Image::new(texture).max_size(egui::vec2(ui.available_width(),340.0)));}
-                }
-                if self.pending.is_some(){ui.spinner();}
-                if !self.mobile_notice.is_empty(){ui.label(&self.mobile_notice);}
             });
-        });
         self.mobile_open = open;
     }
 }
