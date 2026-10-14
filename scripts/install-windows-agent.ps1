@@ -66,7 +66,7 @@ if (!$item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::Repars
 $lockPath=Join-Path $directory 'agent-install.lock'
 if (Test-Path -LiteralPath $lockPath) {PlainFile $lockPath}
 $lock=[IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
-$stage=$null;$stageManifest=$null;$stageShortcut=$null;$backup=$null;$published=$false;$oldManifest=$null;$installedShortcut=$false
+$stage=$null;$stageManifest=$null;$stageShortcut=$null;$backup=$null;$manifestBackup=$null;$published=$false;$oldManifest=$null;$installedShortcut=$false
 try {
  if ($Action -eq 'Install') {
   foreach ($path in @($destination,$shortcut,$manifestPath)) {if (Test-Path -LiteralPath $path) {throw 'Existing installation or shortcut found; no files replaced'}}
@@ -113,19 +113,26 @@ try {
  }
  $stageManifest=Join-Path $directory ('manifest-stage-'+$id+'.json')
  [IO.File]::WriteAllText($stageManifest,($newManifest | ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
- if ($oldManifest) {[IO.File]::Replace($stageManifest,$manifestPath,$null)} else {[IO.File]::Move($stageManifest,$manifestPath)}
+ if ($oldManifest) {
+  $manifestBackup=Join-Path $directory ('manifest-backup-'+$id+'.json')
+  [IO.File]::Replace($stageManifest,$manifestPath,$manifestBackup)
+ } else {[IO.File]::Move($stageManifest,$manifestPath)}
  $published=$false
  Write-Output "Agent $Action complete. Sign in again to start the per-user agent. No service or elevation was used."
 } catch {
  $failure=$_
  if ($published) {
   if ((Test-Path -LiteralPath $destination) -and (Hash $destination) -eq $expected) {
-   if ($backup -and (Test-Path -LiteralPath $backup)) {[IO.File]::Replace($backup,$destination,$null)} else {Remove-Item -LiteralPath $destination}
+   if ($backup -and (Test-Path -LiteralPath $backup)) {
+    $replaced=Join-Path $directory ('agent-recovery-'+[Guid]::NewGuid().ToString('N')+'.exe')
+    [IO.File]::Replace($backup,$destination,$replaced)
+    if ((Hash $replaced) -eq $expected) {Remove-Item -LiteralPath $replaced}
+   } else {Remove-Item -LiteralPath $destination}
    if ($installedShortcut) {Remove-Item -LiteralPath $shortcut}
   } else {throw 'Agent destination changed during failure recovery; files retained for inspection'}
  }
  throw $failure
 } finally {
- foreach ($path in @($stage,$stageManifest,$stageShortcut)) {if ($path -and (Test-Path -LiteralPath $path)) {Remove-Item -LiteralPath $path}}
+ foreach ($path in @($stage,$stageManifest,$stageShortcut,$manifestBackup)) {if ($path -and (Test-Path -LiteralPath $path)) {Remove-Item -LiteralPath $path}}
  $lock.Dispose()
 }
