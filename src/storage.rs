@@ -1,6 +1,10 @@
-//! Read-only filesystem capacity checks; these do not reserve space.
+//! Filesystem capacity checks and descriptor-bound private staging; no space reservation.
 use crate::{Error, Result};
-use std::{ffi::CString, os::unix::ffi::OsStrExt, path::Path};
+use std::{
+    ffi::CString,
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
+};
 #[derive(Debug, serde::Serialize)]
 pub struct Destination {
     pub filesystem_path: std::path::PathBuf,
@@ -368,6 +372,125 @@ mod destination_tests {
         std::fs::create_dir(&stage).unwrap();
         assert!(anchor.verify_stage(&stage, &original).is_err());
         assert_eq!(std::fs::read_dir(&stage).unwrap().count(), 0);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+/// Private download staging bound to the selected filesystem by directory handles.
+/// Each output is opened relative to the retained stage, never via a mount path.
+pub struct DownloadStage {
+    anchor: ParentAnchor,
+    directory: std::fs::File,
+    path: PathBuf,
+    files: std::cell::RefCell<Vec<String>>,
+    retained: bool,
+}
+impl DownloadStage {
+    pub fn new(parent: &Path) -> Result<Self> {
+        let mut random = [0u8; 16];
+        getrandom::fill(&mut random).map_err(|e| Error(e.to_string()))?;
+        let suffix: String = random.iter().map(|b| format!("{b:02x}")).collect();
+        let parent = std::fs::canonicalize(parent).map_err(|e| Error(e.to_string()))?;
+        let path = parent.join(format!(".freelane-ubuntu-{suffix}"));
+        let anchor = ParentAnchor::open(&path)?;
+        let directory = anchor.mkdir(&path)?;
+        Ok(Self {
+            anchor,
+            directory,
+            path,
+            files: Default::default(),
+            retained: false,
+        })
+    }
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+    pub fn verify(&self) -> Result<()> {
+        self.anchor.verify(&self.path)?;
+        self.anchor.verify_stage(&self.path, &self.directory)
+    }
+    pub fn file(&self, name: &str, create: bool) -> Result<std::fs::File> {
+        use std::os::fd::{AsRawFd, FromRawFd};
+        if name.is_empty() || name.contains('/') || matches!(name, "." | "..") {
+            return Err(Error("Invalid download file name".into()));
+        }
+        self.verify()?;
+        let name_c = CString::new(name).map_err(|e| Error(e.to_string()))?;
+        let flags = libc::O_NOFOLLOW
+            | libc::O_CLOEXEC
+            | if create {
+                libc::O_RDWR | libc::O_CREAT | libc::O_EXCL
+            } else {
+                libc::O_RDONLY
+            };
+        let fd = unsafe { libc::openat(self.directory.as_raw_fd(), name_c.as_ptr(), flags, 0o600) };
+        if fd < 0 {
+            return Err(Error(std::io::Error::last_os_error().to_string()));
+        }
+        let file = unsafe { std::fs::File::from_raw_fd(fd) };
+        if create {
+            self.files.borrow_mut().push(name.into());
+        }
+        self.verify()?;
+        Ok(file)
+    }
+    pub fn retain(mut self) -> Result<PathBuf> {
+        self.verify()?;
+        self.retained = true;
+        Ok(self.path.clone())
+    }
+}
+impl Drop for DownloadStage {
+    fn drop(&mut self) {
+        use std::os::fd::AsRawFd;
+        if self.retained {
+            return;
+        }
+        for name in self.files.borrow().iter() {
+            if let Ok(name) = CString::new(name.as_str()) {
+                unsafe {
+                    libc::unlinkat(self.directory.as_raw_fd(), name.as_ptr(), 0);
+                }
+            }
+        }
+        // A replaced or detached path must never be recursively removed.
+        if self
+            .anchor
+            .verify_stage(&self.path, &self.directory)
+            .is_ok()
+        {
+            if let Ok(name) = self.anchor.name(&self.path) {
+                unsafe {
+                    libc::unlinkat(
+                        self.anchor.file.as_raw_fd(),
+                        name.as_ptr(),
+                        libc::AT_REMOVEDIR,
+                    );
+                }
+            }
+        }
+    }
+}
+#[cfg(test)]
+mod download_tests {
+    use super::*;
+    #[test]
+    fn replacement_stage_is_not_written_or_deleted() {
+        let root = std::env::temp_dir().join(format!("fl-download-stage-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        let parent = prepare_vm_parent(&root).unwrap();
+        let stage = DownloadStage::new(&parent).unwrap();
+        let path = stage.path().to_path_buf();
+        stage.file("partial", true).unwrap();
+        let moved = parent.join("moved");
+        std::fs::rename(&path, &moved).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("user-file"), b"preserve").unwrap();
+        assert!(stage.file("new", true).is_err());
+        drop(stage);
+        assert_eq!(std::fs::read(path.join("user-file")).unwrap(), b"preserve");
+        assert!(!moved.join("partial").exists());
+        assert!(!path.join("new").exists());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

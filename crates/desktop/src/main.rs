@@ -4,6 +4,7 @@ mod i18n;
 mod interface;
 mod mobile_ui;
 mod settings_io;
+mod setup;
 mod wizard;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
@@ -55,6 +56,10 @@ type WorkResult = Result<Event, String>;
 #[derive(Default)]
 struct Desktop {
     wizard: wizard::Wizard,
+    setup_progress: Option<mpsc::Receiver<String>>,
+    setup_status: Option<String>,
+    setup_cancel: Option<setup::Cancel>,
+    start_created: Option<PathBuf>,
     mobile_open: bool,
     mobile_path: String,
     mobile_profile: Option<(PathBuf, freelane::mobile::Profile)>,
@@ -449,6 +454,11 @@ impl Desktop {
         }
     }
     fn receive(&mut self, ctx: &egui::Context) {
+        if let Some(progress) = &self.setup_progress {
+            while let Ok(message) = progress.try_recv() {
+                self.setup_status = Some(message);
+            }
+        }
         self.poll_mobile(ctx);
         if let Some(receiver) = &self.creation_progress {
             while let Ok(stage) = receiver.try_recv() {
@@ -512,6 +522,13 @@ impl Desktop {
                                 "VM bookmark reconnected. Open the VM to check its runtime.".into();
                         }
                         Ok(Event::Created(path)) => {
+                            let cancelled = self.setup_cancel.as_ref().is_some_and(|cancel| {
+                                cancel.load(std::sync::atomic::Ordering::Relaxed)
+                            });
+                            self.setup_cancel = None;
+                            self.setup_progress = None;
+                            self.setup_status = None;
+                            self.start_created = (!cancelled).then_some(path.clone());
                             self.wizard.open = false;
                             self.draft_path = path.display().to_string();
                             self.open(ctx);
@@ -555,6 +572,10 @@ impl Desktop {
                                     .push((vm.path.clone(), vm.name.clone(), vm.guest_os));
                             }
                             self.open_dialog = false;
+                            let start = self
+                                .start_created
+                                .take()
+                                .is_some_and(|path| path == vm.path);
                             self.vm = Some(vm);
                             self.texture = None;
                             self.auto_display = false;
@@ -563,7 +584,14 @@ impl Desktop {
                             self.status = "Not checked".into();
                             self.agent_status = "not_checked".into();
                             self.agent_info = None;
-                            self.control(ctx, "status");
+                            if start {
+                                self.view = interface::View::Display;
+                                self.auto_display = true;
+                                self.display_at = Some(Instant::now() + Duration::from_secs(5));
+                                self.start();
+                            } else {
+                                self.control(ctx, "status");
+                            }
                         }
                         Ok(Event::Saved(vm, notice, warning)) => {
                             self.library_notice = warning.unwrap_or_default();
@@ -620,6 +648,10 @@ impl Desktop {
                         }
                         Ok(Event::Notice(notice)) => self.notice = notice,
                         Err(error) => {
+                            self.setup_cancel = None;
+                            self.setup_progress = None;
+                            self.setup_status = None;
+                            self.start_created = None;
                             self.auto_display = false;
                             self.status = "Unknown".into();
                             self.agent_status = "not_checked".into();
@@ -677,6 +709,11 @@ impl Desktop {
     }
 }
 impl eframe::App for Desktop {
+    fn on_exit(&mut self, _: Option<&eframe::glow::Context>) {
+        if let Some(cancel) = &self.setup_cancel {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);

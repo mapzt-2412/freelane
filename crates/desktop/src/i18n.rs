@@ -10,6 +10,22 @@ impl Language {
             return english;
         }
         match english {
+            "Advanced settings"=>"Cài đặt nâng cao",
+            "Automatic · Documents / FreeLane VMs"=>"Tự động · Documents / FreeLane VMs",
+            "Download Ubuntu Server automatically"=>"Tự tải Ubuntu Server",
+            "Set up and start"=>"Thiết lập và khởi động",
+            "Cancel setup"=>"Hủy thiết lập",
+            "Preparing installation"=>"Đang chuẩn bị cài đặt",
+            "Checking Ubuntu signature"=>"Đang kiểm tra chữ ký Ubuntu",
+            "Downloading Ubuntu Server"=>"Đang tải Ubuntu Server",
+            "Verifying Ubuntu SHA256"=>"Đang kiểm tra SHA256 Ubuntu",
+            "Starting installer"=>"Đang khởi động trình cài đặt",
+            "Setup cancelled"=>"Đã hủy thiết lập",
+            "Setup cancelled. Close the installation tab in Terminal to stop host installation."=>"Đã hủy thiết lập. Đóng tab cài đặt trong Terminal để dừng cài công cụ.",
+            "Ubuntu signature verification failed; download refused"=>"Chữ ký Ubuntu không hợp lệ; đã dừng tải",
+            "Complete the macOS installation prompts in Terminal"=>"Hoàn tất yêu cầu cài đặt của macOS trong Terminal",
+            "Setup command failed. Check your connection and retry."=>"Thiết lập thất bại. Kiểm tra kết nối rồi thử lại.",
+            "Setup timed out. Retry when the connection is available."=>"Thiết lập quá thời gian. Thử lại khi có kết nối.",
             "Selected folder can be changed by other users; choose a private storage location"=>"Thư mục đã chọn dùng chung quyền ghi; chọn nơi lưu riêng cho máy ảo",
 
             "Selected storage cannot provide a private VM folder; choose another folder or volume"=>"Ổ đã chọn không tạo được thư mục VM riêng; chọn thư mục hoặc ổ khác",
@@ -253,6 +269,9 @@ impl Language {
     pub fn message(self, message: &str) -> String {
         if self == Self::English {
             return message.to_owned();
+        }
+        if let Some(amount) = message.strip_prefix("Downloading Ubuntu: ") {
+            return format!("Đang tải Ubuntu: {amount}");
         }
         if let Some(tail) = message.strip_prefix("Creation failed: ") {
             return format!(

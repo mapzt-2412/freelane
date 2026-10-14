@@ -16,6 +16,8 @@ pub struct Wizard {
     refresh_requested: bool,
     install_requested: bool,
     windows: bool,
+    ubuntu_download: bool,
+    ubuntu_version: setup::Ubuntu,
     cloud: bool,
     cloud_seed: String,
     name: String,
@@ -37,7 +39,7 @@ pub struct Wizard {
 impl Wizard {
     pub fn begin(&mut self) {
         self.open = true;
-        self.refresh_requested = true;
+        self.refresh_requested = false;
         self.storage_changed();
     }
     fn storage_changed(&mut self) {
@@ -94,6 +96,8 @@ impl Default for Wizard {
             refresh_requested: false,
             install_requested: false,
             windows: true,
+            ubuntu_download: true,
+            ubuntu_version: setup::Ubuntu::default(),
             cloud: false,
             cloud_seed: String::new(),
             name: "Windows 11 ARM".into(),
@@ -135,7 +139,7 @@ impl Desktop {
         let mut open = true;
         let mut create = false;
         let mut picker = None;
-        let mut directory_changed = false;
+        let directory_changed = false;
         let busy = self.pending.is_some();
         egui::Window::new(lang.text("Create virtual machine"))
             .id(egui::Id::new("new-vm-wizard"))
@@ -171,6 +175,8 @@ impl Desktop {
                                 } else {
                                     "Ubuntu ARM64"
                                 };
+                                if self.wizard.disk==64 && !self.wizard.windows {self.wizard.disk=32;}
+                                else if self.wizard.disk==32 && self.wizard.windows {self.wizard.disk=64;}
                                 if self.wizard.name == old_name {
                                     self.wizard.name = if self.wizard.windows {
                                         "Windows 11 ARM"
@@ -180,57 +186,25 @@ impl Desktop {
                                     .into();
                                 }
                             }
-                            if self.wizard.windows {
-                                self.wizard.cloud = false;
-                            } else {
-                                let previous = self.wizard.cloud;
-                                ui.horizontal(|ui| {
-                                    ui.selectable_value(
-                                        &mut self.wizard.cloud,
-                                        false,
-                                        lang.text("Installer ISO"),
-                                    );
-                                    ui.selectable_value(
-                                        &mut self.wizard.cloud,
-                                        true,
-                                        lang.text("Ubuntu cloud image"),
-                                    );
-                                });
-                                if previous != self.wizard.cloud {
-                                    self.wizard.confirmed = false;
-                                }
-                            }
-                            ui.label(lang.text("VM name"));
-                            ui.text_edit_singleline(&mut self.wizard.name);
-                            for (label, value, field) in [
-                                (
-                                    "New VM directory",
-                                    &mut self.wizard.directory,
-                                    Field::Directory,
-                                ),
-                                (
-                                    if self.wizard.cloud {
-                                        "ARM64 cloud image (qcow2)"
-                                    } else {
-                                        "ARM64 installer ISO"
-                                    },
-                                    &mut self.wizard.installer,
-                                    Field::Installer,
-                                ),
-                            ] {
-                                ui.label(lang.text(label));
-                                ui.horizontal(|ui| {
-                                    let changed = ui.add_sized(
-                                        egui::vec2((ui.available_width() - 120.0).max(100.0), 24.0),
-                                        egui::TextEdit::singleline(value),
-                                    ).changed();
-                                    if changed && matches!(field, Field::Installer) { self.wizard.confirmed=false; }
-                                    if changed && matches!(field,Field::Directory) {directory_changed=true;}
-                                    if ui.button(lang.text("Browse")).clicked() {
-                                        picker = Some(field);
+                            if self.wizard.windows { self.wizard.cloud=false; }
+                            if !self.wizard.windows && self.wizard.ubuntu_download {
+                                egui::ComboBox::from_id_salt("ubuntu-version").selected_text(self.wizard.ubuntu_version.label()).show_ui(ui, |ui| {
+                                    for version in [setup::Ubuntu::Latest, setup::Ubuntu::Noble] {
+                                        ui.selectable_value(&mut self.wizard.ubuntu_version,version,version.label());
                                     }
                                 });
+                            } else {
+                                ui.label(lang.text("ARM64 installer ISO"));
+                                ui.horizontal(|ui| {
+                                    ui.text_edit_singleline(&mut self.wizard.installer);
+                                    if ui.button(lang.text("Browse")).clicked() { picker=Some(Field::Installer); }
+                                });
                             }
+                            ui.label(lang.text("New VM directory"));
+                            ui.horizontal(|ui| {
+                                ui.label(if self.wizard.directory.is_empty() { lang.text("Automatic · Documents / FreeLane VMs") } else { &self.wizard.directory });
+                                if ui.button(lang.text("Browse")).clicked() { picker=Some(Field::Directory); }
+                            });
                             if let Some(result)=&self.wizard.storage_result {
                                 match result {
                                     Ok(report)=>{
@@ -242,18 +216,14 @@ impl Desktop {
                                     Err(error)=>{ui.label(lang.message(error));}
                                 }
                             }
-                            if self.wizard.components_missing {
-                                ui.label(lang.text("VM components required"));
-                                if ui.button(lang.text("Find installed components")).clicked() {
-                                    self.wizard.refresh_requested=true;
-                                }
-                                if cfg!(target_os="macos") {
-                                    if brew_path().is_some() {
-                                        if ui.button(lang.text("Install QEMU and TPM with Homebrew")).clicked() { self.wizard.install_requested=true; }
-                                    } else {
-                                        ui.hyperlink_to(lang.text("Install Homebrew first"),"https://brew.sh");
-                                    }
-                                }
+                            ui.collapsing(lang.text("Advanced settings"), |ui| {
+                            ui.label(lang.text("VM name"));
+                            ui.text_edit_singleline(&mut self.wizard.name);
+                            if !self.wizard.windows {
+                                ui.checkbox(&mut self.wizard.ubuntu_download,lang.text("Download Ubuntu Server automatically"));
+                                if !self.wizard.ubuntu_download {
+                                    ui.checkbox(&mut self.wizard.cloud,lang.text("Ubuntu cloud image"));
+                                } else { self.wizard.cloud=false; }
                             }
                             ui.collapsing(lang.text("Advanced components"),|ui| {
                                 for (label,value,field) in [
@@ -355,23 +325,20 @@ impl Desktop {
                                     self.wizard.share_mode = qemu::ShareMode::ReadonlyUsb;
                                 }
                             });
-                            ui.checkbox(
-                                &mut self.wizard.confirmed,
-                                lang.text(if self.wizard.cloud {
-                                    "I confirm the cloud image is ARM64"
-                                } else {
-                                    "I confirm the installer is ARM64"
-                                }),
-                            );
-                            create = ui
-                                .add_enabled(
-                                    self.wizard.confirmed
-                                        && !self.wizard.directory.trim().is_empty(),
-                                    egui::Button::new(lang.text("Create workspace")),
-                                )
-                                .clicked();
+                            if self.wizard.cloud {
+                                ui.checkbox(&mut self.wizard.confirmed,lang.text("I confirm the cloud image is ARM64"));
+                            }
+                            });
+                            create=ui.add_enabled(
+                                (!self.wizard.windows && self.wizard.ubuntu_download) || (!self.wizard.installer.trim().is_empty() && (!self.wizard.cloud || self.wizard.confirmed)),
+                                egui::Button::new(lang.text("Set up and start"))
+                            ).clicked();
                         });
                         if busy {
+                            if let Some(progress)=&self.setup_status { ui.label(lang.message(progress)); }
+                            if let Some(cancel)=&self.setup_cancel {
+                                if ui.button(lang.text("Cancel setup")).clicked() { cancel.store(true,std::sync::atomic::Ordering::Relaxed); }
+                            }
                             ui.horizontal(|ui| {
                                 ui.spinner();
                                 if let Some(stage) = self.creation_stage {
@@ -394,6 +361,11 @@ impl Desktop {
                         }
                     });
             });
+        if !open && busy {
+            if let Some(cancel) = &self.setup_cancel {
+                cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
         self.wizard.open = open;
         if directory_changed {
             self.wizard.storage_changed();
@@ -435,7 +407,7 @@ impl Desktop {
         }
         if create {
             let w = &self.wizard;
-            let request = freelane::provision::Request {
+            let mut request = freelane::provision::Request {
                 source: if w.cloud {
                     freelane::provision::Source::UbuntuCloudImage
                 } else {
@@ -458,18 +430,66 @@ impl Desktop {
                 cpus: w.cpus,
                 memory_mib: w.memory,
                 disk_gib: w.disk,
-                arm64_media_confirmed: w.confirmed,
+                arm64_media_confirmed: !w.cloud || w.confirmed,
                 network: w.network,
                 guest_agent: w.guest_agent,
                 shared_directory: (!w.shared_folder.trim().is_empty())
                     .then(|| PathBuf::from(w.shared_folder.trim())),
                 share_mode: w.share_mode,
             };
+            let download = (!w.windows && w.ubuntu_download).then_some(w.ubuntu_version);
+            let (setup_tx, setup_rx) = mpsc::channel();
+            let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            self.setup_progress = Some(setup_rx);
+            self.setup_cancel = Some(cancel.clone());
+            self.setup_status = Some("Preparing installation".into());
             self.notice.clear();
             let (tx, rx) = mpsc::channel();
             self.creation_progress = Some(rx);
             self.creation_stage = Some(freelane::provision::Stage::CheckingInputs);
             self.work(ctx, move || {
+                if freelane::host_tools::discover().is_none() {
+                    setup::install_components(&cancel, &setup_tx)?;
+                }
+                if let Some(tools) = freelane::host_tools::discover() {
+                    if request.firmware.as_os_str().is_empty() {
+                        request.firmware = tools.firmware;
+                    }
+                    if request.variable_template.as_os_str().is_empty() {
+                        request.variable_template = tools.variables;
+                    }
+                    if request.qemu_img == Path::new("qemu-img") {
+                        request.qemu_img = tools.image;
+                    }
+                }
+                if request.directory.as_os_str().is_empty() {
+                    let home = std::env::var_os("HOME")
+                        .ok_or_else(|| "Home directory unavailable".to_string())?;
+                    let documents = PathBuf::from(home).join("Documents");
+                    std::fs::create_dir_all(&documents).map_err(|e| e.to_string())?;
+                    let parent = freelane::storage::prepare_vm_parent(&documents)
+                        .map_err(|e| e.to_string())?;
+                    request.directory = fresh_directory(&parent, &request.name)?.into();
+                }
+                if let Some(version) = download {
+                    if cfg!(target_os = "macos") && !freelane::host_tools::binary("gpg").is_file() {
+                        setup::install_components(&cancel, &setup_tx)?;
+                    }
+                    request.installer = setup::ubuntu_image(
+                        version,
+                        request
+                            .directory
+                            .parent()
+                            .ok_or("Choose a VM destination folder")?,
+                        &cancel,
+                        &setup_tx,
+                    )?;
+                    request.source = freelane::provision::Source::InstallerIso;
+                }
+                if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err("Setup cancelled".into());
+                }
+                let _ = setup_tx.send("Starting installer".into());
                 request
                     .create_with_progress(|stage| {
                         let _ = tx.send(stage);
@@ -519,7 +539,7 @@ fn fresh_directory(parent: &Path, name: &str) -> Result<String, String> {
     }
     Err("Choose a folder with fewer conflicting VM names".into())
 }
-fn brew_path() -> Option<PathBuf> {
+pub(super) fn brew_path() -> Option<PathBuf> {
     ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
         .into_iter()
         .map(PathBuf::from)
@@ -530,17 +550,8 @@ fn brew_path() -> Option<PathBuf> {
         })
 }
 fn install_components() -> Result<(), String> {
-    if !cfg!(target_os = "macos") {
-        return Err("Automatic component installation requires macOS".into());
-    }
-    let brew = brew_path().ok_or_else(|| "Install Homebrew first".to_string())?;
-    freelane::host_tools::run_installer(
-        Command::new(brew)
-            .args(["install", "qemu", "swtpm", "7zip"])
-            .env("HOMEBREW_NO_AUTO_UPDATE", "1"),
-        Duration::from_secs(600),
-    )
-    .map_err(|e| e.to_string())
+    let (tx, _rx) = mpsc::channel();
+    setup::install_components(&Arc::new(std::sync::atomic::AtomicBool::new(false)), &tx)
 }
 
 #[cfg(test)]

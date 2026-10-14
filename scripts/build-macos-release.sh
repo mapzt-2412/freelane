@@ -26,7 +26,7 @@ app="$package_dir/FreeLane.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp target/aarch64-apple-darwin/release/freelane "$app/Contents/MacOS/"
 cp target/aarch64-apple-darwin/release/freelane-desktop "$app/Contents/MacOS/"
-cp LICENSE crates/desktop/assets/DejaVu-LICENSE.txt "$app/Contents/Resources/"
+cp LICENSE crates/desktop/assets/DejaVu-LICENSE.txt crates/desktop/assets/Homebrew-install-LICENSE.txt crates/desktop/assets/Ubuntu-keyring-NOTICE.txt "$app/Contents/Resources/"
 cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

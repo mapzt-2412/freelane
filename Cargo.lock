@@ -735,6 +735,7 @@ dependencies = [
  "freelane",
  "freelane-agent-protocol",
  "image",
+ "libc",
  "tempfile",
 ]
 
