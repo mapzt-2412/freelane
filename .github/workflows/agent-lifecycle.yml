@@ -16,7 +16,17 @@ jobs:
           toolchain: 1.99.0
           targets: aarch64-pc-windows-msvc
       - name: Verify native Windows transfer storage and document refusal
-        run: cargo test --locked -p freelane-guest-agent --test transfer --test transfer_rpc
+        shell: pwsh
+        run: |
+          cargo test --locked -p freelane-guest-agent --test transfer --test transfer_rpc *> transfer-tests.log
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            Get-Content transfer-tests.log | Where-Object { $_ -match 'panicked|Os \{ code|^error|^test result:|^failures:' } | Select-Object -First 12 | ForEach-Object {
+              $bounded = $_.Substring(0, [Math]::Min(300, $_.Length)).Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error::$bounded"
+            }
+          }
+          exit $testExit
       - run: cargo build --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc
       - name: Verify per-user agent lifecycle with a real ARM64 artifact
         shell: pwsh
