@@ -111,3 +111,9 @@ Added Ubuntu-only live read-only9p enforced by QEMU, native folder picker and as
 ### 2026-10-14 — Portable workspace batch in validation
 
 Implemented v7 mount-tag observation (host source remains unverified), v8 bounded known-app catalog, backup/restore desktop UI, kernel process telemetry through connected QMP peer identity, stable Dock export identifiers and 21 MCP tools with asynchronous owned-checkpoint restore. Original VM files survive restore; no auto-boot or independent guest clone claim. Native Linux stdio metadata and actual QEMU memory/peer checks passed. Actual MCP qemu-img/qemu-io roundtrip preserved the source and retained artifacts after disconnect. Synthetic EN desktop Backups/Details captures inspected. Full roadmap, native Mac and Windows protected-storage/video acceptance remain unfinished. See portable-workspace-batch.md.
+
+RequiredCI38554340167 and Windows38554340163 passed for3f2fa70. Preview.16 packaging requested; public artifacts not yet verified.
+
+Viewer language follow-up: standalone `--app` accepts `--lang`, receives the manager language on open and exposes an EN/VI selector. Repeated per-frame notices removed. Strict lint/desktop build passed and actual owned EN/VI viewer captures inspected with a synthetic nonbootable profile; this does not validate native window input or capture. This follow-up is newer than preview.16.
+
+Preview.16 publicly downloaded and verified:FreeLane-0.1.0-3f2fa70869f4-macos-arm64.dmg,13347781bytes,SHA-25689c677347e087911e78a7177f34686117d8d2ce95bab619453889913693985c9,validUDIFfooter. See docs/evidence/release-preview16.json. Full roadmap remains unfinished; viewer-language follow-up is on main after this release.

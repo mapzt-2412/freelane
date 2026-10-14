@@ -1,0 +1,9 @@
+{
+  "tag": "v0.1.0-preview.16",
+  "dmg": "FreeLane-0.1.0-3f2fa70869f4-macos-arm64.dmg",
+  "sha256": "89c677347e087911e78a7177f34686117d8d2ce95bab619453889913693985c9",
+  "bytes": 13347781,
+  "udif_footer": true,
+  "public_download_verified": true,
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.16/FreeLane-0.1.0-3f2fa70869f4-macos-arm64.dmg"
+}
