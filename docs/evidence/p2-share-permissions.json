@@ -12,5 +12,8 @@
   "deferred_minors": [
     "imported settings may retain cached host report; check again",
     "Ubuntu gate errors still say read/write for read-only mode"
-  ]
+  ],
+  "required_ci": "Success",
+  "release": "v0.1.0-preview.15",
+  "public_dmg_verified": true
 }
