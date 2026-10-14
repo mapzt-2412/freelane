@@ -12,6 +12,9 @@
   "vm_boot": false,
   "review": "no Critical or Important",
   "deferred_minor": "native host initialization failure repeats at polling interval",
-  "publication": "explicit user approval received; CI pending",
-  "native_mac_windows_guest": "pending"
+  "publication": "published preview.14; public DMG checksum and UDIF verified",
+  "native_mac_windows_guest": "pending",
+  "required_ci": "Success",
+  "native_windows_ci": "Success",
+  "release_evidence": "docs/evidence/release-preview14.json"
 }

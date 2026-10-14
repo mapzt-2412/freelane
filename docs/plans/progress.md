@@ -99,3 +99,5 @@ Implemented opt-in v6 conditional updates, observed-change/echo policy and seria
 Automatic approval review rejected commit/push/publication because automatic clipboard transfer could involve sensitive content and required explicit authorization beyond the general feature request. Local code is complete/reviewable; not committed or published. No rejected publication was retried through another route. preview.13 remains the current published build; native Mac/Windows acceptance and roadmap remain unfinished.
 
 User explicitly approved commit, push and publication of default-disabled, per-VM opt-in automatic clipboard synchronization. Approval blocker resolved; native CI and release verification pending.
+
+P2 automatic clipboard released as preview.14 at e97f92e; requiredCI38530620922, Windows38530620971 and nativepackaging38530620925 Success. Public DMG SHA-2566323e7549f4f773b1d26b7d2e538854575a6d525d4d76b1a05434c32f3117433,13014354bytes/UDIFverified. Explicit publication approval resolved the earlier rejection. Native Mac/Windows guest acceptance and remaining roadmap remain unfinished.
