@@ -1,4 +1,4 @@
-FreeLane v0.1.0-preview.11 for Apple Silicon Macs (macOS 14+).
+FreeLane v0.1.0-preview.12 for Apple Silicon Macs (macOS 14+).
 
 This P2 preview adds opt-in Unicode text clipboard controls and verified Windows guest-agent lifecycle operations. The original roadmap remains in progress.
 

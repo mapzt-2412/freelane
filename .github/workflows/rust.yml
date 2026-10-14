@@ -12,6 +12,7 @@ jobs:
         with:
           python-version: '3.13'
       - run: python3 -m unittest discover -s tests/mcp -v
+      - run: python3 -m unittest discover -s tests -p test_package_notices.py -v
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.0
