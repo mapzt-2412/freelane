@@ -6,6 +6,8 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 [Latest preview: v0.1.0-preview.12](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.12) adds opt-in Unicode clipboard controls and verified Windows agent install/update/rollback/uninstall, alongside the single VM setup flow. [Previous setup package evidence](evidence/release-preview10.json) records successful native Mac packaging and required CI plus independent public DMG checksum verification. Actual Homebrew installation and native Mac guest execution remain unverified.
 
+[Preview.12 verification](evidence/release-preview12.json) records native packaging/required checks and an independently downloaded public DMG checksum. Preview.11 did not publish because of a corrected attribution staging error.
+
 New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Applications`, then eject it. The native Mac job verifies the disk image, mounts it read-only and rechecks the app signature, ARM64 architecture and Applications shortcut before upload. SHA256 files accompany DMG and ZIP downloads.
 
 [Download v0.1.0-preview.2](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2): Mac ARM64 DMG/ZIP, Windows ARM64 agent ZIP and SHA256 files, built from `9c5272e`. [Release workflow](https://github.com/puma2k/freelane/actions/runs/38277664939) builds and verifies the packages before publishing. [DMG verification evidence](evidence/published-dmg-preview.json) records native mounting/signature checks and an independent downloaded-file checksum. Native Mac guest execution and Dock quick-open remain unverified.
