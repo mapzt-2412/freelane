@@ -16,3 +16,5 @@ Cancel stops owned downloads/background installation jobs. If a Terminal bootstr
 Disconnected volumes are refused. Downloads and creation pin directory handles and check filesystem identity; existing files are preserved. Storage must support a private folder. Native Mac Homebrew/HVF and physical external-drive detach acceptance remain pending.
 
 ![English setup wizard](assets/wizard-quick-setup-en.png)
+
+[Setup validation evidence](evidence/quick-setup.json) · [Published Mac package verification](evidence/release-preview10.json).

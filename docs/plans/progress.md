@@ -75,3 +75,5 @@ Preview.9 published from508a89a: native Mac app/DMG and Windows agent packaging/
 ## 2026-10-14 — Single setup flow
 
 User steering: hide normal disk/resource tuning; Windows chooses ISO, Ubuntu Server selects an LTS release and downloads automatically; host prerequisites belong in the same action. Implemented simplified EN/VI setup, bundled pinned Homebrew bootstrap and Ubuntu trust keyring, automatic QEMU/swtpm/7-Zip/GnuPG setup, signed-manifest/checksum downloads on selected storage and installer startup. Original roadmap and user-deferred physical Mac P0 acceptance remain open.
+
+Preview.10 published from 5b63931: native Mac app/DMG and Windows agent packaging succeeded; required Linux/Mac/ARM CI passed; independently downloaded public DMG SHA256 and UDIF footer verified. [Package evidence](../evidence/release-preview10.json). Physical Mac setup/HVF remains pending. Reusable cloud install/start configuration saved with QEMU GTK and GnuPG prerequisites; environment publication remains a user settings action.

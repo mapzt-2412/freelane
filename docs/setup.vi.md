@@ -16,3 +16,5 @@ Hủy sẽ dừng tiến trình tải/cài nền thuộc app. Nếu bootstrap đ
 Ổ mất kết nối bị từ chối. Tải và tạo VM giữ handle thư mục, kiểm tra định danh filesystem và giữ nguyên file có sẵn. Nơi lưu phải hỗ trợ thư mục riêng. Kiểm thử Homebrew/HVF trên Mac thật và tháo ổ ngoài vật lý vẫn còn chờ.
 
 ![Giao diện thiết lập tiếng Việt](assets/wizard-quick-setup-vi.png)
+
+[Bằng chứng kiểm thử setup](evidence/quick-setup.json) · [Xác minh gói Mac đã publish](evidence/release-preview10.json).

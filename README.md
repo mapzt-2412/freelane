@@ -27,6 +27,7 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 
 ## Features
 
+- One setup action: select a Windows ARM64 ISO or Ubuntu Server LTS version; download missing VM tools and Ubuntu media automatically. [Setup guide](docs/setup.md).
 - Desktop VM library, resource cards, settings and Vietnamese/English language selection.
 - CPU, RAM, acceleration, network, media, display, guest-agent and USB configuration.
 - Read-only USB folder transfer for Windows/Ubuntu; live read/write 9p sharing for Ubuntu.
@@ -40,7 +41,7 @@ The desktop displays snapshots, with optional refresh for desktop VMs. Continuou
 
 [Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.10): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
 
-The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+, separate backends and local setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
+The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+; the VM setup flow downloads missing backends automatically, while mobile runtimes use separate setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 
 ## Build
 
