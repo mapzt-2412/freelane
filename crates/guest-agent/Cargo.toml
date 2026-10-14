@@ -5,6 +5,8 @@ edition = "2021"
 license = "MIT"
 [dependencies]
 freelane-agent-protocol = { path = "../agent-protocol" }
+getrandom = "0.4"
+arboard = { version = "3", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 image = { version = "0.25", default-features = false, features = ["jpeg"] }

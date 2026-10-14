@@ -1,4 +1,5 @@
 mod app_ui;
+mod clipboard_ui;
 mod file_picker;
 mod i18n;
 mod interface;
@@ -34,6 +35,8 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    Clipboard(clipboard_ui::Session, String),
+    ClipboardFailed(String),
     Loaded(VmInfo, Option<String>),
     Created(PathBuf),
     LibraryRepaired(Vec<freelane::library::Entry>),
@@ -56,6 +59,9 @@ type WorkResult = Result<Event, String>;
 #[derive(Default)]
 struct Desktop {
     wizard: wizard::Wizard,
+    clipboard_enabled: bool,
+    clipboard_permission: Option<Arc<std::sync::atomic::AtomicBool>>,
+    clipboard_session: Option<clipboard_ui::Session>,
     setup_progress: Option<mpsc::Receiver<String>>,
     setup_status: Option<String>,
     setup_cancel: Option<setup::Cancel>,
@@ -472,6 +478,11 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::ClipboardFailed(message)) => self.notice = message,
+                        Ok(Event::Clipboard(session, message)) => {
+                            self.clipboard_session = Some(session);
+                            self.notice = message;
+                        }
                         Ok(Event::WizardStorage(path, result)) => {
                             self.wizard.storage_received(&path, result)
                         }
@@ -547,6 +558,11 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.clipboard_enabled = false;
+                            if let Some(permission) = &self.clipboard_permission {
+                                permission.store(false, std::sync::atomic::Ordering::Relaxed);
+                            }
+                            self.clipboard_permission = None;
                             self.library_notice = warning.unwrap_or_default();
                             self.settings = Some(vm.config.clone());
                             self.installer_path = vm
@@ -710,6 +726,9 @@ impl Desktop {
 }
 impl eframe::App for Desktop {
     fn on_exit(&mut self, _: Option<&eframe::glow::Context>) {
+        if let Some(permission) = &self.clipboard_permission {
+            permission.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
         if let Some(cancel) = &self.setup_cancel {
             cancel.store(true, std::sync::atomic::Ordering::Relaxed);
         }

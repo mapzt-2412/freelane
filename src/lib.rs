@@ -277,3 +277,10 @@ pub mod cloud_image;
 pub mod agent_capabilities;
 
 pub mod host_tools;
+
+/// Fresh clipboard origin identifier; not an authentication credential.
+pub fn clipboard_source() -> Result<String> {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).map_err(|_| Error("Cannot initialize clipboard source".into()))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+}

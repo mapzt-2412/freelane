@@ -1,9 +1,20 @@
 //! Execute only in the guest's interactive user session. Never install as a privileged host service.
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
 use std::io::{self, BufRead, Write};
+#[cfg(any(windows, target_os = "linux"))]
+mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn clipboard_support(&self) -> bool {
+        false
+    }
+    fn clipboard_action(&mut self, _action: &Action) -> io::Result<Outcome> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Clipboard unavailable",
+        ))
+    }
     fn window_action(&mut self, _action: &Action) -> io::Result<Outcome> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
@@ -32,6 +43,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                         protocol: freelane_agent_protocol::WINDOW_VERSION,
                     });
                 }
+                if launcher.clipboard_support() {
+                    features.push(freelane_agent_protocol::Feature {
+                        name: "text_clipboard".into(),
+                        protocol: freelane_agent_protocol::CLIPBOARD_VERSION,
+                    });
+                }
                 Outcome::AgentInfo {
                     info: freelane_agent_protocol::AgentInfo {
                         agent_version: env!("CARGO_PKG_VERSION").into(),
@@ -41,7 +58,14 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                             VERSION,
                             freelane_agent_protocol::WINDOW_VERSION,
                             freelane_agent_protocol::CAPABILITY_VERSION,
-                        ],
+                        ]
+                        .into_iter()
+                        .chain(if launcher.clipboard_support() {
+                            Some(freelane_agent_protocol::CLIPBOARD_VERSION)
+                        } else {
+                            None
+                        })
+                        .collect(),
                         features,
                         max_frame: freelane_agent_protocol::MAX_FRAME as u32,
                     },
@@ -65,6 +89,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     message: format!("Launch failed ({:?})", error.kind()),
                 },
             },
+            ref action @ (Action::ClipboardGet | Action::ClipboardSet { .. }) => launcher
+                .clipboard_action(action)
+                .unwrap_or_else(|_| Outcome::Failed {
+                    message: "Text clipboard transfer unavailable or refused".into(),
+                }),
             ref action => launcher
                 .window_action(action)
                 .unwrap_or_else(|e| Outcome::Failed {
@@ -76,6 +105,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
         version: if [
             freelane_agent_protocol::WINDOW_VERSION,
             freelane_agent_protocol::CAPABILITY_VERSION,
+            freelane_agent_protocol::CLIPBOARD_VERSION,
         ]
         .contains(&request.version)
         {
@@ -105,6 +135,12 @@ pub fn serve(
 pub struct WindowsLauncher;
 #[cfg(windows)]
 impl Launcher for WindowsLauncher {
+    fn clipboard_support(&self) -> bool {
+        clipboard::available()
+    }
+    fn clipboard_action(&mut self, action: &Action) -> io::Result<Outcome> {
+        clipboard::handle(action)
+    }
     fn window_support(&self) -> bool {
         true
     }
@@ -144,6 +180,12 @@ impl Launcher for WindowsLauncher {
 pub struct LinuxLauncher;
 #[cfg(target_os = "linux")]
 impl Launcher for LinuxLauncher {
+    fn clipboard_support(&self) -> bool {
+        clipboard::available()
+    }
+    fn clipboard_action(&mut self, action: &Action) -> io::Result<Outcome> {
+        clipboard::handle(action)
+    }
     fn launch(&mut self, executable: &str, arguments: &[String]) -> io::Result<u32> {
         let path = std::path::Path::new(executable);
         if !path.is_absolute() || !path.is_file() {

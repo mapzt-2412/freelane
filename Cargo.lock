@@ -731,6 +731,7 @@ dependencies = [
 name = "freelane-desktop"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "eframe",
  "freelane",
  "freelane-agent-protocol",
@@ -743,7 +744,9 @@ dependencies = [
 name = "freelane-guest-agent"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "freelane-agent-protocol",
+ "getrandom",
  "image",
  "serde_json",
 ]

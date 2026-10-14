@@ -10,6 +10,23 @@ impl Language {
             return english;
         }
         match english {
+            "Clipboard sharing disabled"=>"Đã tắt chia sẻ clipboard",
+            "Clipboard sharing disabled; no request sent"=>"Đã tắt chia sẻ clipboard; chưa gửi dữ liệu",
+            "Guest clipboard unavailable or refused"=>"Clipboard máy ảo chưa sẵn sàng hoặc đã từ chối",
+            "Host text clipboard unavailable"=>"Clipboard văn bản của máy chủ chưa sẵn sàng",
+            "Cannot write host text clipboard"=>"Không thể ghi clipboard máy chủ",
+            "Host clipboard requires an interactive session"=>"Clipboard máy chủ cần phiên người dùng có giao diện",
+
+            "Share text clipboard"=>"Chia sẻ clipboard văn bản",
+            "Send clipboard to guest"=>"Gửi clipboard vào máy ảo",
+            "Copy clipboard from guest"=>"Lấy clipboard từ máy ảo",
+            "Clipboard transferred"=>"Đã chuyển clipboard",
+            "Clipboard already synchronized"=>"Clipboard đã đồng bộ",
+            "Update the guest agent and run it in an interactive session for clipboard sharing"=>"Cập nhật guest agent và chạy trong phiên người dùng để chia sẻ clipboard",
+            "Guest clipboard transfer failed; nothing is retried automatically"=>"Chuyển clipboard thất bại; app không tự gửi lại",
+            "Guest clipboard unavailable"=>"Clipboard máy ảo chưa sẵn sàng",
+            "Invalid clipboard metadata or text limit"=>"Clipboard không hợp lệ hoặc vượt giới hạn 8 KiB",
+
             "Advanced settings"=>"Cài đặt nâng cao",
             "Automatic · Documents / FreeLane VMs"=>"Tự động · Documents / FreeLane VMs",
             "Download Ubuntu Server automatically"=>"Tự tải Ubuntu Server",

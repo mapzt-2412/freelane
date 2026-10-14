@@ -352,3 +352,165 @@ fn independent_app_clients_lease_the_serial_channel_until_reply() {
     fs::remove_dir_all(runtime).unwrap();
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn clipboard_response_is_bounded_and_correlated_to_origin() {
+    use freelane_agent_protocol::{ClipboardSnapshot, CLIPBOARD_VERSION};
+    for (action, outcome, valid) in [
+        (
+            Action::ClipboardGet,
+            Outcome::Failed {
+                message: "PRIVATE_CLIPBOARD_PAYLOAD".into(),
+            },
+            false,
+        ),
+        (
+            Action::ClipboardGet,
+            Outcome::Clipboard {
+                snapshot: ClipboardSnapshot {
+                    source: "a".repeat(32),
+                    sequence: 1,
+                    text: "Tiếng Việt 👋".into(),
+                },
+            },
+            true,
+        ),
+        (
+            Action::ClipboardGet,
+            Outcome::Clipboard {
+                snapshot: ClipboardSnapshot {
+                    source: "a".repeat(32),
+                    sequence: 1,
+                    text: "x".repeat(8193),
+                },
+            },
+            false,
+        ),
+        (
+            Action::ClipboardSet {
+                source: "a".repeat(32),
+                sequence: 2,
+                text: "hello".into(),
+            },
+            Outcome::ClipboardAccepted {
+                source: "b".repeat(32),
+                sequence: 2,
+            },
+            false,
+        ),
+    ] {
+        let path = std::env::temp_dir().join(format!(
+            "fl-clipboard-response-{}-{}.sock",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let listener = UnixListener::bind(&path).unwrap();
+        let worker = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let req: Request = freelane_agent_protocol::read_frame(&mut BufReader::new(
+                stream.try_clone().unwrap(),
+            ))
+            .unwrap();
+            freelane_agent_protocol::write_frame(
+                &mut stream,
+                &Response {
+                    version: CLIPBOARD_VERSION,
+                    id: req.id,
+                    outcome,
+                },
+            )
+            .unwrap();
+        });
+        let result = freelane::agent::request_socket_version(&path, action, CLIPBOARD_VERSION);
+        worker.join().unwrap();
+        std::fs::remove_file(path).unwrap();
+        if let Err(error) = &result {
+            assert!(!error.to_string().contains("PRIVATE_CLIPBOARD_PAYLOAD"));
+        }
+        assert_eq!(result.is_ok(), valid);
+    }
+}
+
+#[test]
+fn revoked_clipboard_consent_cancels_a_queued_mutation() {
+    use fs2::FileExt;
+    use std::{
+        fs::{self, OpenOptions},
+        os::unix::fs::{OpenOptionsExt, PermissionsExt},
+        sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        },
+        time::Duration,
+    };
+    let root = std::env::temp_dir().join(format!("fl-clipboard-consent-{}", std::process::id()));
+    fs::create_dir(&root).unwrap();
+    let config = root.join("vm.toml");
+    fs::write(&config, b"private fixture").unwrap();
+    let runtime = freelane::qemu::runtime_dir(&config).unwrap();
+    fs::create_dir(&runtime).unwrap();
+    fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700)).unwrap();
+    let lock = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .mode(0o600)
+        .open(runtime.join("agent-client.lock"))
+        .unwrap();
+    lock.lock_exclusive().unwrap();
+    let listener = UnixListener::bind(runtime.join("agent.sock")).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let flag = cancelled.clone();
+    let config_worker = config.clone();
+    let worker = thread::spawn(move || {
+        freelane::agent::clipboard_request_cancellable(
+            &config_worker,
+            Action::ClipboardSet {
+                source: "a".repeat(32),
+                sequence: 1,
+                text: "private fixture".into(),
+            },
+            &|| flag.load(Ordering::Relaxed),
+        )
+    });
+    thread::sleep(Duration::from_millis(150));
+    cancelled.store(true, Ordering::Relaxed);
+    FileExt::unlock(&lock).unwrap();
+    // If consent is ignored, accept and reply so the regression cannot hang.
+    let mut sent = false;
+    for _ in 0..10 {
+        match listener.accept() {
+            Ok((mut stream, _)) => {
+                sent = true;
+                let request: Request = freelane_agent_protocol::read_frame(&mut BufReader::new(
+                    stream.try_clone().unwrap(),
+                ))
+                .unwrap();
+                freelane_agent_protocol::write_frame(
+                    &mut stream,
+                    &Response {
+                        version: 4,
+                        id: request.id,
+                        outcome: Outcome::ClipboardAccepted {
+                            source: "a".repeat(32),
+                            sequence: 1,
+                        },
+                    },
+                )
+                .unwrap();
+                break;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(20))
+            }
+            Err(e) => panic!("{e}"),
+        }
+    }
+    let result = worker.join().unwrap();
+    drop(lock);
+    drop(listener);
+    fs::remove_dir_all(runtime).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    assert!(!sent, "revoked consent must not send a clipboard frame");
+    assert!(result.is_err());
+}

@@ -1,4 +1,5 @@
 //! Versioned, bounded guest RPC. Launch requests contain an executable and literal arguments, never shell text.
+pub mod clipboard;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
 pub const VERSION: u16 = 1;
@@ -6,6 +7,8 @@ pub const VERSION: u16 = 1;
 pub const WINDOW_VERSION: u16 = 2;
 /// Read-only extensible capability discovery; existing mutation protocols stay unchanged.
 pub const CAPABILITY_VERSION: u16 = 3;
+pub const CLIPBOARD_VERSION: u16 = 4;
+pub const MAX_CLIPBOARD_TEXT: usize = 8192;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -17,6 +20,12 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    ClipboardGet,
+    ClipboardSet {
+        source: String,
+        sequence: u64,
+        text: String,
+    },
     Ping,
     Windows {
         pid: u32,
@@ -116,6 +125,26 @@ impl AgentInfo {
         Ok(())
     }
 }
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ClipboardSnapshot {
+    pub source: String,
+    pub sequence: u64,
+    pub text: String,
+}
+impl ClipboardSnapshot {
+    pub fn validate(&self) -> io::Result<()> {
+        if self.source.len() != 32
+            || !self.source.bytes().all(|b| b.is_ascii_hexdigit())
+            || self.sequence == 0
+            || self.text.len() > MAX_CLIPBOARD_TEXT
+            || self.text.contains('\0')
+        {
+            return Err(invalid("Invalid clipboard metadata or text limit"));
+        }
+        Ok(())
+    }
+}
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Response {
@@ -126,6 +155,13 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    Clipboard {
+        snapshot: ClipboardSnapshot,
+    },
+    ClipboardAccepted {
+        source: String,
+        sequence: u64,
+    },
     AgentInfo {
         info: AgentInfo,
     },
@@ -155,7 +191,14 @@ pub enum Outcome {
 }
 impl Request {
     pub fn validate(&self) -> io::Result<()> {
-        if ![VERSION, WINDOW_VERSION, CAPABILITY_VERSION].contains(&self.version) {
+        if ![
+            VERSION,
+            WINDOW_VERSION,
+            CAPABILITY_VERSION,
+            CLIPBOARD_VERSION,
+        ]
+        .contains(&self.version)
+        {
             return Err(invalid("Unsupported guest protocol version"));
         }
         if self.id == 0 {
@@ -164,9 +207,38 @@ impl Request {
         if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
             return Err(invalid("Protocol v3 is read-only capability discovery"));
         }
-        let window_action = !matches!(self.action, Action::Ping | Action::Launch { .. });
+        let clipboard = matches!(
+            self.action,
+            Action::ClipboardGet | Action::ClipboardSet { .. }
+        );
+        if clipboard && self.version != CLIPBOARD_VERSION {
+            return Err(invalid("Clipboard actions require protocol v4"));
+        }
+        if self.version == CLIPBOARD_VERSION && !clipboard {
+            return Err(invalid("Protocol v4 only supports text clipboard"));
+        }
+        let window_action = !matches!(
+            self.action,
+            Action::Ping
+                | Action::Launch { .. }
+                | Action::ClipboardGet
+                | Action::ClipboardSet { .. }
+        );
         if window_action && self.version != WINDOW_VERSION {
             return Err(invalid("Window actions require protocol v2"));
+        }
+        if let Action::ClipboardSet {
+            source,
+            sequence,
+            text,
+        } = &self.action
+        {
+            ClipboardSnapshot {
+                source: source.clone(),
+                sequence: *sequence,
+                text: text.clone(),
+            }
+            .validate()?;
         }
         match &self.action {
             Action::Windows { pid } if *pid == 0 => return Err(invalid("Invalid process ID")),
@@ -347,5 +419,35 @@ mod capability_tests {
         }
         .validate()
         .is_err());
+    }
+}
+
+#[cfg(test)]
+mod clipboard_tests {
+    use super::*;
+    fn wire(version: u16, text: &str) -> Vec<u8> {
+        let value = serde_json::json!({"version":version,"id":9,"action":{"type":"clipboard_set","source":"0123456789abcdef0123456789abcdef","sequence":1,"text":text}});
+        let mut bytes = serde_json::to_vec(&value).unwrap();
+        bytes.push(b'\n');
+        bytes
+    }
+    #[test]
+    fn unicode_clipboard_has_its_own_bounded_protocol() {
+        let request: Request =
+            read_frame(&mut wire(4, "Xin chào anh 👋\nTiếng Việt").as_slice()).unwrap();
+        request.validate().unwrap();
+        let mut bytes = vec![];
+        write_frame(&mut bytes, &request).unwrap();
+        let decoded: Request = read_frame(&mut bytes.as_slice()).unwrap();
+        assert_eq!(decoded, request);
+        let legacy: Request = read_frame(&mut wire(1, "hello").as_slice()).unwrap();
+        assert!(legacy.validate().is_err());
+        let large: Request = read_frame(&mut wire(4, &"x".repeat(8193)).as_slice()).unwrap();
+        assert!(large.validate().is_err());
+        let controls: Request = read_frame(&mut wire(4, &"\u{1}".repeat(8192)).as_slice()).unwrap();
+        controls.validate().unwrap();
+        let mut bytes = vec![];
+        write_frame(&mut bytes, &controls).unwrap();
+        assert!(bytes.len() <= MAX_FRAME);
     }
 }

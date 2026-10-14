@@ -12,6 +12,22 @@ pub fn request(config: &Path, action: Action) -> Result<Response> {
     request_vm(config, action, VERSION)
 }
 pub(crate) fn request_vm(config: &Path, action: Action, version: u16) -> Result<Response> {
+    request_vm_cancellable(config, action, version, &|| false)
+}
+fn cancellation(cancelled: &impl Fn() -> bool) -> Result<()> {
+    if cancelled() {
+        Err(Error("Clipboard sharing disabled; no request sent".into()))
+    } else {
+        Ok(())
+    }
+}
+fn request_vm_cancellable(
+    config: &Path,
+    action: Action,
+    version: u16,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    cancellation(cancelled)?;
     use fs2::FileExt;
     use std::{
         fs::{self, OpenOptions},
@@ -43,6 +59,7 @@ pub(crate) fn request_vm(config: &Path, action: Action, version: u16) -> Result<
         .map_err(|e| Error(e.to_string()))?;
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
+        cancellation(cancelled)?;
         match lock.try_lock_exclusive() {
             Ok(()) => break,
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock && Instant::now() < deadline => {
@@ -55,7 +72,8 @@ pub(crate) fn request_vm(config: &Path, action: Action, version: u16) -> Result<
             }
         }
     }
-    request_socket_version(&directory.join("agent.sock"), action, version)
+    cancellation(cancelled)?;
+    request_socket_cancellable(&directory.join("agent.sock"), action, version, cancelled)
 }
 pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     request_socket_version(socket, action, VERSION)
@@ -64,6 +82,15 @@ pub fn window_request(config: &Path, action: Action) -> Result<Response> {
     request_vm(config, action, freelane_agent_protocol::WINDOW_VERSION)
 }
 pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Result<Response> {
+    request_socket_cancellable(socket, action, version, &|| false)
+}
+fn request_socket_cancellable(
+    socket: &Path,
+    action: Action,
+    version: u16,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    cancellation(cancelled)?;
     // Independent CLI invocations share a persistent serial channel: never reuse ID 1.
     let id = loop {
         let id = getrandom::u64()
@@ -86,6 +113,7 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
     stream
         .set_write_timeout(Some(Duration::from_secs(5)))
         .map_err(|e| Error(e.to_string()))?;
+    cancellation(cancelled)?;
     freelane_agent_protocol::write_frame(&mut stream, &request)
         .map_err(|e| Error(e.to_string()))?;
     let mut reader = BufReader::new(stream);
@@ -132,11 +160,23 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
         return Err(Error("Guest agent version/response ID mismatch".into()));
     }
     if let freelane_agent_protocol::Outcome::Failed { message } = &response.outcome {
-        return Err(Error(format!("Guest agent: {message}")));
+        return Err(Error(
+            if version == freelane_agent_protocol::CLIPBOARD_VERSION {
+                "Guest clipboard unavailable or refused".into()
+            } else {
+                format!("Guest agent: {message}")
+            },
+        ));
     }
     let expected = matches!(
         (&request.action, &response.outcome),
-        (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. })
+        (
+            Action::ClipboardGet,
+            freelane_agent_protocol::Outcome::Clipboard { .. }
+        ) | (
+            Action::ClipboardSet { .. },
+            freelane_agent_protocol::Outcome::ClipboardAccepted { .. }
+        ) | (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. })
             | (
                 Action::Ping,
                 freelane_agent_protocol::Outcome::Capabilities { .. }
@@ -164,6 +204,18 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
     );
     let expected = expected
         && match (&request.action, &response.outcome) {
+            (Action::ClipboardGet, freelane_agent_protocol::Outcome::Clipboard { snapshot }) => {
+                snapshot.validate().is_ok()
+            }
+            (
+                Action::ClipboardSet {
+                    source, sequence, ..
+                },
+                freelane_agent_protocol::Outcome::ClipboardAccepted {
+                    source: actual,
+                    sequence: seq,
+                },
+            ) => source == actual && sequence == seq,
             (Action::Ping, freelane_agent_protocol::Outcome::AgentInfo { info }) => {
                 version == freelane_agent_protocol::CAPABILITY_VERSION && info.validate().is_ok()
             }
@@ -206,4 +258,27 @@ pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Re
         ));
     }
     Ok(response)
+}
+
+pub fn clipboard_request(config: &Path, action: Action) -> Result<Response> {
+    if !matches!(action, Action::ClipboardGet | Action::ClipboardSet { .. }) {
+        return Err(Error("Invalid clipboard action".into()));
+    }
+    request_vm(config, action, freelane_agent_protocol::CLIPBOARD_VERSION)
+}
+
+pub fn clipboard_request_cancellable(
+    config: &Path,
+    action: Action,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    if !matches!(action, Action::ClipboardGet | Action::ClipboardSet { .. }) {
+        return Err(Error("Invalid clipboard action".into()));
+    }
+    request_vm_cancellable(
+        config,
+        action,
+        freelane_agent_protocol::CLIPBOARD_VERSION,
+        cancelled,
+    )
 }

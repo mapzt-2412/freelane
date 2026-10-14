@@ -11,4 +11,5 @@ eframe = { version = "0.36.2", default-features = false, features = ["glow", "x1
 image = { version = "0.25", default-features = false, features = ["pnm", "png", "jpeg"] }
 tempfile = "3"
 libc = "0.2"
+arboard = { version = "3", default-features = false }
 freelane-agent-protocol = { path = "../agent-protocol" }
