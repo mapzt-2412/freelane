@@ -28,5 +28,7 @@ cp target/aarch64-pc-windows-gnullvm/release/freelane-guest-agent.exe "$package_
 cp LICENSE "$package_dir/notices/FreeLane-MIT.txt"
 cp "$compiler_root/LICENSE.TXT" "$package_dir/notices/LLVM-MinGW.txt"
 cp "$compiler_root"/aarch64-w64-mingw32/share/mingw32/COPYING* "$package_dir/notices/"
+cargo metadata --locked --format-version 1 --filter-platform aarch64-pc-windows-gnullvm > "$package_dir/cargo-dependencies.json"
+python3 scripts/package-license-notices.py "$package_dir/cargo-dependencies.json" "$package_dir/notices/rust"
 (cd "$package_dir" && sha256sum freelane-guest-agent.exe > freelane-guest-agent.exe.sha256)
 cat "$package_dir/freelane-guest-agent.exe.sha256"

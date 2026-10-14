@@ -1,9 +1,9 @@
 name: Windows agent lifecycle
 on:
   push:
-    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', '.github/workflows/agent-lifecycle.yml']
+    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', 'crates/guest-agent/**', 'crates/agent-protocol/**', 'Cargo.lock', '.github/workflows/agent-lifecycle.yml']
   pull_request:
-    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', '.github/workflows/agent-lifecycle.yml']
+    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', 'crates/guest-agent/**', 'crates/agent-protocol/**', 'Cargo.lock', '.github/workflows/agent-lifecycle.yml']
 permissions:
   contents: read
 jobs:

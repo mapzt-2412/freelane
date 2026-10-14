@@ -88,6 +88,7 @@ for name in subprocess.check_output(['git', 'ls-files', '-z', '--', 'docs', 'con
     shutil.copy2(path, target)
 PY
 cargo metadata --locked --format-version 1 --filter-platform aarch64-apple-darwin > "$package_dir/cargo-dependencies.json"
+python3 scripts/package-license-notices.py "$package_dir/cargo-dependencies.json" "$package_dir/notices/rust"
 python3 - "$package_dir" "$(rustc --print sysroot)" <<'PY'
 from pathlib import Path
 import json, shutil, sys

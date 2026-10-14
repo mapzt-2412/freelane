@@ -27,6 +27,13 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: python3 scripts/ci-test-status.py portable
       - run: cargo build --locked --workspace
+      - name: Verify native Unicode clipboard on an isolated X11 display
+        if: runner.os == 'Linux'
+        env:
+          FREELANE_CLIPBOARD_TEST_DISPLAY: isolated-ci-xvfb
+        run: |
+          sudo apt-get install -y --no-install-recommends xvfb xauth
+          xvfb-run -a -s '-screen 0 1280x900x24 -nolisten tcp' cargo test --locked -p freelane-guest-agent --test clipboard_native -- --ignored
   arm-emulation:
     runs-on: ubuntu-latest
     container: debian:trixie-slim
