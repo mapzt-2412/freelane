@@ -28,4 +28,5 @@ cp target/aarch64-pc-windows-gnullvm/release/freelane-guest-agent.exe "$package_
 cp LICENSE "$package_dir/notices/FreeLane-MIT.txt"
 cp "$compiler_root/LICENSE.TXT" "$package_dir/notices/LLVM-MinGW.txt"
 cp "$compiler_root"/aarch64-w64-mingw32/share/mingw32/COPYING* "$package_dir/notices/"
-sha256sum "$package_dir/freelane-guest-agent.exe"
+(cd "$package_dir" && sha256sum freelane-guest-agent.exe > freelane-guest-agent.exe.sha256)
+cat "$package_dir/freelane-guest-agent.exe.sha256"
