@@ -1,0 +1,58 @@
+{
+  "scope": "P2 verified Windows agent lifecycle and opt-in manual Unicode clipboard; P2 milestone not fully accepted",
+  "local_checks": {
+    "workspace_passed": 126,
+    "workspace_ignored": 8,
+    "additional_native_x11_acceptance_passed": 1,
+    "mcp_passed": 11,
+    "clippy": "passed",
+    "desktop_cli_agent_build": "passed",
+    "mac_arm64_core_check": "passed",
+    "windows_arm64_agent_cross_build": "passed"
+  },
+  "windows_lifecycle": {
+    "workflow": "https://github.com/puma2k/freelane/actions/runs/38506345626",
+    "status": "Success",
+    "artifact": "real ARM64 MSVC executable, not executed in a guest",
+    "coverage": [
+      "install",
+      "source checksum rejection",
+      "duplicate install preservation",
+      "update",
+      "explicit rollback",
+      "backup traversal refusal",
+      "changed-file refusal",
+      "locked-manifest update recovery",
+      "locked-executable uninstall preservation",
+      "uninstall",
+      "unrelated-file preservation"
+    ]
+  },
+  "clipboard": {
+    "protocol": 4,
+    "max_utf8_bytes": 8192,
+    "default_enabled": false,
+    "mode": "explicit Send/Copy buttons",
+    "native_agent_unicode_replay_legacy_oversize_test": "passed",
+    "independent_x11_host_to_guest": true,
+    "independent_x11_guest_to_host": true,
+    "transport": "private stdio/Unix socket proxy with actual native agents and separate authenticated X11 displays; no VM boot claimed",
+    "routine_contents_logged": false,
+    "revoked_queued_send": "RED -> GREEN held-channel-lease regression",
+    "guest_error_payloads": "sanitized"
+  },
+  "review": {
+    "critical_findings": 0,
+    "queued_consent_blocker": "fixed with lease/pre-transmission cancellation checks",
+    "uninstall_partial_failure": "regraded Important and fixed by transactional renames",
+    "docs_command": "updated for trusted checksum and lifecycle actions",
+    "automatic_update_recovery_coverage": "added and passed in native CI"
+  },
+  "limitations": [
+    "Windows/Mac native clipboard acceptance pending",
+    "normal-user Windows guest startup/update pending; CI runner is not that acceptance",
+    "Ubuntu Server without GUI clipboard is unsupported; terminal uses host terminal copy/paste",
+    "automatic sync, images/rich text, file transfer/document open pending",
+    "physical Mac P0 remains deferred"
+  ]
+}

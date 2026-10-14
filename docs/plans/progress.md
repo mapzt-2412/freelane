@@ -1,6 +1,6 @@
 # Roadmap execution status
 
-Updated 2026-10-13. The roadmap is not complete.
+Updated 2026-10-14. The roadmap is not complete.
 
 | Area | Status | Evidence / remaining work |
 |---|---|---|
@@ -11,7 +11,7 @@ Updated 2026-10-13. The roadmap is not complete.
 | P1 persistent VM library | Implemented and tested | Private/atomic bookmark updates, corrupt file preservation, actual UI restart without config arguments |
 | P1 full wizard/recovery | In progress; not accepted | File pickers and ARM64 UEFI-loader inspection implemented; physical dialog acceptance, full guest checks, installation readiness/progress, repair/recovery and interruption recovery remain |
 | P1 checkpoint/recovery-copy foundation | Implemented; limited acceptance | CLI full copy + fresh-directory restore; file-level tests Linux/Mac passed; real Windows/BitLocker recovery blocked by cloud capacity and pending native testing |
-| P2 clipboard/sharing/agent lifecycle | In progress | Read-only v3 capability discovery implemented; clipboard/transfer and agent lifecycle remain pending |
+| P2 clipboard/sharing/agent lifecycle | In progress | v3 discovery, verified Windows agent lifecycle and opt-in manual Unicode clipboard implemented; native guest acceptance, automatic sync, transfer/document opening remain pending |
 | P3 app video/Coherence direction | Not started beyond existing snapshot prototype | Requires transport/driver feasibility and native Mac evidence |
 | P4 complete snapshot/clone/backup UX | Not started | Consistent disk/NVRAM/TPM transactions precede restore/clone |
 | P5 optimization | Not started | Measure a native baseline before performance claims |
@@ -77,3 +77,5 @@ Preview.9 published from508a89a: native Mac app/DMG and Windows agent packaging/
 User steering: hide normal disk/resource tuning; Windows chooses ISO, Ubuntu Server selects an LTS release and downloads automatically; host prerequisites belong in the same action. Implemented simplified EN/VI setup, bundled pinned Homebrew bootstrap and Ubuntu trust keyring, automatic QEMU/swtpm/7-Zip/GnuPG setup, signed-manifest/checksum downloads on selected storage and installer startup. Original roadmap and user-deferred physical Mac P0 acceptance remain open.
 
 Preview.10 published from 5b63931: native Mac app/DMG and Windows agent packaging succeeded; required Linux/Mac/ARM CI passed; independently downloaded public DMG SHA256 and UDIF footer verified. [Package evidence](../evidence/release-preview10.json). Physical Mac setup/HVF remains pending. Reusable cloud install/start configuration saved with QEMU GTK and GnuPG prerequisites; environment publication remains a user settings action.
+
+P2 lifecycle/clipboard continuation: per-user SHA256/ARM64-checked Windows install/update/rollback/uninstall with managed-file checks, active-agent refusal, transaction backups and blocked-uninstall preservation. Native lifecycle CI38506345626 passed with real ARM64 MSVC artifact, including locked-manifest automatic recovery and locked-executable uninstall. Clipboard v4 preserves v1/v2/v3, caps UTF-8 text at8KiB, validates origins/sequences and sanitizes guest clipboard errors. EN/VI explicit Send/Copy controls default off; consent resets per VM and revoked queued sends are canceled before transmission. Actual native X11 agent tests and desktop transfer between two separate authenticated displays passed; these use a private stdio/socket fixture, not a VM boot. Windows/Mac native clipboard/startup acceptance, automatic sync and P2 transfers remain pending.
