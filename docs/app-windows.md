@@ -15,10 +15,11 @@ Use the matching Windows ARM64 guest-agent build from this revision. Set `guest_
 An optional per-user Startup shortcut installer is provided:
 
 ```powershell
-powershell.exe -NoProfile -File .\install-windows-agent.ps1 -AgentPath 'C:\Downloads\freelane-guest-agent.exe'
+$hash = (Get-Content -LiteralPath '.\freelane-guest-agent.exe.sha256').Split()[0]
+powershell.exe -NoProfile -File .\install-windows-agent.ps1 -Action Install -AgentPath '.\freelane-guest-agent.exe' -ExpectedSha256 $hash
 ```
 
-It copies to the user's LocalAppData FreeLane directory and adds a minimized Startup shortcut. It does not create a service, elevate, disable UAC, install a driver or configure autologin. It refuses an existing installation; inspect and back up an old installation, stop its owned agent, then update explicitly. Sign in again to start it. An existing manual agent on the same serial port must be stopped first. This installer is separate from the driver installer and its production startup behavior has not been validated on a normal Windows user account.
+Verify the downloaded agent ZIP against the release's SHA256 before trusting its packaged executable checksum. The helper verifies a staged ARM64 executable before publishing it into the user's LocalAppData FreeLane directory and adding a minimized Startup shortcut. It does not elevate, create a service, install drivers or configure autologin. Sign in again to start it. Stop the owned agent first when updating; an existing manual agent on the serial port must also be stopped. See [install/update/rollback/uninstall](agent-lifecycle.md). Native CI verifies filesystem/shortcut operations with a real ARM64 artifact; actual startup in a normal Windows guest account remains pending.
 
 Protocol v1 ping/launch remain compatible with the old agent. The viewer first probes the optional **v2 window extension** with a read-only ping; an old agent returns a version error and **no app launch is sent**. Install the updated agent before using app windows. Linux agents return `window_snapshots=false` and retain normal v1 operation.
 

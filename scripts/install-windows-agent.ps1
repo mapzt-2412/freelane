@@ -72,10 +72,26 @@ try {
   foreach ($path in @($destination,$shortcut,$manifestPath)) {if (Test-Path -LiteralPath $path) {throw 'Existing installation or shortcut found; no files replaced'}}
  } else {$oldManifest=ManagedInstallation}
  if ($Action -eq 'Uninstall') {
-  # Preserve backup binaries and unrelated files; never recursively remove LocalAppData.
-  Remove-Item -LiteralPath $shortcut
-  Remove-Item -LiteralPath $destination
-  Remove-Item -LiteralPath $manifestPath
+  # Rename on each original filesystem before committing; a locked file refuses safely.
+  $id=[Guid]::NewGuid().ToString('N')
+  $removedAgent=Join-Path $directory ('agent-removed-'+$id+'.exe')
+  $removedManifest=Join-Path $directory ('manifest-removed-'+$id+'.json')
+  $removedShortcut=Join-Path ([IO.Path]::GetDirectoryName($shortcut)) ('FreeLane-removed-'+$id+'.lnk')
+  $movedAgent=$false;$movedShortcut=$false
+  try {
+   [IO.File]::Move($destination,$removedAgent);$movedAgent=$true
+   [IO.File]::Move($shortcut,$removedShortcut);$movedShortcut=$true
+   [IO.File]::Move($manifestPath,$removedManifest)
+  } catch {
+   $failure=$_
+   # Move refuses an existing replacement; never overwrite another user's new file.
+   if ($movedShortcut) {[IO.File]::Move($removedShortcut,$shortcut)}
+   if ($movedAgent) {[IO.File]::Move($removedAgent,$destination)}
+   throw $failure
+  }
+  foreach ($removed in @($removedAgent,$removedShortcut,$removedManifest)) {
+   try {Remove-Item -LiteralPath $removed} catch {Write-Output 'Uninstalled; a quarantined file is retained because Windows refused cleanup.'}
+  }
   Write-Output 'Uninstalled managed agent and Startup shortcut. Backups and other user files are preserved.'
   return
  }
