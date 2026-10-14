@@ -54,5 +54,11 @@
     "Ubuntu Server without GUI clipboard is unsupported; terminal uses host terminal copy/paste",
     "automatic sync, images/rich text, file transfer/document open pending",
     "physical Mac P0 remains deferred"
-  ]
+  ],
+  "complete_branch_ci": {
+    "source_commit": "6d43db1",
+    "required_checks": "https://github.com/puma2k/freelane/actions/runs/38507937641",
+    "native_lifecycle": "https://github.com/puma2k/freelane/actions/runs/38507937678",
+    "status": "Success"
+  }
 }

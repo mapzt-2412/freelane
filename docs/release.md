@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.10](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.10) adds a single setup action: automatic missing host-tool installation, Ubuntu Server LTS download with signature/SHA256 checks, default resources and installer startup. [Package evidence](evidence/release-preview10.json) records successful native Mac packaging and required CI plus independent public DMG checksum verification. Actual Homebrew installation and native Mac guest execution remain unverified.
+[Latest preview: v0.1.0-preview.11](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.11) adds opt-in Unicode clipboard controls and verified Windows agent install/update/rollback/uninstall, alongside the single VM setup flow. [Previous setup package evidence](evidence/release-preview10.json) records successful native Mac packaging and required CI plus independent public DMG checksum verification. Actual Homebrew installation and native Mac guest execution remain unverified.
 
 New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Applications`, then eject it. The native Mac job verifies the disk image, mounts it read-only and rechecks the app signature, ARM64 architecture and Applications shortcut before upload. SHA256 files accompany DMG and ZIP downloads.
 
