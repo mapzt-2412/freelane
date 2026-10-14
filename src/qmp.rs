@@ -30,6 +30,52 @@ impl Qmp {
         client.execute("qmp_capabilities", None)?;
         Ok(client)
     }
+    /// Kernel-reported peer identity for this connected socket, never a PID file.
+    pub fn peer_pid(&self) -> Result<u32> {
+        #[cfg(target_os = "linux")]
+        {
+            let mut credentials: libc::ucred = unsafe { std::mem::zeroed() };
+            let mut length = std::mem::size_of_val(&credentials) as libc::socklen_t;
+            let result = unsafe {
+                libc::getsockopt(
+                    self.reader.get_ref().as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_PEERCRED,
+                    (&mut credentials as *mut libc::ucred).cast(),
+                    &mut length,
+                )
+            };
+            if result != 0
+                || length as usize != std::mem::size_of_val(&credentials)
+                || credentials.pid <= 0
+            {
+                return Err(Error("QMP peer identity unavailable".into()));
+            }
+            Ok(credentials.pid as u32)
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let mut pid: libc::pid_t = 0;
+            let mut length = std::mem::size_of_val(&pid) as libc::socklen_t;
+            let result = unsafe {
+                libc::getsockopt(
+                    self.reader.get_ref().as_raw_fd(),
+                    libc::SOL_LOCAL,
+                    libc::LOCAL_PEERPID,
+                    (&mut pid as *mut libc::pid_t).cast(),
+                    &mut length,
+                )
+            };
+            if result != 0 || length as usize != std::mem::size_of_val(&pid) || pid <= 0 {
+                return Err(Error("QMP peer identity unavailable".into()));
+            }
+            Ok(pid as u32)
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            Err(Error("QMP peer identity unsupported".into()))
+        }
+    }
     fn read_message(&mut self, deadline: Instant) -> Result<Value> {
         let mut bytes = Vec::new();
         loop {

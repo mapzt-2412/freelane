@@ -101,3 +101,17 @@ fn oversized_greeting_is_bounded() {
         .contains("exceeds"));
     thread.join().unwrap();
 }
+
+#[test]
+fn connected_peer_pid_is_kernel_identity() {
+    let (path, thread) = server(|socket| {
+        let mut stream = BufReader::new(socket);
+        negotiate(&mut stream);
+        let mut line = String::new();
+        stream.read_line(&mut line).unwrap();
+    });
+    let client = Qmp::connect(&path).unwrap();
+    assert_eq!(client.peer_pid().unwrap(), std::process::id());
+    drop(client);
+    thread.join().unwrap();
+}

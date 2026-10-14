@@ -49,6 +49,31 @@ fn offline_bundle_has_literal_profile_escaped_metadata_and_refuses_overwrite() {
     let plist = fs::read_to_string(app.join("Contents/Info.plist")).unwrap();
     assert!(plist.contains("Notepad &amp; Việt &lt;test&gt;"));
     assert!(!plist.contains("<string>Notepad & Việt"));
+    let identifier = |value: &str| {
+        value
+            .split("<key>CFBundleIdentifier</key><string>")
+            .nth(1)
+            .unwrap()
+            .split("</string>")
+            .next()
+            .unwrap()
+            .to_owned()
+    };
+    let mut renamed = p.clone();
+    renamed.name = "Renamed".into();
+    let second = root.join("Renamed.app");
+    bundle_files(&renamed, &second, &binary, &binary).unwrap();
+    assert_eq!(
+        identifier(&plist),
+        identifier(&fs::read_to_string(second.join("Contents/Info.plist")).unwrap())
+    );
+    renamed.arguments.push("different document.txt".into());
+    let third = root.join("Different.app");
+    bundle_files(&renamed, &third, &binary, &binary).unwrap();
+    assert_ne!(
+        identifier(&plist),
+        identifier(&fs::read_to_string(third.join("Contents/Info.plist")).unwrap())
+    );
     assert!(bundle_files(&p, &app, &binary, &binary).is_err());
     let duplicate = root.join("Broken.app");
     assert!(bundle_files(&p, &duplicate, &root.join("missing"), &binary).is_err());

@@ -1,5 +1,7 @@
 //! Execute only in the guest's interactive user session. Never install as a privileged host service.
+pub mod catalog;
 mod documents;
+pub mod mounts;
 pub mod transfer;
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
 use std::io::{self, BufRead, Write};
@@ -8,6 +10,18 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn catalog_support(&self) -> bool {
+        false
+    }
+    fn catalog(&mut self, _: u16) -> io::Result<freelane_agent_protocol::AppPage> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+    fn share_status_support(&self) -> bool {
+        false
+    }
+    fn share_status(&mut self) -> io::Result<Vec<freelane_agent_protocol::SharedMount>> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
     fn open_document(&mut self, _: &std::path::Path) -> io::Result<()> {
         Err(io::ErrorKind::Unsupported.into())
     }
@@ -52,6 +66,18 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                         name: "launch".into(),
                         protocol: VERSION,
                     }];
+                    if launcher.catalog_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "app_catalog".into(),
+                            protocol: freelane_agent_protocol::CATALOG_VERSION,
+                        });
+                    }
+                    if launcher.share_status_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "share_status".into(),
+                            protocol: freelane_agent_protocol::SHARE_STATUS_VERSION,
+                        });
+                    }
                     if launcher.transfer_support() {
                         features.push(freelane_agent_protocol::Feature {
                             name: "file_transfer".into(),
@@ -100,6 +126,16 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                                     .transfer_support()
                                     .then_some(freelane_agent_protocol::TRANSFER_VERSION),
                             )
+                            .chain(
+                                launcher
+                                    .share_status_support()
+                                    .then_some(freelane_agent_protocol::SHARE_STATUS_VERSION),
+                            )
+                            .chain(
+                                launcher
+                                    .catalog_support()
+                                    .then_some(freelane_agent_protocol::CATALOG_VERSION),
+                            )
                             .collect(),
                             features,
                             max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -119,6 +155,18 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     .transfer_action(operation)
                     .unwrap_or_else(|_| Outcome::Failed {
                         message: "File transfer unavailable or refused".into(),
+                    }),
+                Action::AppCatalog { cursor } => launcher
+                    .catalog(cursor)
+                    .map(|page| Outcome::AppCatalog { page })
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "Application catalog unavailable".into(),
+                    }),
+                Action::ShareStatus => launcher
+                    .share_status()
+                    .map(|mounts| Outcome::ShareMounts { mounts })
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "Guest mount status unavailable".into(),
                     }),
                 Action::Launch {
                     executable,
@@ -151,6 +199,8 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::CLIPBOARD_VERSION,
             freelane_agent_protocol::TRANSFER_VERSION,
             freelane_agent_protocol::CLIPBOARD_SYNC_VERSION,
+            freelane_agent_protocol::SHARE_STATUS_VERSION,
+            freelane_agent_protocol::CATALOG_VERSION,
         ]
         .contains(&request.version)
         {
@@ -180,6 +230,12 @@ pub fn serve(
 pub struct WindowsLauncher;
 #[cfg(windows)]
 impl Launcher for WindowsLauncher {
+    fn catalog_support(&self) -> bool {
+        true
+    }
+    fn catalog(&mut self, cursor: u16) -> io::Result<freelane_agent_protocol::AppPage> {
+        catalog::page(catalog::entries()?, cursor)
+    }
     fn open_document(&mut self, p: &std::path::Path) -> io::Result<()> {
         documents::open(p)
     }
@@ -228,6 +284,18 @@ impl Launcher for WindowsLauncher {
 pub struct LinuxLauncher;
 #[cfg(target_os = "linux")]
 impl Launcher for LinuxLauncher {
+    fn catalog_support(&self) -> bool {
+        true
+    }
+    fn catalog(&mut self, cursor: u16) -> io::Result<freelane_agent_protocol::AppPage> {
+        catalog::page(catalog::entries()?, cursor)
+    }
+    fn share_status_support(&self) -> bool {
+        true
+    }
+    fn share_status(&mut self) -> io::Result<Vec<freelane_agent_protocol::SharedMount>> {
+        mounts::current()
+    }
     fn open_document(&mut self, p: &std::path::Path) -> io::Result<()> {
         documents::open(p)
     }
@@ -435,6 +503,18 @@ impl<L> TransferLauncher<L> {
     }
 }
 impl<L: Launcher> Launcher for TransferLauncher<L> {
+    fn catalog_support(&self) -> bool {
+        self.inner.catalog_support()
+    }
+    fn catalog(&mut self, cursor: u16) -> io::Result<freelane_agent_protocol::AppPage> {
+        self.inner.catalog(cursor)
+    }
+    fn share_status_support(&self) -> bool {
+        self.inner.share_status_support()
+    }
+    fn share_status(&mut self) -> io::Result<Vec<freelane_agent_protocol::SharedMount>> {
+        self.inner.share_status()
+    }
     fn launch(&mut self, e: &str, a: &[String]) -> io::Result<u32> {
         self.inner.launch(e, a)
     }

@@ -167,6 +167,10 @@ fn request_socket_cancellable(
                 || version == freelane_agent_protocol::CLIPBOARD_SYNC_VERSION
             {
                 "Guest clipboard unavailable or refused".into()
+            } else if version == freelane_agent_protocol::CATALOG_VERSION
+                || version == freelane_agent_protocol::SHARE_STATUS_VERSION
+            {
+                "Guest metadata unavailable or refused".into()
             } else {
                 format!("Guest agent: {message}")
             },
@@ -175,6 +179,12 @@ fn request_socket_cancellable(
     let expected = matches!(
         (&request.action, &response.outcome),
         (
+            Action::AppCatalog { .. },
+            freelane_agent_protocol::Outcome::AppCatalog { .. }
+        ) | (
+            Action::ShareStatus,
+            freelane_agent_protocol::Outcome::ShareMounts { .. }
+        ) | (
             Action::ClipboardSyncGet,
             freelane_agent_protocol::Outcome::ClipboardSync { .. }
         ) | (
@@ -240,6 +250,21 @@ fn request_socket_cancellable(
     );
     let expected = expected
         && match (&request.action, &response.outcome) {
+            (
+                Action::AppCatalog { cursor },
+                freelane_agent_protocol::Outcome::AppCatalog { page },
+            ) => {
+                page.apps.len() <= 12
+                    && page.apps.iter().all(|a| a.validate().is_ok())
+                    && page.next.is_none_or(|next| {
+                        next > *cursor
+                            && next <= 512
+                            && next as usize == *cursor as usize + page.apps.len()
+                    })
+            }
+            (Action::ShareStatus, freelane_agent_protocol::Outcome::ShareMounts { mounts }) => {
+                mounts.len() <= 16 && mounts.iter().all(|m| m.validate().is_ok())
+            }
             (
                 Action::Transfer {
                     operation: freelane_agent_protocol::TransferAction::Begin { .. },
@@ -375,5 +400,21 @@ pub fn clipboard_sync_request(
         action,
         freelane_agent_protocol::CLIPBOARD_SYNC_VERSION,
         cancelled,
+    )
+}
+
+pub fn share_status(config: &Path) -> Result<Response> {
+    request_vm(
+        config,
+        Action::ShareStatus,
+        freelane_agent_protocol::SHARE_STATUS_VERSION,
+    )
+}
+
+pub fn app_catalog(config: &Path, cursor: u16) -> Result<Response> {
+    request_vm(
+        config,
+        Action::AppCatalog { cursor },
+        freelane_agent_protocol::CATALOG_VERSION,
     )
 }

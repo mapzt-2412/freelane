@@ -166,6 +166,13 @@ fn arm_guest_executes_and_qmp_controls_real_cpu() {
     );
     await_socket(&mut process.0, &socket);
     let mut qmp = Qmp::connect(&socket).unwrap();
+    assert_eq!(qmp.peer_pid().unwrap(), process.0.id());
+    assert!(
+        freelane::telemetry::process(qmp.peer_pid().unwrap())
+            .unwrap()
+            .resident_bytes
+            > 0
+    );
     assert_eq!(qmp.execute("query-status", None).unwrap()["running"], false);
     qmp.execute("cont", None).unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);

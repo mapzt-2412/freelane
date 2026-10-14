@@ -21,6 +21,8 @@ pub struct Report {
     pub path: Option<PathBuf>,
     pub mode: Option<ShareMode>,
     pub guest_mount: &'static str,
+    pub guest_mounts: Vec<freelane_agent_protocol::SharedMount>,
+    pub source_identity_verified: bool,
 }
 pub fn inspect(config: &Config, base: &Path) -> Report {
     let runtime = config.runtime.as_ref();
@@ -37,6 +39,8 @@ pub fn inspect(config: &Config, base: &Path) -> Report {
         path,
         mode: runtime.map(|r| r.share_mode),
         guest_mount: "unknown",
+        guest_mounts: Vec::new(),
+        source_identity_verified: false,
     };
     let Some(path) = &report.path else {
         return report;
@@ -60,5 +64,39 @@ pub fn inspect(config: &Config, base: &Path) -> Report {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => HostState::Missing,
         Err(_) => HostState::Unavailable,
     };
+    report
+}
+
+/// Guest mount-tag observation does not identify the running backend's host source.
+pub fn inspect_live(profile: &Path, config: &Config, base: &Path) -> Report {
+    let mut report = inspect(config, base);
+    if report.host == HostState::Disabled
+        || !matches!(
+            report.mode,
+            Some(ShareMode::Virtio9p | ShareMode::Virtio9pReadonly)
+        )
+    {
+        return report;
+    }
+    let Ok(info) = crate::agent_capabilities::inspect(profile) else {
+        return report;
+    };
+    if info.supports(
+        "share_status",
+        freelane_agent_protocol::SHARE_STATUS_VERSION,
+    ) != Some(true)
+    {
+        return report;
+    }
+    if let Ok(response) = crate::agent::share_status(profile) {
+        if let freelane_agent_protocol::Outcome::ShareMounts { mounts } = response.outcome {
+            report.guest_mount = if mounts.is_empty() {
+                "not_mounted"
+            } else {
+                "mounted"
+            };
+            report.guest_mounts = mounts;
+        }
+    }
     report
 }

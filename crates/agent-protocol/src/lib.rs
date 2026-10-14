@@ -11,6 +11,8 @@ pub const CAPABILITY_VERSION: u16 = 3;
 pub const CLIPBOARD_VERSION: u16 = 4;
 pub const TRANSFER_VERSION: u16 = 5;
 pub const CLIPBOARD_SYNC_VERSION: u16 = 6;
+pub const SHARE_STATUS_VERSION: u16 = 7;
+pub const CATALOG_VERSION: u16 = 8;
 pub const MAX_CLIPBOARD_TEXT: usize = 8192;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -23,6 +25,10 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    AppCatalog {
+        cursor: u16,
+    },
+    ShareStatus,
     ClipboardSyncGet,
     ClipboardSyncSet {
         expected: ClipboardSnapshot,
@@ -114,6 +120,55 @@ impl TransferAction {
                 return Err(invalid("Invalid transfer identity"))
             }
             _ => {}
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AppEntry {
+    pub name: String,
+    pub executable: String,
+}
+impl AppEntry {
+    pub fn validate(&self) -> io::Result<()> {
+        let p = self.executable.as_bytes();
+        let absolute = p.first() == Some(&b'/')
+            || (p.len() > 3
+                && p[0].is_ascii_alphabetic()
+                && p[1] == b':'
+                && b"/\\".contains(&p[2]));
+        if self.name.is_empty()
+            || self.name.len() > 128
+            || self.name.chars().any(char::is_control)
+            || !absolute
+            || self.executable.len() > 2048
+            || self.executable.chars().any(char::is_control)
+        {
+            return Err(invalid("Invalid application metadata"));
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct AppPage {
+    pub apps: Vec<AppEntry>,
+    pub next: Option<u16>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SharedMount {
+    pub path: String,
+    pub readonly: bool,
+}
+impl SharedMount {
+    pub fn validate(&self) -> io::Result<()> {
+        if !self.path.starts_with('/')
+            || self.path.len() > 1024
+            || self.path.chars().any(char::is_control)
+        {
+            return Err(invalid("Invalid guest mount path"));
         }
         Ok(())
     }
@@ -222,6 +277,12 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    AppCatalog {
+        page: AppPage,
+    },
+    ShareMounts {
+        mounts: Vec<SharedMount>,
+    },
     ClipboardSync {
         instance: String,
         snapshot: ClipboardSnapshot,
@@ -279,6 +340,8 @@ impl Request {
             CLIPBOARD_VERSION,
             TRANSFER_VERSION,
             CLIPBOARD_SYNC_VERSION,
+            SHARE_STATUS_VERSION,
+            CATALOG_VERSION,
         ]
         .contains(&self.version)
         {
@@ -289,6 +352,26 @@ impl Request {
         }
         if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
             return Err(invalid("Protocol v3 is read-only capability discovery"));
+        }
+        if let Action::AppCatalog { cursor } = self.action {
+            return if self.version == CATALOG_VERSION && cursor <= 512 {
+                Ok(())
+            } else {
+                Err(invalid("Invalid read-only catalog request"))
+            };
+        }
+        if self.version == CATALOG_VERSION {
+            return Err(invalid("Protocol v8 is read-only application catalog"));
+        }
+        if matches!(self.action, Action::ShareStatus) {
+            return if self.version == SHARE_STATUS_VERSION {
+                Ok(())
+            } else {
+                Err(invalid("Share status requires protocol v7"))
+            };
+        }
+        if self.version == SHARE_STATUS_VERSION {
+            return Err(invalid("Protocol v7 is read-only mount status"));
         }
         if matches!(
             self.action,

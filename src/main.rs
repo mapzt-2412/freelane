@@ -16,7 +16,9 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
-        [command,path] if command=="share-status"=>{let config=load(path)?;let report=freelane::sharing::inspect(&config,Path::new(path).parent().unwrap_or(Path::new(".")));println!("{}",serde_json::to_string_pretty(&report).map_err(|e|Error(e.to_string()))?);Ok(())}
+        [command,path] if command=="vm-resources"=>{println!("{}",freelane::telemetry::vm(Path::new(path))?);Ok(())}
+        [command,path,cursor] if command=="app-catalog"=>{let cursor=cursor.parse().map_err(|_|Error("Catalog cursor must be an integer".into()))?;let reply=freelane::agent::app_catalog(Path::new(path),cursor)?;println!("{}",serde_json::to_string(&reply).map_err(|e|Error(e.to_string()))?);Ok(())}
+        [command,path] if command=="share-status"=>{let config=load(path)?;let report=freelane::sharing::inspect_live(Path::new(path),&config,Path::new(path).parent().unwrap_or(Path::new(".")));println!("{}",serde_json::to_string_pretty(&report).map_err(|e|Error(e.to_string()))?);Ok(())}
         [command,config,source] if command=="file-send" || command=="file-send-open" => {
             freelane::file_transfer::send_options(Path::new(config),Path::new(source),command=="file-send-open",&||false,&mut |_,_|{})?;
             println!("File transferred and SHA-256 verified; existing guest files preserved");Ok(())

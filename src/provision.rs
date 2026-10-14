@@ -95,7 +95,7 @@ impl Request {
                     qemu::ShareMode::Virtio9p | qemu::ShareMode::Virtio9pReadonly
                 )
             {
-                return Err(Error("Read/write 9p sharing requires Ubuntu".into()));
+                return Err(Error("Live 9p sharing requires Ubuntu".into()));
             }
         }
         if self.source == Source::UbuntuCloudImage && self.guest_os != GuestOs::Ubuntu {

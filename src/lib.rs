@@ -11,6 +11,7 @@ pub mod provision;
 pub mod qemu;
 pub mod qmp;
 mod socket_wait;
+pub mod telemetry;
 
 use serde::{Deserialize, Serialize};
 use std::{fmt, path::PathBuf};
@@ -73,7 +74,7 @@ impl Config {
                 )
                 && self.guest_os != GuestOs::Ubuntu
             {
-                return Err(Error("Read/write virtio-9p sharing requires an Ubuntu guest; Windows needs a separate compatible sharing backend".into()));
+                return Err(Error("Live virtio-9p sharing requires an Ubuntu guest; Windows needs a separate compatible sharing backend".into()));
             }
             let mut devices = std::collections::HashSet::new();
             if runtime.usb_devices.len() > 16
