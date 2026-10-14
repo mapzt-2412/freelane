@@ -1,0 +1,21 @@
+name: Windows agent lifecycle
+on:
+  push:
+    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', '.github/workflows/agent-lifecycle.yml']
+  pull_request:
+    paths: ['scripts/install-windows-agent.ps1', 'tests/agent-lifecycle.ps1', '.github/workflows/agent-lifecycle.yml']
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          targets: aarch64-pc-windows-msvc
+      - run: cargo build --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc
+      - name: Verify per-user agent lifecycle with a real ARM64 artifact
+        shell: pwsh
+        run: ./tests/agent-lifecycle.ps1 -AgentPath ./target/aarch64-pc-windows-msvc/debug/freelane-guest-agent.exe
