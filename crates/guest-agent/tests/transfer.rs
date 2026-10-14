@@ -1,3 +1,4 @@
+#![cfg(any(target_os = "linux", windows))]
 use freelane_guest_agent::transfer::Transfer;
 use sha2::{Digest, Sha256};
 use std::fs;

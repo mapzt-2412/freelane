@@ -1,3 +1,4 @@
+#![cfg(any(target_os = "linux", windows))]
 use freelane_agent_protocol::{Action, Outcome, Request, TransferAction};
 use freelane_guest_agent::{handle, Launcher, TransferLauncher};
 use std::io;
