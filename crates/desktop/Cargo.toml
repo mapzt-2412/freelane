@@ -13,3 +13,4 @@ tempfile = "3"
 libc = "0.2"
 arboard = { version = "3", default-features = false }
 freelane-agent-protocol = { path = "../agent-protocol" }
+serde_json = "1"

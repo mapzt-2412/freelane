@@ -7,6 +7,7 @@ impl Desktop {
         let Some(vm) = &self.vm else {
             return;
         };
+        let profile = vm.path.clone();
         let base = vm.path.parent().unwrap_or(Path::new(".")).to_path_buf();
         let Some(mut config) = self.settings.clone() else {
             return;
@@ -22,7 +23,7 @@ impl Desktop {
             Ok(Event::SharedReport(
                 selected,
                 mode,
-                freelane::sharing::inspect(&config, &base),
+                freelane::sharing::inspect_live(&profile, &config, &base),
             ))
         });
     }

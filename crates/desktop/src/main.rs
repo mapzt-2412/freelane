@@ -1,9 +1,11 @@
 mod app_ui;
+mod catalog_ui;
 mod clipboard_ui;
 mod file_picker;
 mod i18n;
 mod interface;
 mod mobile_ui;
+mod recovery_ui;
 mod settings_io;
 mod setup;
 mod sharing_ui;
@@ -37,6 +39,11 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    Resources(PathBuf, serde_json::Value),
+    CheckpointPicked(Option<String>),
+    CheckpointCreated(PathBuf),
+    CheckpointRestored(PathBuf, Vec<freelane::library::Entry>),
+    AppCatalog(PathBuf, Vec<freelane_agent_protocol::AppEntry>),
     SharedPicked(Option<String>),
     SharedReport(String, qemu::ShareMode, freelane::sharing::Report),
     ClipboardAuto(
@@ -112,6 +119,11 @@ struct Desktop {
     shared_report: Option<freelane::sharing::Report>,
     shared_path: String,
     draft_path: String,
+    resources: Option<serde_json::Value>,
+    checkpoint_label: String,
+    checkpoint_source: String,
+    app_catalog: Vec<freelane_agent_protocol::AppEntry>,
+    app_catalog_search: String,
     app_name: String,
     app_profile_output: String,
     dock_output: String,
@@ -505,6 +517,33 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::CheckpointPicked(path)) => {
+                            if let Some(path) = path {
+                                self.checkpoint_source = path;
+                            }
+                        }
+                        Ok(Event::CheckpointCreated(path)) => {
+                            self.checkpoint_source = path.display().to_string();
+                            self.notice = "Checkpoint saved".into();
+                        }
+                        Ok(Event::CheckpointRestored(path, entries)) => {
+                            self.library = entries
+                                .into_iter()
+                                .map(|e| (e.path, e.name, e.guest_os))
+                                .collect();
+                            self.notice = format!("Restored new VM: {}", path.display());
+                        }
+                        Ok(Event::Resources(path, value)) => {
+                            if self.vm.as_ref().is_some_and(|vm| vm.path == path) {
+                                self.resources = Some(value);
+                            }
+                        }
+                        Ok(Event::AppCatalog(path, apps)) => {
+                            if self.vm.as_ref().is_some_and(|vm| vm.path == path) {
+                                self.app_catalog = apps;
+                                self.notice.clear();
+                            }
+                        }
                         Ok(Event::SharedPicked(path)) => {
                             if let Some(path) = path {
                                 self.shared_path = path;
@@ -579,6 +618,7 @@ impl Desktop {
                             if let Some(target) = &self.settings {
                                 match bundle.apply(target) {
                                     Ok(updated) => {
+                                        self.shared_report = None;
                                         self.installer_path = updated
                                             .installer
                                             .as_ref()
@@ -634,6 +674,9 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.app_catalog.clear();
+                            self.app_catalog_search.clear();
+                            self.resources = None;
                             self.shared_report = None;
                             self.stop_clipboard_auto();
                             self.clipboard_enabled = false;

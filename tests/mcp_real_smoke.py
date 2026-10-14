@@ -79,7 +79,7 @@ def main():
         client = Client(mcp_config)
         try:
             catalog = client.request("tools/list", {})
-            assert len(catalog["tools"]) == 14
+            assert len(catalog["tools"]) == 21
             assert client.data("host_info")["vms"] == ["uefi"]
             for task in ("test", "test_arm"):
                 job = client.data("dev_run", task=task)

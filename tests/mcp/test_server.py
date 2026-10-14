@@ -62,6 +62,38 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(ValueError):self.server.call("mobile_control",{"device":"unregistered","action":"stop"})
         with self.assertRaises(ValueError):self.server.call("mobile_control",{"device":"phone","action":"erase"})
 
+    def test_read_only_metadata_tools_use_registered_profiles_and_literal_cursors(self):
+        self.cli_fixture()
+        for tool, command, extra in [("vm_resources","vm-resources",{}),("share_status","share-status",{}),("vm_readiness","vm-readiness",{}),("guest_capabilities","agent-capabilities",{}),("guest_catalog","app-catalog",{"cursor":12})]:
+            result=self.server.call(tool,{"vm":"test",**extra})
+            self.assertEqual(json.loads(result["output"])[:2],[command,str(self.root/"vm.toml")])
+            with self.assertRaises(ValueError): self.server.call(tool,{"vm":"missing",**extra})
+        with self.assertRaises(ValueError): self.server.call("guest_catalog",{"vm":"test","cursor":513})
+
+    def test_checkpoint_jobs_restore_only_owned_completed_backup_to_fresh_vm(self):
+        self.cli_fixture()
+        binary=self.root/"target/debug/freelane"
+        binary.write_text(f'#!{sys.executable}\nimport pathlib,sys\ncommand=sys.argv[1]\nif command=="checkpoint-create":\n p=pathlib.Path(sys.argv[3]);p.mkdir();(p/"fixture").write_text("backup")\nelif command=="checkpoint-restore":\n p=pathlib.Path(sys.argv[3]);p.mkdir();(p/"vm.toml").write_text("# test fixture")\nelse: sys.exit(9)\n')
+        def wait(job):
+            deadline=time.monotonic()+5
+            while True:
+                result=self.server.call("dev_result",{"job_id":job["job_id"]})
+                if result["status"]!="running":return result
+                if time.monotonic()>deadline:self.fail("Job did not finish")
+                time.sleep(.01)
+        with self.assertRaises(ValueError):self.server.call("checkpoint_restore",{"checkpoint_id":"0"*32,"vm":"new"})
+        job=self.server.call("checkpoint_create",{"vm":"test","label":"Việt & $(literal)"})
+        self.assertEqual(wait(job)["status"],"passed")
+        source=Path(job["artifact"])
+        with self.assertRaises(ValueError):self.server.call("checkpoint_restore",{"checkpoint_id":job["checkpoint_id"],"vm":"test"})
+        restored=self.server.call("checkpoint_restore",{"checkpoint_id":job["checkpoint_id"],"vm":"new"})
+        self.assertEqual(wait(restored)["status"],"passed")
+        self.assertEqual(self.server.vms["new"],Path(restored["artifact"])/"vm.toml")
+        self.assertEqual((source/"fixture").read_text(),"backup")
+        self.assertEqual((self.root/"vm.toml").read_text(),"# protocol fixture only\n")
+        self.server.close()
+        self.assertTrue(source.is_dir());self.assertTrue(self.server.vms["new"].is_file())
+
     def test_stdio_initialize_notifications_and_tool_catalog(self):
         messages = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05"}},

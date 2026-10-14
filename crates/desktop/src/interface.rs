@@ -9,6 +9,7 @@ pub enum View {
     Display,
     Applications,
     Details,
+    Recovery,
 }
 #[derive(Default, PartialEq, Eq)]
 pub enum SettingsTab {
@@ -508,6 +509,7 @@ impl Desktop {
                 lang.text("Applications"),
             );
             ui.selectable_value(&mut self.view, View::Details, lang.text("Details"));
+            ui.selectable_value(&mut self.view, View::Recovery, lang.text("Backups"));
         });
         ui.add_space(10.0);
         match self.view {
@@ -629,6 +631,46 @@ impl Desktop {
                     {
                         self.guest_request(ctx, false);
                     }
+                    if ui
+                        .add_enabled(
+                            agent_enabled && !busy,
+                            egui::Button::new(lang.text("Find guest applications")),
+                        )
+                        .clicked()
+                    {
+                        self.discover_apps(ctx);
+                    }
+                    if !self.app_catalog.is_empty() {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.app_catalog_search)
+                                .hint_text(lang.text("Search applications")),
+                        );
+                        let search = self.app_catalog_search.to_lowercase();
+                        egui::ScrollArea::vertical()
+                            .id_salt("app-catalog")
+                            .max_height(150.0)
+                            .show(ui, |ui| {
+                                for app in &self.app_catalog {
+                                    if !(search.is_empty()
+                                        || app.name.to_lowercase().contains(&search))
+                                    {
+                                        continue;
+                                    }
+                                    if ui
+                                        .selectable_label(
+                                            self.app_path == app.executable,
+                                            &app.name,
+                                        )
+                                        .on_hover_text(&app.executable)
+                                        .clicked()
+                                    {
+                                        self.app_path = app.executable.clone();
+                                        self.app_name = app.name.clone();
+                                        self.app_arguments.clear();
+                                    }
+                                }
+                            });
+                    }
                     ui.label(lang.text("Executable path"));
                     ui.add(
                         egui::TextEdit::singleline(&mut self.app_path)
@@ -725,8 +767,37 @@ impl Desktop {
                     }
                 });
             }
+            View::Recovery => self.recovery_ui(ui, ctx),
             View::Details => {
                 card().show(ui, |ui| {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new(lang.text("Refresh resources")))
+                        .clicked()
+                    {
+                        let profile = path.clone();
+                        self.work(ctx, move || {
+                            Ok(match freelane::telemetry::vm(&profile) {
+                                Ok(value) => Event::Resources(profile, value),
+                                Err(error) => Event::Notice(error.to_string()),
+                            })
+                        });
+                    }
+                    if let Some(value) = &self.resources {
+                        if let Some(bytes) = value["resources"]["resident_bytes"].as_u64() {
+                            ui.label(format!(
+                                "{}: {:.1} MiB",
+                                lang.text("Resident memory"),
+                                bytes as f64 / 1048576.0
+                            ));
+                        }
+                        if let Some(nanos) = value["resources"]["cpu_nanoseconds"].as_u64() {
+                            ui.label(format!(
+                                "{}: {:.2} s",
+                                lang.text("CPU time"),
+                                nanos as f64 / 1e9
+                            ));
+                        }
+                    }
                     ui.label(lang.text("Configuration path"));
                     ui.label(path.display().to_string());
                     ui.label(lang.text("Guest agent"));
@@ -829,7 +900,7 @@ impl Desktop {
                         ui.label(lang.text("Host folder (blank to disable)")); if ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY)).changed(){self.shared_report=None;}
                         ui.horizontal(|ui|{if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Choose shared folder"))).clicked(){pick_share=true;}
                         if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Check folder"))).clicked(){inspect_share=true;}});
-                        if let Some(report)=&self.shared_report {use freelane::sharing::HostState;let label=match report.host {HostState::Disabled=>"Sharing disabled",HostState::Available=>"Host folder available · guest mount unchecked",HostState::Missing=>"Folder missing · reconnect and choose again",HostState::NotDirectory=>"Selected path is not a folder",HostState::VolumeUnavailable=>"Drive unavailable · reconnect and choose again",HostState::Unavailable=>"Cannot inspect shared folder"};ui.label(lang.text(label));}
+                        if let Some(report)=&self.shared_report {use freelane::sharing::HostState;let label=match report.host {HostState::Disabled=>"Sharing disabled",HostState::Available=>"Host folder available",HostState::Missing=>"Folder missing · reconnect and choose again",HostState::NotDirectory=>"Selected path is not a folder",HostState::VolumeUnavailable=>"Drive unavailable · reconnect and choose again",HostState::Unavailable=>"Cannot inspect shared folder"};ui.label(lang.text(label)); if report.guest_mount=="mounted" {ui.label(lang.text("Guest FreeLane mount observed · host source unverified"));for mount in &report.guest_mounts{ui.label(format!("{} · {}",mount.path,if mount.readonly{lang.text("Read-only")}else{lang.text("Read/write")}));}} else if report.guest_mount=="not_mounted" {ui.label(lang.text("FreeLane share is not mounted in guest"));}}
                         if let Some(runtime) = config.runtime.as_mut() {
                             ui.horizontal_wrapped(|ui| {
                                 ui.selectable_value(&mut runtime.share_mode,qemu::ShareMode::ReadonlyUsb,lang.text("Read-only USB"));

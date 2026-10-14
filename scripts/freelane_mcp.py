@@ -41,6 +41,13 @@ def schema(properties=None, required=None):
 
 VM = {"type": "string", "minLength": 1, "maxLength": 64}
 TOOLS = [
+    ("vm_readiness", "Inspect registered VM prerequisites and readiness without starting it.", schema({"vm":VM},["vm"])),
+    ("guest_capabilities", "Negotiate declared guest agent capabilities without launching an application.", schema({"vm":VM},["vm"])),
+    ("checkpoint_create", "Start an offline full backup of a stopped registered VM. Retains original files; poll dev_result for completion. Checkpoints are retained after disconnect.", schema({"vm":VM,"label":{"type":"string","minLength":1,"maxLength":128}},["vm","label"])),
+    ("checkpoint_restore", "Restore a completed session-owned checkpoint into a fresh workspace. Registers the new VM in this MCP session, without booting it or overwriting a source. Guest identity is retained, so this is not an independent guest clone.", schema({"checkpoint_id":{"type":"string","minLength":32,"maxLength":32},"vm":VM},["checkpoint_id","vm"])),
+    ("vm_resources", "Observe resident host memory and cumulative CPU time of the connected VM process. Requires a running QMP backend.", schema({"vm":VM},["vm"])),
+    ("guest_catalog", "Read a bounded page of known guest applications; metadata does not launch apps.", schema({"vm":VM,"cursor":{"type":"integer","minimum":0,"maximum":512}},["vm","cursor"])),
+    ("share_status", "Observe host share configuration and guest 9p mount tags. Mount tags do not verify host source identity.", schema({"vm":VM},["vm"])),
     ("mobile_control", "Control a registered Android AVD or Xcode iOS Simulator. Start is not boot readiness; iOS requires a Mac.",
      schema({"device": VM, "action": {"type":"string","enum":["start","status","stop","devices","window"]}}, ["device","action"])),
     ("mobile_capture", "Capture a genuine PNG from a registered emulator/simulator, not a live stream.", schema({"device":VM},["device"])),
@@ -211,6 +218,8 @@ class Server:
                 raise ValueError("Registered mobile profile must be a file under 1 MiB")
             if tomllib.loads(path.read_text()).get("platform") not in ("android","ios"):
                 raise ValueError("Mobile profile must specify Android or iOS")
+        self.checkpoints = {}
+        self.pending_vms = set()
         self.jobs = {}
         self.lock = threading.Lock()
         self.supervisors = {}
@@ -280,16 +289,16 @@ class Server:
         if not 1<=width<=8192 or not 1<=height<=8192 or width*height*4>64*1024*1024:raise ValueError("Mobile PNG dimensions exceed decoding bounds")
         return {"content":[{"type":"text","text":json.dumps({"artifact":str(path),"device":device})},{"type":"image","mimeType":"image/png","data":base64.b64encode(data).decode()}],"isError":False}
 
-    def start_job(self, task):
+    def start_job(self, task, command=None, metadata=None, complete=None):
         with self.lock:
             if any(job["status"] == "running" for job in self.jobs.values()):
                 raise ValueError("A development job is already running; poll its result before starting another")
             if len(self.jobs) >= 32:
                 del self.jobs[next(iter(self.jobs))]
-            process = self.spawn(TASKS[task])
+            process = self.spawn(TASKS[task] if command is None else command)
             job_id = uuid.uuid4().hex
             self.jobs[job_id] = {"task": task, "status": "running", "process": process,
-                                 "output": "", "output_truncated": False}
+                                 "output": "", "output_truncated": False, **(metadata or {})}
         def update(tail, truncated):
             with self.lock:
                 self.jobs[job_id].update(output=tail.decode("utf-8", errors="replace"), output_truncated=truncated)
@@ -297,14 +306,18 @@ class Server:
             try:
                 result = collect(process, self.timeout, update)
                 status = "timed_out" if result["timed_out"] else ("passed" if result["exit_code"] == 0 else "failed")
+                if complete is not None:
+                    complete(status == "passed")
             except Exception as error:
                 stop_process(process)
                 process.wait()
                 result, status = {"error": str(error)}, "failed"
+                if complete is not None:
+                    complete(False)
             with self.lock:
                 self.jobs[job_id].update(result, status=status)
         threading.Thread(target=worker, daemon=True).start()
-        return {"job_id": job_id, "task": task, "status": "running"}
+        return {"job_id": job_id, "task": task, "status": "running", **(metadata or {})}
 
     def call(self, name, arguments):
         spec = next((spec for tool, _, spec in TOOLS if tool == name), None)
@@ -327,6 +340,45 @@ class Server:
         if name.startswith("mobile_"):
             return self.call_mobile(name,arguments)
         vm = arguments["vm"]
+        if name == "checkpoint_create":
+            self.cli("checkpoint-create", vm)  # Refuse unregistered VM before creating artifacts.
+            self.artifacts.mkdir(parents=True, exist_ok=True, mode=0o700)
+            checkpoint_id = uuid.uuid4().hex
+            destination = self.artifacts / (checkpoint_id + "-checkpoint")
+            command = self.cli("checkpoint-create", vm, destination, arguments["label"])
+            def completed(success):
+                if success:
+                    with self.lock:
+                        self.checkpoints[checkpoint_id] = destination
+            return self.start_job("checkpoint_create", command, {"checkpoint_id":checkpoint_id,"artifact":str(destination),"vm":vm}, completed)
+        if name == "checkpoint_restore":
+            checkpoint_id = arguments["checkpoint_id"]
+            with self.lock:
+                source = self.checkpoints.get(checkpoint_id)
+                if source is None:
+                    raise ValueError("Checkpoint must be completed and owned by this MCP session")
+                if vm in self.vms or vm in self.pending_vms:
+                    raise ValueError("Restore requires an unused VM name")
+                self.pending_vms.add(vm)
+            destination = self.artifacts / (uuid.uuid4().hex + "-restored")
+            binary = self.repo / "target/debug/freelane"
+            def completed(success):
+                config = destination / "vm.toml"
+                with self.lock:
+                    self.pending_vms.discard(vm)
+                    if success and config.is_file():
+                        self.vms[vm] = config.resolve(strict=True)
+                    elif success:
+                        raise ValueError("Restored VM configuration unavailable; inspect retained artifact")
+            try:
+                return self.start_job("checkpoint_restore", [str(binary),"checkpoint-restore",str(source),str(destination)], {"artifact":str(destination),"vm":vm,"registration":"session-only; retain vm.toml in your MCP config"}, completed)
+            except Exception:
+                completed(False)
+                raise
+        if name == "vm_readiness":
+            return self.run_cli("vm-readiness", vm)
+        if name == "guest_capabilities":
+            return self.run_cli("agent-capabilities", vm)
         if name == "vm_start":
             command = self.cli("start", vm)
             existing = self.supervisors.get(vm)
@@ -344,6 +396,12 @@ class Server:
             threading.Thread(target=process.wait, daemon=True).start()
             return {"supervisor_pid": process.pid, "status": "starting", "log": str(log_path),
                     "next": "Use vm_control/status to verify startup. Disconnect does not stop the VM."}
+        if name == "vm_resources":
+            return self.run_cli("vm-resources", vm)
+        if name == "guest_catalog":
+            return self.run_cli("app-catalog", vm, str(arguments["cursor"]))
+        if name == "share_status":
+            return self.run_cli("share-status", vm)
         if name == "vm_control":
             return self.run_cli(arguments["action"], vm)
         if name == "vm_capture":

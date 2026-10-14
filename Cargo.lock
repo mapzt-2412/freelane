@@ -818,6 +818,7 @@ dependencies = [
  "freelane-agent-protocol",
  "image",
  "libc",
+ "serde_json",
  "tempfile",
 ]
 
