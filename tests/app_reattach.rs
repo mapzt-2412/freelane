@@ -15,7 +15,13 @@ fn accept(listener: &UnixListener) -> std::os::unix::net::UnixStream {
     let deadline = Instant::now() + Duration::from_secs(8);
     loop {
         match listener.accept() {
-            Ok((s, _)) => return s,
+            Ok((s, _)) => {
+                // Darwin can inherit O_NONBLOCK from the listener; fixture RPC reads are blocking.
+                s.set_nonblocking(false).unwrap();
+                s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                s.set_write_timeout(Some(Duration::from_secs(5))).unwrap();
+                return s;
+            }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 assert!(Instant::now() < deadline, "Fixture request missing");
                 thread::sleep(Duration::from_millis(10));
