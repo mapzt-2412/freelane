@@ -31,6 +31,18 @@ try {
  & $script -Action Rollback
  Assert ((Get-FileHash -LiteralPath $dest).Hash -eq $hash) 'rollback restored verified old binary'
  $manifest=Join-Path $directory 'agent-install.json';$saved=[IO.File]::ReadAllText($manifest)
+ $phase='automatic update failure recovery'
+ $held=[IO.File]::Open($manifest,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ try {Refused {& $script -Action Update -AgentPath $second -ExpectedSha256 $secondHash} 'locked manifest update refused'} finally {$held.Dispose()}
+ Assert ((Get-FileHash -LiteralPath $dest).Hash -eq $hash) 'failed update restored original executable'
+ Assert ([IO.File]::ReadAllText($manifest) -eq $saved) 'failed update preserved manifest'
+ Assert (Test-Path -LiteralPath $shortcut) 'failed update preserved startup'
+ $phase='uninstall lock preservation'
+ $held=[IO.File]::Open($dest,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+ try {Refused {& $script -Action Uninstall} 'locked executable uninstall refused'} finally {$held.Dispose()}
+ Assert (Test-Path -LiteralPath $shortcut) 'failed uninstall preserved shortcut'
+ Assert ((Get-FileHash -LiteralPath $dest).Hash -eq $hash) 'failed uninstall preserved executable'
+
  $bad=$saved | ConvertFrom-Json;$bad.backup='../outside.exe';$bad | ConvertTo-Json | Set-Content -LiteralPath $manifest
  Refused {& $script -Action Rollback} 'backup traversal refused'
  [IO.File]::WriteAllText($manifest,$saved)
