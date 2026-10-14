@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.9](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.9) adds automatic component discovery, Homebrew installation from the wizard and read-only agent capability discovery. [Package evidence](evidence/release-preview9.json) records native Mac packaging and independently verified public DMG SHA256. Actual Homebrew installation and native Mac guest execution remain unverified.
+[Latest preview: v0.1.0-preview.10](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.10) adds a single setup action: automatic missing host-tool installation, Ubuntu Server LTS download with signature/SHA256 checks, default resources and installer startup. Actual Homebrew installation and native Mac guest execution remain unverified.
 
 New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Applications`, then eject it. The native Mac job verifies the disk image, mounts it read-only and rechecks the app signature, ARM64 architecture and Applications shortcut before upload. SHA256 files accompany DMG and ZIP downloads.
 
@@ -12,11 +12,11 @@ New preview tags include a compressed DMG: open it, drag `FreeLane.app` onto `Ap
 
 Use macOS 14 or later on Apple Silicon. The [Experimental release packages workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) builds the CLI and desktop with the macOS SDK, bundles `FreeLane.app`, ad-hoc signs it, verifies the signatures/ARM64 architecture and executes an offline release CLI plan check. Download its `FreeLane-experimental-macos-arm64` artifact from a **successful** run, then extract the inner ZIP. A workflow definition or push alone is not evidence that its build succeeded. Artifacts expire after 30 days. Preview tags additionally build the Windows agent and publish a GitHub prerelease after both packaging jobs and checksum verification succeed.
 
-The package contains `FreeLane.app`, CLI, documentation, example configs, source/font notices, dependency metadata, commit identifier and a ZIP SHA-256 file. It does not contain VM disks, Windows, QEMU, swtpm, firmware, Android SDKs, Xcode or guest-agent binaries. Install prerequisites separately following [the README](../README.md). SDK/firmware/config paths must match your Mac; examples contain placeholders.
+The package contains `FreeLane.app`, CLI, documentation, example configs, source/font notices, dependency metadata, commit identifier and a ZIP SHA-256 file. It does not contain VM disks, Windows, QEMU, swtpm, firmware, Android SDKs, Xcode or guest-agent binaries. Use [the setup flow](setup.md) to download missing VM tools. SDK/firmware/config paths must match your Mac; examples contain placeholders.
 
 The app uses local ad-hoc signing, **not Developer ID signing or Apple notarization**. macOS may block a downloaded experimental app. Inspect its origin and signature; use Apple's supported Open Anyway flow if you choose to run it. Do not disable system-wide security controls.
 
-The current wizard discovers installed QEMU/firmware and fills technical paths automatically. On Macs with Homebrew, its installation button installs QEMU, swtpm and 7-Zip. Homebrew itself is not installed by FreeLane. Finder launch resolves a coherent Homebrew installation without requiring a Terminal launch. Mobile SDK/custom tools still need configured paths; a Terminal launch can supply those:
+The wizard fills QEMU/firmware paths automatically and installs missing QEMU, swtpm, 7-Zip and GnuPG. If Homebrew is absent, its pinned official bootstrap opens in Terminal; complete macOS prompts there. Ubuntu Server ISOs download automatically; Windows uses your selected ARM64 ISO. CPU/RAM/disk and technical paths are under Advanced settings. Mobile SDK/custom tools retain their separate setup; a Terminal launch can supply those:
 
 ```sh
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -27,7 +27,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 ./FreeLane.app/Contents/MacOS/freelane mobile-plan /absolute/path/to/mobile.toml
 ```
 
-The desktop locates the sibling CLI automatically. QEMU remains a separate prerequisite; the wizard can install it when Homebrew is available. MCP remains a source-checkout development workflow using `target/debug/freelane`; this standalone app does not configure MCP clients or replace the source wrapper.
+The desktop locates the sibling CLI automatically. QEMU remains a separate prerequisite; the wizard installs it and bootstraps Homebrew when required. MCP remains a source-checkout development workflow using `target/debug/freelane`; this standalone app does not configure MCP clients or replace the source wrapper.
 
 Build the same package yourself on Mac with Xcode, Python3.11+ and the pinned Rust toolchain:
 

@@ -1,0 +1,40 @@
+{
+  "ubuntu_24_04_5": {
+    "real_download": true,
+    "signature_sha256_arm64_verified": true,
+    "path_record": "/workspace/quick-setup-acceptance/verified-iso-path.txt"
+  },
+  "ubuntu_26_04_1": {
+    "real_gui_download": true,
+    "signature_sha256_arm64_verified": true,
+    "sha256": "af78753c94b924c85c4964c670692a853f7c80299a4064e317edad95462e3168",
+    "iso_bytes": 3076861952,
+    "vm_created": true,
+    "initial_start_failed": "cloud QEMU missing GTK backend; installed signed qemu-system-gui locally",
+    "boot_after_environment_fix": "observed real GNU GRUB 2.14 Try or Install Ubuntu Server menu on ARM64 QEMU TCG"
+  },
+  "local_checks": {
+    "workspace_passed": 120,
+    "workspace_ignored": 7,
+    "additional_real_download_acceptance_passed": 1,
+    "mcp_passed": 11,
+    "clippy": "passed",
+    "desktop_build": "passed",
+    "mac_arm64_core_cross_check": "passed"
+  },
+  "review": "no remaining important blockers after descriptor-bound download and process-group/cancellation fixes",
+  "limitations": [
+    "File pickers use a test-only zenity stub; native dialogs unverified",
+    "Actual macOS bootstrap/HVF/physical SSD detach unverified",
+    "Booting installer is not completed guest OS installation"
+  ],
+  "windows_gui": {
+    "created_with_one_setup_action": true,
+    "automatically_started_qemu": true,
+    "status": {
+      "running": true,
+      "status": "running"
+    },
+    "observed": "UEFI shell; Windows installation not completed or claimed"
+  }
+}

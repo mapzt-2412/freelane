@@ -1,18 +1,18 @@
-# Tạo máy ảo Windows hoặc Ubuntu
+# Thiết lập Windows hoặc Ubuntu
 
-1. Mở **Tạo máy ảo mới**, chọn hệ điều hành và ISO ARM64; Ubuntu có thể dùng ảnh cloud.
-2. Bấm **Chọn…** tại thư mục máy ảo, chọn nơi lưu trên Mac hoặc SSD ngoài đang kết nối. App chọn tên VM mới, không ghi đè dữ liệu có sẵn. Khi cần và hệ thống hỗ trợ, app chuẩn bị thư mục riêng `FreeLane VMs`; nếu hủy, thư mục trống này có thể còn lại.
-3. Xem **Chỗ trống tại nơi lưu**, chọn CPU, RAM và **Dung lượng đĩa ảo**. QEMU/firmware được tự tìm; có nút cài thành phần qua Homebrew nếu cần. Đường dẫn kỹ thuật nằm trong **Thành phần nâng cao**.
-4. Xác nhận ARM64 rồi tạo. Tạo xong mới khởi động VM để cài hệ điều hành.
+1. Mở **Tạo máy ảo mới**.
+2. Với **Windows ARM64**, chọn ISO Windows ARM64. Với **Ubuntu ARM64**, chọn phiên bản Ubuntu Server LTS; FreeLane tự tải bộ cài ARM64 chính thức.
+3. Giữ nơi lưu tự động trong Documents hoặc chọn thư mục trên ổ ngoài đã kết nối.
+4. Bấm **Thiết lập và khởi động**. App tự cài công cụ còn thiếu, tạo máy ảo mới rồi mở trình cài đặt. Hoàn tất tài khoản và các bước cài hệ điều hành trong máy ảo.
 
-Đĩa qcow2 chỉ tăng theo dữ liệu được ghi. Chọn đĩa ảo 128 GiB không có nghĩa phải trống 128 GiB ngay lúc tạo. App kiểm tra chỗ cho metadata/firmware ban đầu, không giữ trước toàn bộ dung lượng tối đa. Windows vẫn cần đĩa ảo tối thiểu 64 GiB. Đã bỏ trần 4 TiB của app; kiểu dữ liệu và QEMU/định dạng vẫn có giới hạn kỹ thuật.
+CPU, RAM, dung lượng đĩa ảo, firmware riêng và nhập ảnh cloud nằm trong **Cài đặt nâng cao**. Luồng thông thường dùng cấu hình mặc định. Đĩa tăng theo dữ liệu ghi, không giữ trước toàn bộ dung lượng tối đa. App không gộp dung lượng nhiều ổ; hệ điều hành và ứng dụng vẫn cần chỗ trống trên ổ đã chọn.
 
-File VM nằm trên ổ chứa thư mục đã chọn. **Thư mục chia sẻ** cho guest truy cập file host, không chuyển đĩa VM sang ổ đó. ISO giữ nguyên ở vị trí nguồn. Dung lượng OS/app ghi thực tế vẫn cần chỗ trống; tạo được VM không có nghĩa cài Windows chắc chắn đủ chỗ. App không tự ghép dung lượng nhiều ổ; khi ổ đích đầy, việc ghi có thể lỗi.
+Trên Mac, setup dùng Homebrew để cài QEMU, swtpm, 7-Zip và GnuPG. Nếu chưa có Homebrew, app mở bộ cài chính thức đã đóng gói và cố định phiên bản trong Terminal, rồi tự cài các công cụ. macOS có thể yêu cầu quyền quản trị, công cụ phát triển hoặc quyền điều khiển Terminal; mật khẩu được nhập trong giao diện hệ thống. Khi đã có Homebrew, phần cài công cụ chạy nền. Bộ cài bootstrap và keyring xác minh nằm trong app; các binary backend được tải lúc setup. Android SDK và Xcode/runtime iOS vẫn dùng phần thiết lập thiết bị riêng.
 
-Nhập ảnh Ubuntu cloud cần chỗ cho bản nguồn riêng và chuyển đổi. Kiểm tra bảo thủ tính dung lượng ảo của ảnh nguồn, số byte file nguồn và metadata; không đòi chỗ bằng dung lượng tối đa mới. Kiểm tra dung lượng cho checkpoint/khôi phục bản sao vẫn riêng và chưa thay đổi.
+Ảnh Ubuntu được tải qua HTTPS, xác minh chữ ký bằng keyring Ubuntu CD-image đóng gói sẵn, kiểm tra SHA256 đúng tên ISO rồi kiểm tra bộ nạp ARM64. Ảnh tải nằm trong thư mục riêng cạnh máy ảo trên ổ đã chọn; giữ ảnh đến khi tháo ISO khỏi VM. ISO Windows nằm ở đường dẫn anh đã chọn; app chưa tự tải Windows.
 
-App từ chối ổ ngoài mất kết nối, giữ tham chiếu thư mục khi tạo và kiểm tra lại nơi lưu trước khi hoàn tất. Nơi lưu cần hỗ trợ thư mục riêng; thư mục cấp trên cho người khác quyền đổi dữ liệu không được dùng. Kiểm thử Mac/HVF và tháo SSD vật lý còn chờ máy thật.
+Hủy sẽ dừng tiến trình tải/cài nền thuộc app. Nếu bootstrap đã mở trong Terminal, đóng tab cài đặt đó để dừng. Hủy lúc hoàn tất workspace có thể để lại máy ảo đầy đủ nhưng chưa chạy; có thể mở lại sau. Đóng trình quản lý không dừng các VM đang chạy.
 
-![Wizard tiếng Việt](assets/wizard-sparse-storage-vi.png)
+Ổ mất kết nối bị từ chối. Tải và tạo VM giữ handle thư mục, kiểm tra định danh filesystem và giữ nguyên file có sẵn. Nơi lưu phải hỗ trợ thư mục riêng. Kiểm thử Homebrew/HVF trên Mac thật và tháo ổ ngoài vật lý vẫn còn chờ.
 
-Đã tạo workspace Windows 128 GiB qua UI Linux thật khi còn 16,7 GiB trống; file đĩa ban đầu chiếm 200.704 byte. QEMU thật cũng tạo được đĩa ảo 8 TiB với phần lưu trữ vật lý dưới 64 MiB. Đây là kiểm thử tạo workspace, chưa cài hoặc boot Windows. [Bằng chứng](evidence/sparse-setup.json).
+![Giao diện thiết lập tiếng Việt](assets/wizard-quick-setup-vi.png)
