@@ -109,3 +109,11 @@ Installed Ubuntu Server ARM64 was subsequently tested through actual MCP guest p
 Clone the repository on an Apple Silicon Mac, install the documented toolchain/QEMU/swtpm/firmware prerequisites and create a new VM with `freelane init`. Copy `configs/mcp.mac.example.toml` to `configs/mcp.mac.local.toml`, enter that Mac's existing VM path, and generate client configuration on the Mac. Choose HVF explicitly in the VM config; do not silently fall back to TCG.
 
 Connect locally or through an authorized existing remote connection. First verify `host_info`, build/test jobs, native signing/probe and an actual guest boot. Measure real app behavior and performance there. Linux results and a Mac cross-target compiler check do not replace this hardware validation.
+
+## Workspace automation additions
+
+The current server exposes 21 tools. `vm_resources`, `vm_readiness`, `guest_capabilities`, `guest_catalog` and `share_status` read registered VM metadata. Catalog cursors range from 0 to 512; a page contains at most 12 known applications.
+
+`checkpoint_create` takes a registered `vm` and `label`, returns a `job_id` and `checkpoint_id`; poll `dev_result`. After success, `checkpoint_restore` accepts that session-owned ID and an unused VM name, restores into a fresh artifact folder and registers its `vm.toml` for this session. It never boots or overwrites the original. Keep the returned configuration path in your MCP TOML for later sessions. These are stopped-VM full copies retaining guest identity, not independent clones. Artifacts survive disconnect; do not delete backups as test cleanup.
+
+See [scope and validation](plans/portable-workspace-batch.md).

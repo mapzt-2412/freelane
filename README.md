@@ -29,6 +29,7 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 
 - One setup action: select a Windows ARM64 ISO or Ubuntu Server LTS version; download missing VM tools and Ubuntu media automatically. [Setup guide](docs/setup.md).
 - Desktop VM library, resource cards, settings and Vietnamese/English language selection.
+- Known guest app discovery/search, stable exported Dock identities, stopped-VM backup/restore UI and observed host RAM/CPU counters. [Current scope](docs/plans/portable-workspace-batch.md).
 - Live Ubuntu9p sharing in read-only or read/write mode, with folder availability/reselection controls. [Sharing](docs/sharing.md).
 - Explicit verified file transfer into an opt-in guest inbox, with cancellation/conflict preservation and optional text-document opening. [File transfer](docs/file-transfer.md).
 - Opt-in Unicode text clipboard send/copy and conflict-aware automatic synchronization with an updated graphical-session guest agent; verified Windows agent install/update/rollback/uninstall. [Clipboard](docs/clipboard.md).
@@ -36,7 +37,7 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 - Read-only USB folder transfer for Windows/Ubuntu; live read/write 9p sharing for Ubuntu.
 - Ubuntu Virtio GPU **2D** display, with a real ARM Linux scanout test.
 - Mobile device controls, app installation/launch and actual PNG snapshots.
-- CLI and **14 stdio MCP tools** for fixed build/test jobs, registered VM/mobile controls, captures and guest requests.
+- CLI and **21 stdio MCP tools** for fixed build/test jobs, registered VM/mobile controls, captures and guest requests.
 
 The desktop displays snapshots, with optional refresh for desktop VMs. Continuous VM video and full keyboard forwarding are pending; use backend native windows for desktop input. The experimental [Windows app viewer](docs/app-windows.md) supports separate snapshot windows, targeted clicks/text/navigation and named Dock launchers with an updated guest agent. Physical USB selectors are implemented but need hardware testing. Windows two-way folder sharing, accelerated 3D/Metal, Apple GPU passthrough and live Coherence-style app integration remain pending.
 

@@ -1,18 +1,15 @@
-FreeLane v0.1.0-preview.15 for Apple Silicon Macs (macOS14+).
+FreeLane v0.1.0-preview.16 for Apple Silicon Macs (macOS14+).
 
-Adds live read-only Ubuntu9p sharing and host-folder availability/reselection controls. The roadmap remains in progress.
+Adds known guest app discovery, stopped-VM backup UI/MCP jobs and observed host resource counters. The full product roadmap remains in progress.
 
-- Files settings and the VM wizard offer live read-only alongside live read/write9p and read-only USB. QEMU enforces readonly at its filesystem backend, including against guest root. Host changes remain readable. Both9p modes require Ubuntu; Windows retains USB media and explicit agent transfers.
-- Choose shared folder and Check folder inspect host availability asynchronously. Missing folders are never recreated. `freelane share-status vm.toml` returns a read-only report; guest mount remains unknown, not inferred from configuration or process status.
-- On Mac, selected and canonical volume paths are checked, refusing internal-disk fallback and an external selection replaced by an internal symlink. Changing the source requires stopped-VM save/restart; actual Mac physical detach/reconnect remains pending.
-- Opt-in automatic clipboard, verified file transfers/text-document opening and automatic VM setup remain available.
+- Updated agents support read-only v7 Linux mount-tag telemetry and v8 paginated application metadata. Windows scans App Paths/system tools; Linux discovers a small known app set. No metadata request launches apps. Mount observation does not verify the host source directory.
+- Applications UI offers catalog search/selection. Re-exporting the same VM/executable/arguments uses a stable Dock bundle identifier; existing bundles remain protected from overwrite. Icons, automatic reattach and full Coherence remain unfinished.
+- Backups tab creates a stopped-VM full-copy checkpoint and restores to a fresh VM folder. Original files are preserved. Guest identity is retained; this is not an independent clone or live snapshot.
+- Details and CLI expose resident memory/cumulative CPU time observed from the connected QMP process. Configured RAM is not represented as actual consumption.
+- MCP expands to21 tools, including readiness/capabilities/catalog/share/resource reads and asynchronous checkpoint/restore jobs. Restore requires a completed session-owned backup and unused VM name. Restored files survive disconnect; registration is session-only and no VM is automatically booted.
 
-Validated:145 workspace tests/9ignored,11MCP, strictlint/build/Mac crosscheck. A real disposable ARM kernel fixture requested a writable9p mount; guest root create/overwrite/rename/delete were refused, host edits remained visible and native guest shutdown completed. Existing read/write create/rename/delete acceptance was rerun. Actual GUI folder missing/no-recreation/recovery controls inspected EN/VI. Review Important selected-volume symlink bypass was reproduced RED and fixed GREEN. [Evidence](https://github.com/puma2k/freelane/blob/main/docs/evidence/p2-share-permissions.json).
+Validation:155 portable workspace tests/9ignored,13MCP checks, strictlint, WindowsARM64 build and MacARM64 core cross-check. Native Linux metadata RPC, disposable actual QEMU identity/memory checks and real qemu-img/qemu-io MCP disk backup roundtrip passed. UI screenshots used synthetic configurations on an authenticated Linux display. File-state checks do not validate Windows protected storage/TPM recovery.
 
-Minor limitations: imported settings may retain cached availability; press Check folder again. The Ubuntu-only error wording still mentions read/write for read-only mode. Host availability does not verify permissions for every file or guest mount readiness. Guest mount setup remains explicit; FreeLane does not grant guest sudo access. Native Mac/Windows guest and physical-drive acceptance remain pending.
+Native Mac HVF, Dock behavior, sleep/wake, devices and guest application/video acceptance remain pending. Ad-hoc signed, not notarized; QEMU and mobile backends are separate prerequisites. See docs/plans/portable-workspace-batch.md.
 
-Read-only USB still uses a FAT16 volume with approximately504MiB capacity and an unchanged source requirement; live9p has neither that FAT limit nor snapshot semantics. Live sharing is not background file synchronization. Full Windows live mounts, Coherence video,3D/Metal and the rest of the roadmap remain unfinished.
-
-The Mac package is ad-hoc signed, not notarized. Verify checksums and read [sharing instructions](https://github.com/puma2k/freelane/blob/main/docs/sharing.md).
-
-Tiếng Việt: Có chia sẻ Ubuntu9p chỉ đọc được QEMU chặn ghi, kiểm tra/chọn lại thư mục và giữ nguyên khi nguồn mất. Chưa xác nhận guest mount hay tháo/lắp ổ Mac thật; nhập cấu hình xong nên bấm Kiểm tra thư mục lại.
+Tiếng Việt: Có tìm app đã biết, UI/MCP sao lưu và khôi phục sang thư mục mới, số liệu RAM/CPU thực dùng và định danh Dock ổn định. Chưa hoàn tất Coherence, clone độc lập, GPU3D hay kiểm thử Mac thật; không coi bản này là hoàn thành toàn bộ roadmap.
