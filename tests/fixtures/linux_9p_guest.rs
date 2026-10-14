@@ -73,6 +73,30 @@ fn main() {
         "mount: {}",
         io::Error::last_os_error()
     );
+    if fs::metadata("/readonly").is_ok() {
+        // Mount requested rw above. Even guest root must be denied by the host backend.
+        assert_eq!(fs::read("/share/host.txt").unwrap(), b"host-v1\n");
+        for result in [
+            fs::write("/share/guest.txt", b"forbidden"),
+            fs::write("/share/host.txt", b"forbidden"),
+            fs::rename("/share/host.txt", "/share/renamed.txt"),
+            fs::remove_file("/share/host.txt"),
+        ] {
+            assert!(result.is_err(), "backend allowed guest write");
+        }
+        println!("FREELANE_9P_READONLY_READY");
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while fs::read("/share/host.txt").unwrap() != b"host-v2\n" {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        println!("FREELANE_9P_READONLY_OK uid=0");
+        unsafe {
+            sync();
+            reboot(0x4321fedcu32 as i32);
+        }
+        panic!("Guest poweroff returned");
+    }
     let status = Command::new("/init")
         .arg("--worker")
         .uid(1000)

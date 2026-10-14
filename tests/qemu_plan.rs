@@ -385,3 +385,32 @@ fn virtio_network_for_disk_boot_does_not_require_an_external_pxe_rom() {
         "Disk/ISO boot must work without optional PXE ROM packages"
     );
 }
+
+#[test]
+fn live_readonly_share_is_enforced_by_backend_and_remains_ubuntu_only() {
+    let images = Images::new();
+    let shared = images.0.join("readonly,security_model=none");
+    fs::create_dir(&shared).unwrap();
+    let mut config = images.config();
+    let runtime = config.runtime.as_mut().unwrap();
+    runtime.shared_directory = Some(shared.clone());
+    runtime.share_mode = qemu::ShareMode::Virtio9pReadonly;
+    assert!(config.validate().is_err());
+    config.guest_os = freelane::GuestOs::Ubuntu;
+    let args = qemu::arguments(&config, &images.0, &images.0.join("qmp.sock")).unwrap();
+    assert!(args.iter().any(|arg| arg
+        == &format!(
+            "local,id=hostshare,path={},security_model=mapped-xattr,readonly=on",
+            shared.to_str().unwrap().replace(',', ",,")
+        )));
+    let saved = toml::to_string(&config).unwrap();
+    assert!(saved.contains("virtio9p_readonly"));
+    assert_eq!(
+        freelane::Config::parse(&saved)
+            .unwrap()
+            .runtime
+            .unwrap()
+            .share_mode,
+        qemu::ShareMode::Virtio9pReadonly
+    );
+}

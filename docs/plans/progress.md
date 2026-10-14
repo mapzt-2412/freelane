@@ -101,3 +101,9 @@ Automatic approval review rejected commit/push/publication because automatic cli
 User explicitly approved commit, push and publication of default-disabled, per-VM opt-in automatic clipboard synchronization. Approval blocker resolved; native CI and release verification pending.
 
 P2 automatic clipboard released as preview.14 at e97f92e; requiredCI38530620922, Windows38530620971 and nativepackaging38530620925 Success. Public DMG SHA-2566323e7549f4f773b1d26b7d2e538854575a6d525d4d76b1a05434c32f3117433,13014354bytes/UDIFverified. Explicit publication approval resolved the earlier rejection. Native Mac/Windows guest acceptance and remaining roadmap remain unfinished.
+
+### 2026-10-14 — P2 live read-only9p and host availability
+
+Added Ubuntu-only live read-only9p enforced by QEMU, native folder picker and asynchronous Files status, read-only `share-status` CLI. Status explicitly leaves guest mount unknown; missing sources are not recreated, and changes still require stopped-VM save/restart. Validates selected Mac volume path before and after canonicalization.
+
+145 workspace tests passed/9ignored,11MCP, clippy/build/Mac crosscheck passed. Real disposable ARM kernel guest refused root create/overwrite/rename/delete and observed live host changes; existing read/write acceptance rerun passed. Actual GUI missing/recovery flow captured EN/VI. Fresh review Important selected-volume symlink bypass reproduced RED and fixed GREEN. Minor deferred: report cache after import (check again), Ubuntu gate error wording. Native Mac external-drive and guest mount telemetry remain unaccepted. CI/publication pending.

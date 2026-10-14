@@ -67,7 +67,10 @@ impl Config {
                 ));
             }
             if runtime.shared_directory.is_some()
-                && runtime.share_mode == qemu::ShareMode::Virtio9p
+                && matches!(
+                    runtime.share_mode,
+                    qemu::ShareMode::Virtio9p | qemu::ShareMode::Virtio9pReadonly
+                )
                 && self.guest_os != GuestOs::Ubuntu
             {
                 return Err(Error("Read/write virtio-9p sharing requires an Ubuntu guest; Windows needs a separate compatible sharing backend".into()));
@@ -272,6 +275,7 @@ pub mod media;
 pub mod readiness;
 
 pub mod settings_bundle;
+pub mod sharing;
 
 pub mod cloud_image;
 

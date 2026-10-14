@@ -10,6 +10,16 @@ impl Language {
             return english;
         }
         match english {
+            "Choose shared folder"=>"Chọn thư mục chia sẻ",
+            "Check folder"=>"Kiểm tra thư mục",
+            "Sharing disabled"=>"Đã tắt chia sẻ",
+            "Host folder available · guest mount unchecked"=>"Thư mục host có sẵn · chưa xác minh mount trong guest",
+            "Folder missing · reconnect and choose again"=>"Không thấy thư mục · kết nối lại và chọn lại",
+            "Drive unavailable · reconnect and choose again"=>"Ổ đĩa chưa sẵn sàng · kết nối lại và chọn lại",
+            "Selected path is not a folder"=>"Đường dẫn đã chọn không phải thư mục",
+            "Cannot inspect shared folder"=>"Không thể kiểm tra thư mục chia sẻ",
+            "Live read-only share; mount it inside Ubuntu."=>"Chia sẻ trực tiếp chỉ đọc; cần mount trong Ubuntu.",
+            "Live read-only · Ubuntu"=>"Chia sẻ trực tiếp chỉ đọc · Ubuntu",
             "Clipboard conflict. Choose Send or Copy"=>"Clipboard khác nhau. Chọn Gửi hoặc Lấy",
             "Automatically synchronize text"=>"Tự đồng bộ clipboard văn bản",
             "Both clipboards changed. Choose Send or Copy to continue"=>"Clipboard hai bên đã thay đổi. Chọn Gửi hoặc Lấy để tiếp tục",

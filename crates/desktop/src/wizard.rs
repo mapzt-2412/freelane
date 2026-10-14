@@ -314,6 +314,7 @@ impl Desktop {
                                         lang.text("Read-only USB"),
                                     );
                                     ui.add_enabled_ui(!self.wizard.windows, |ui| {
+                                        ui.selectable_value(&mut self.wizard.share_mode,qemu::ShareMode::Virtio9pReadonly,lang.text("Live read-only · Ubuntu"));
                                         ui.selectable_value(
                                             &mut self.wizard.share_mode,
                                             qemu::ShareMode::Virtio9p,

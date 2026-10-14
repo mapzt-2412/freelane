@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--kernel", required=True, type=Path)
     parser.add_argument("--modules", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--readonly", action="store_true")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="freelane-9p-") as temporary:
@@ -43,6 +44,7 @@ def main():
         cpio += archive_entry("init", (root / "init").read_bytes(), mode=0o100755)
         for name in ["netfs", "9pnet", "9pnet_virtio", "9p"]:
             cpio += archive_entry(f"modules/{name}.ko", (args.modules / f"{name}.ko").read_bytes())
+        if args.readonly: cpio += archive_entry("readonly")
         cpio += archive_entry("TRAILER!!!")
         (root / "initrd").write_bytes(cpio)
         kernel = args.kernel.read_bytes()
@@ -51,6 +53,8 @@ def main():
         for filename in ["firmware", "nvram", "disk"]:
             (root / filename).write_bytes(b"plan-only fixture")
         (root / "vm.toml").write_text("name='9p test'\nguest_os='ubuntu'\ncpus=1\nmemory_mib=2048\ndisk='disk'\n[runtime]\nfirmware='firmware'\nnvram='nvram'\naccelerator='tcg'\nshared_directory='share,security_model=none'\nshare_mode='virtio9p'\n")
+        if args.readonly:
+            profile=root/"vm.toml";profile.write_text(profile.read_text().replace("share_mode='virtio9p'","share_mode='virtio9p_readonly'"))
         plan = json.loads(subprocess.check_output([str(repo / "target/debug/freelane"), "plan", str(root / "vm.toml")], text=True))
         # The plan is the argument array, not shell command text.
         filesystem = []
@@ -63,21 +67,23 @@ def main():
             process = subprocess.Popen(command, stdout=log, stderr=log)
             try:
                 deadline = time.monotonic() + 120
-                while not ((root / "serial.log").exists() and "FREELANE_9P_GUEST_WRITE_OK" in (root / "serial.log").read_text(errors="replace")):
+                ready="FREELANE_9P_READONLY_READY" if args.readonly else "FREELANE_9P_GUEST_WRITE_OK"
+                while not ((root / "serial.log").exists() and ready in (root / "serial.log").read_text(errors="replace")):
                     if process.poll() is not None or time.monotonic() > deadline:
                         raise RuntimeError((root / "serial.log").read_text(errors="replace") + (root / "qemu.log").read_text())
                     time.sleep(0.1)
-                assert (share / "guest.txt").read_bytes() == b"guest-v1\n"
+                if not args.readonly: assert (share / "guest.txt").read_bytes() == b"guest-v1\n"
                 with (share / "host.txt").open("wb") as file:
                     file.write(b"host-v2\n")
                     file.flush()
                     os.fsync(file.fileno())
                 process.wait(timeout=max(1, deadline - time.monotonic()))
                 serial = (root / "serial.log").read_text(errors="replace")
-                assert process.returncode == 0 and "FREELANE_9P_BIDIRECTIONAL_OK uid=1000" in serial, serial
-                assert (share / "guest-renamed.txt").read_bytes() == b"guest-v1\n"
+                finished="FREELANE_9P_READONLY_OK uid=0" if args.readonly else "FREELANE_9P_BIDIRECTIONAL_OK uid=1000"
+                assert process.returncode == 0 and finished in serial, serial
+                if not args.readonly: assert (share / "guest-renamed.txt").read_bytes() == b"guest-v1\n"
                 assert not (share / "guest.txt").exists() and not (share / "deleted.txt").exists()
-                report = {"result": "passed", "run_id": str(uuid.uuid4()), "recorded_at_utc": datetime.now(timezone.utc).isoformat(), "fixture_sha256": hashlib.sha256((repo / "tests/fixtures/linux_9p_guest.rs").read_bytes()).hexdigest(), "guest": "ARM64 Linux initramfs fixture", "uid": 1000, "production_plan": filesystem, "host_to_guest_live_update": True, "guest_to_host_create_rename_delete": True, "guest_native_poweroff": True, "installed_ubuntu_desktop": False, "kernel_sha256": hashlib.sha256(args.kernel.read_bytes()).hexdigest(), "module_sha256": {name: hashlib.sha256((args.modules / f"{name}.ko").read_bytes()).hexdigest() for name in ["netfs", "9pnet", "9pnet_virtio", "9p"]}}
+                report = {"result": "passed", "run_id": str(uuid.uuid4()), "recorded_at_utc": datetime.now(timezone.utc).isoformat(), "fixture_sha256": hashlib.sha256((repo / "tests/fixtures/linux_9p_guest.rs").read_bytes()).hexdigest(), "guest": "ARM64 Linux initramfs fixture", "uid": 0 if args.readonly else 1000, "readonly":args.readonly, "guest_writes_refused":args.readonly, "production_plan": filesystem, "host_to_guest_live_update": True, "guest_to_host_create_rename_delete": not args.readonly, "guest_native_poweroff": True, "installed_ubuntu_desktop": False, "kernel_sha256": hashlib.sha256(args.kernel.read_bytes()).hexdigest(), "module_sha256": {name: hashlib.sha256((args.modules / f"{name}.ko").read_bytes()).hexdigest() for name in ["netfs", "9pnet", "9pnet_virtio", "9p"]}}
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_text(json.dumps(report, indent=2) + "\n")
                 print(json.dumps(report, indent=2))

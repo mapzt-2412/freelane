@@ -71,6 +71,8 @@ pub enum ShareMode {
     ReadonlyUsb,
     /// Live read/write virtio-9p mount; requires a Linux guest driver.
     Virtio9p,
+    /// Live read-only mount, enforced by the QEMU backend.
+    Virtio9pReadonly,
 }
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -157,6 +159,26 @@ pub fn runtime_dir(config: &Path) -> Result<PathBuf> {
     Ok(std::env::temp_dir().join(format!("freelane-{:016x}", hash)))
 }
 
+fn resolve_shared_directory(
+    base: &Path,
+    selected: &Path,
+    validate: impl Fn(&Path) -> Result<()>,
+) -> Result<PathBuf> {
+    let absolute = if selected.is_absolute() {
+        selected.to_path_buf()
+    } else if base.is_absolute() {
+        base.join(selected)
+    } else {
+        std::env::current_dir()
+            .map_err(|e| Error(e.to_string()))?
+            .join(base)
+            .join(selected)
+    };
+    validate(&absolute)?;
+    let directory = canonical(base, selected)?;
+    validate(&directory)?;
+    Ok(directory)
+}
 pub fn arguments(config: &Config, base: &Path, socket: &Path) -> Result<Vec<String>> {
     arguments_inner(config, base, socket, false)
 }
@@ -354,7 +376,8 @@ fn arguments_inner(
         ]);
     }
     if let Some(directory) = &runtime.shared_directory {
-        let directory = canonical(base, directory)?;
+        let directory =
+            resolve_shared_directory(base, directory, crate::storage::check_share_volume)?;
         if !directory.is_dir() {
             return Err(Error("Shared directory must be an existing folder".into()));
         }
@@ -367,7 +390,7 @@ fn arguments_inner(
                 "-device".into(),
                 "usb-storage,drive=shared,removable=on".into(),
             ]),
-            ShareMode::Virtio9p => {
+            ShareMode::Virtio9p | ShareMode::Virtio9pReadonly => {
                 // Escape QEMU key/value separators, rather than treating a path as options.
                 let directory = text_path(&directory)?.replace(',', ",,");
                 if directory.chars().any(char::is_control) {
@@ -377,7 +400,14 @@ fn arguments_inner(
                 }
                 args.extend([
                     "-fsdev".into(),
-                    format!("local,id=hostshare,path={directory},security_model=mapped-xattr"),
+                    format!(
+                        "local,id=hostshare,path={directory},security_model=mapped-xattr{}",
+                        if runtime.share_mode == ShareMode::Virtio9pReadonly {
+                            ",readonly=on"
+                        } else {
+                            ""
+                        }
+                    ),
                     "-device".into(),
                     "virtio-9p-pci,disable-legacy=on,fsdev=hostshare,mount_tag=freelane".into(),
                 ]);
@@ -1082,4 +1112,29 @@ pub(crate) fn initialize_guest_transaction(
             .map_err(|e| Error(e.to_string()))?;
     }
     Ok(path)
+}
+
+#[cfg(test)]
+mod shared_source_tests {
+    #[test]
+    fn external_selection_symlink_cannot_bypass_volume_validation() {
+        use std::{fs, os::unix::fs::symlink};
+        let root =
+            std::env::temp_dir().join(format!("fl-share-volume-source-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        let volumes = root.join("Volumes");
+        fs::create_dir(&volumes).unwrap();
+        let internal = root.join("internal");
+        fs::create_dir(&internal).unwrap();
+        symlink(&internal, volumes.join("Disconnected")).unwrap();
+        let result =
+            super::resolve_shared_directory(&root, &volumes.join("Disconnected"), |path| {
+                crate::storage::check_mounted_volume(path, &volumes)
+            });
+        fs::remove_dir_all(&root).unwrap();
+        assert!(
+            result.is_err(),
+            "selected volume must be validated before canonicalization"
+        );
+    }
 }

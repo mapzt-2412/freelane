@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-14",
+  "tests_passed": 145,
+  "tests_ignored": 9,
+  "mcp_tests_passed": 11,
+  "clippy_build_mac_crosscheck": "passed",
+  "readonly_and_readwrite_real_arm_guest": "passed",
+  "ui_owned_folder_missing_and_recovery": "passed",
+  "guest_mount_telemetry": "unknown, not implemented",
+  "native_mac_external_drive": "not accepted",
+  "review_important": "external selected-volume symlink bypass fixed RED-to-GREEN",
+  "deferred_minors": [
+    "imported settings may retain cached host report; check again",
+    "Ubuntu gate errors still say read/write for read-only mode"
+  ]
+}

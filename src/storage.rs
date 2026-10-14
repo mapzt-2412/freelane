@@ -285,7 +285,7 @@ impl ParentAnchor {
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn check_mounted_volume(destination: &Path, volumes: &Path) -> Result<()> {
+pub(crate) fn check_mounted_volume(destination: &Path, volumes: &Path) -> Result<()> {
     use std::os::unix::fs::MetadataExt;
     let Ok(relative) = destination.strip_prefix(volumes) else {
         return Ok(());
@@ -492,5 +492,18 @@ mod download_tests {
         assert!(!moved.join("partial").exists());
         assert!(!path.join("new").exists());
         std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+/// A share on an unplugged Mac volume must not fall back to internal storage.
+pub(crate) fn check_share_volume(path: &Path) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        check_mounted_volume(path, Path::new("/Volumes"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Ok(())
     }
 }

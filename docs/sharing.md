@@ -1,6 +1,6 @@
 # Host files and physical USB
 
-VM settings now offers two folder-sharing modes and explicit USB device selectors. Changes apply on the next start; save while the VM is shut down. Clearing the folder path disables its share. Relative paths resolve from the configuration directory.
+VM settings now offers three folder-sharing modes and explicit USB device selectors. Changes apply on the next start; save while the VM is shut down. Clearing the folder path disables its share. Relative paths resolve from the configuration directory.
 
 ## Read-only USB folder: Windows and Ubuntu
 
@@ -15,6 +15,29 @@ share_mode = "readonly_usb"
 Add these fields to your existing runtime table. Use a dedicated folder with content comfortably below the approximately 504 MiB virtual volume capacity. QEMU's virtual FAT backend has filesystem/name constraints and may reject incompatible contents at startup. Keep source files unchanged while the VM runs; restart to expose changed content. Guest writes are disabled. Copy files into the guest disk to edit them.
 
 Windows should see ordinary USB storage in File Explorer. Ubuntu can identify its partition with `lsblk -f` and mount it read-only. Installed guest automount remains unverified. Real Windows-profile and Ubuntu-profile EFI tests attached this volume, QMP reported it as removable/read-only, and mtools extracted the exact fixture text from its FAT image.
+
+## Live read-only folder: Ubuntu
+
+Select **Live read-only · Ubuntu**, or set `share_mode = "virtio9p_readonly"`. QEMU enforces `readonly=on` at its filesystem backend, so even a writable guest mount and guest root cannot modify the host share. Host changes remain visible. Unlike USB FAT media, this is a live mount and has no504MiB FAT-volume limit.
+
+```sh
+sudo mkdir -p /mnt/freelane
+sudo mount -t 9p -o ro,trans=virtio,version=9p2000.L,cache=none freelane /mnt/freelane
+```
+
+Guest mount permissions/driver setup remain explicit; FreeLane does not grant guest sudo access. Read-only9p is Ubuntu-only, like read/write9p.
+
+## Folder availability and reconnect
+
+Files settings includes Choose shared folder and Check folder. Checks inspect the current typed path and configured mode asynchronously without creating directories or touching contents. Status means host availability, not an attached device or a successful guest mount. Relative paths use the VM configuration directory.
+
+```sh
+freelane share-status /path/vm.toml
+```
+
+The JSON always marks `guest_mount` unknown; guest mount telemetry remains pending. If a folder/drive disappears, reconnect it or explicitly choose a replacement. Shut down the VM before saving; settings apply on next start. On Mac, both the absolute selected `/Volumes` path and its canonical target are validated, refusing ordinary internal-disk fallbacks or a missing-volume path replaced by an internal symlink. Actual external-drive detach/reconnect on Mac remains unverified.
+
+After importing settings, click Check folder again: cached availability can otherwise refer to the previous selection. The current Ubuntu-only validation error wording still says read/write for both9p modes.
 
 ## Live read/write folder: Ubuntu
 
@@ -97,3 +120,11 @@ GPU passthrough is not implemented. The current Apple Silicon QEMU/HVF backend h
 A virtual GPU and graphics translation path is separate engineering work, including Windows ARM guest-driver support. FreeLane does not label its basic display, HVF, or USB forwarding as GPU passthrough.
 
 The installer textbox separately attaches an ISO/NoCloud seed as read-only CD media. Clipboard and seamless application windows remain separate integration work.
+
+## Read-only backend acceptance
+
+[Read-only ARM Linux evidence](evidence/9p-readonly.json) requests a writable9p mount, then attempts create/overwrite/rename/delete as guest root. Every mutation was refused; a host update remained readable and native guest poweroff completed. Existing read/write create/rename/delete acceptance was rerun too. This is a disposable kernel/initramfs fixture, not installed Ubuntu or native Mac acceptance.
+
+```sh
+python3 tests/share_9p_real.py --readonly --kernel /trusted/kernel --modules /trusted/modules --output /path/readonly-result.json
+```

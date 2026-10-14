@@ -785,6 +785,8 @@ impl Desktop {
         let mut save = false;
         let mut import = false;
         let mut export = false;
+        let mut pick_share = false;
+        let mut inspect_share = false;
         egui::Window::new(lang.text("Virtual machine settings")).id(egui::Id::new("settings"))
             .open(&mut open).default_pos(ctx.content_rect().center() - egui::vec2(305.0, 240.0)).default_width(610.0).default_height(480.0).show(ctx, |ui| {
             ui.small(lang.text("Changes apply on the next start. Shut down before saving."));
@@ -824,13 +826,16 @@ impl Desktop {
                     SettingsTab::Files => {
                         ui.label(format!("{}: {}",lang.text("Guest disk"),config.disk.display()));
                         ui.label(lang.text("Installer / CD image (blank to detach)")); ui.add(egui::TextEdit::singleline(&mut self.installer_path).desired_width(f32::INFINITY));
-                        ui.label(lang.text("Host folder (blank to disable)")); ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY));
+                        ui.label(lang.text("Host folder (blank to disable)")); if ui.add(egui::TextEdit::singleline(&mut self.shared_path).desired_width(f32::INFINITY)).changed(){self.shared_report=None;}
+                        ui.horizontal(|ui|{if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Choose shared folder"))).clicked(){pick_share=true;}
+                        if ui.add_enabled(self.pending.is_none(),egui::Button::new(lang.text("Check folder"))).clicked(){inspect_share=true;}});
+                        if let Some(report)=&self.shared_report {use freelane::sharing::HostState;let label=match report.host {HostState::Disabled=>"Sharing disabled",HostState::Available=>"Host folder available · guest mount unchecked",HostState::Missing=>"Folder missing · reconnect and choose again",HostState::NotDirectory=>"Selected path is not a folder",HostState::VolumeUnavailable=>"Drive unavailable · reconnect and choose again",HostState::Unavailable=>"Cannot inspect shared folder"};ui.label(lang.text(label));}
                         if let Some(runtime) = config.runtime.as_mut() {
                             ui.horizontal_wrapped(|ui| {
                                 ui.selectable_value(&mut runtime.share_mode,qemu::ShareMode::ReadonlyUsb,lang.text("Read-only USB"));
-                                ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| { ui.selectable_value(&mut runtime.share_mode,qemu::ShareMode::Virtio9p,lang.text("Live read/write · Ubuntu")); });
+                                ui.add_enabled_ui(config.guest_os == GuestOs::Ubuntu, |ui| { ui.selectable_value(&mut runtime.share_mode,qemu::ShareMode::Virtio9p,lang.text("Live read/write · Ubuntu")); ui.selectable_value(&mut runtime.share_mode,qemu::ShareMode::Virtio9pReadonly,lang.text("Live read-only · Ubuntu")); });
                             });
-                            ui.small(lang.text(if runtime.share_mode == qemu::ShareMode::ReadonlyUsb { "Keep FAT shares under 504 MiB and unchanged while the VM runs." } else { "Guest writes modify host files. Mount the share inside Ubuntu; see docs/sharing.md." }));
+                            ui.small(lang.text(if runtime.share_mode == qemu::ShareMode::ReadonlyUsb { "Keep FAT shares under 504 MiB and unchanged while the VM runs." } else if runtime.share_mode==qemu::ShareMode::Virtio9pReadonly {"Live read-only share; mount it inside Ubuntu."} else { "Guest writes modify host files. Mount the share inside Ubuntu; see docs/sharing.md." }));
                         }
                     }
                     SettingsTab::Devices => {
@@ -866,7 +871,11 @@ impl Desktop {
             if !self.notice.is_empty() { ui.label(lang.message(&self.notice)); }
         });
         self.settings_open = open;
-        if save {
+        if pick_share {
+            self.pick_shared_folder(ctx);
+        } else if inspect_share {
+            self.inspect_shared_folder(ctx);
+        } else if save {
             self.save_settings(ctx);
         } else if import {
             self.import_settings_ui(ctx);

@@ -6,6 +6,7 @@ mod interface;
 mod mobile_ui;
 mod settings_io;
 mod setup;
+mod sharing_ui;
 mod transfer_ui;
 mod wizard;
 use eframe::egui;
@@ -36,6 +37,8 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    SharedPicked(Option<String>),
+    SharedReport(String, qemu::ShareMode, freelane::sharing::Report),
     ClipboardAuto(
         clipboard_ui::Session,
         freelane_agent_protocol::clipboard_sync::SyncState,
@@ -106,6 +109,7 @@ struct Desktop {
     settings_open: bool,
     settings: Option<Config>,
     installer_path: String,
+    shared_report: Option<freelane::sharing::Report>,
     shared_path: String,
     draft_path: String,
     app_name: String,
@@ -501,6 +505,23 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::SharedPicked(path)) => {
+                            if let Some(path) = path {
+                                self.shared_path = path;
+                                self.shared_report = None;
+                            }
+                        }
+                        Ok(Event::SharedReport(selected, mode, report)) => {
+                            if selected == self.shared_path
+                                && self
+                                    .settings
+                                    .as_ref()
+                                    .and_then(|c| c.runtime.as_ref())
+                                    .is_some_and(|r| r.share_mode == mode)
+                            {
+                                self.shared_report = Some(report);
+                            }
+                        }
                         Ok(Event::TransferDone(message)) => {
                             self.transfer_cancel = None;
                             self.transfer_progress = None;
@@ -613,6 +634,7 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.shared_report = None;
                             self.stop_clipboard_auto();
                             self.clipboard_enabled = false;
                             if let Some(permission) = &self.clipboard_permission {

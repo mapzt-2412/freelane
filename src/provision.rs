@@ -89,7 +89,12 @@ impl Request {
             {
                 return Err(Error("Shared folder must be an existing directory".into()));
             }
-            if self.guest_os != GuestOs::Ubuntu && self.share_mode == qemu::ShareMode::Virtio9p {
+            if self.guest_os != GuestOs::Ubuntu
+                && matches!(
+                    self.share_mode,
+                    qemu::ShareMode::Virtio9p | qemu::ShareMode::Virtio9pReadonly
+                )
+            {
                 return Err(Error("Read/write 9p sharing requires Ubuntu".into()));
             }
         }
