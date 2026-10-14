@@ -79,6 +79,22 @@ pub fn publish(file: &File, root: &Dir, name: &str) -> io::Result<()> {
         length: u32,
         name: [u16; 1],
     }
+    #[repr(C)]
+    struct IoStatus {
+        status: usize,
+        information: usize,
+    }
+    #[link(name = "ntdll")]
+    extern "system" {
+        fn NtSetInformationFile(
+            handle: *mut std::ffi::c_void,
+            status: *mut IoStatus,
+            info: *const std::ffi::c_void,
+            size: u32,
+            class: u32,
+        ) -> i32;
+        fn RtlNtStatusToDosError(status: i32) -> u32;
+    }
     let utf16: Vec<u16> = name.encode_utf16().collect();
     let offset = std::mem::offset_of!(Link, name);
     let bytes = offset + utf16.len() * 2;
@@ -94,16 +110,25 @@ pub fn publish(file: &File, root: &Dir, name: &str) -> io::Result<()> {
             utf16.len(),
         );
     }
-    if unsafe {
-        SetFileInformationByHandle(
+    let mut io_status = IoStatus {
+        status: 0,
+        information: 0,
+    };
+    // NT FileLinkInformation is class 11. Win32 class 11 is directory enumeration,
+    // not a hard-link operation; use the documented NT handle-bound operation.
+    let status = unsafe {
+        NtSetInformationFile(
             file.as_raw_handle(),
-            11,
+            &mut io_status,
             buffer.as_ptr().cast(),
             bytes as u32,
+            11,
         )
-    } == 0
-    {
-        Err(io::Error::last_os_error())
+    };
+    if status < 0 {
+        Err(io::Error::from_raw_os_error(
+            unsafe { RtlNtStatusToDosError(status) } as i32,
+        ))
     } else {
         Ok(())
     }
