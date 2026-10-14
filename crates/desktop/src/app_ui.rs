@@ -130,7 +130,7 @@ impl eframe::App for Viewer {
                 let exe = std::env::current_exe().map_err(|e| e.to_string())?;
                 let cli = exe.parent().ok_or("CLI not found")?.join("freelane");
                 let (pid, windows) = if let Some(pid) = attach_pid {
-                    match agent::window_request(&p.vm, Action::Windows { pid })
+                    match agent::window_inventory(&p.vm, pid)
                         .map_err(|e| e.to_string())?
                         .outcome
                     {
@@ -269,7 +269,7 @@ impl eframe::App for Viewer {
                         let vm = self.profile.vm.clone();
                         let pid = self.pid.unwrap();
                         self.task(&ctx, move || {
-                            match agent::window_request(&vm, Action::Windows { pid })
+                            match agent::window_inventory(&vm, pid)
                                 .map_err(|e| e.to_string())?
                                 .outcome
                             {

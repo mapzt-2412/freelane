@@ -89,7 +89,7 @@ fn run() -> Result<()> {
         }
         [command,path,pid] if command=="app-windows" => {
             let pid=pid.parse::<u32>().map_err(|_|Error("PID must be an integer".into()))?;
-            let response=freelane::agent::window_request(Path::new(path),freelane_agent_protocol::Action::Windows{pid})?;
+            let response=freelane::agent::window_inventory(Path::new(path),pid)?;
             println!("{}",serde_json::to_string(&response).map_err(|e|Error(e.to_string()))?);Ok(())
         }
         [command, path] if command == "app-open" => {

@@ -13,6 +13,7 @@ pub const TRANSFER_VERSION: u16 = 5;
 pub const CLIPBOARD_SYNC_VERSION: u16 = 6;
 pub const SHARE_STATUS_VERSION: u16 = 7;
 pub const CATALOG_VERSION: u16 = 8;
+pub const WINDOW_IDENTITY_VERSION: u16 = 9;
 pub const MAX_CLIPBOARD_TEXT: usize = 8192;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -25,6 +26,12 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    WindowInventory {
+        pid: u32,
+    },
+    FindAppWindows {
+        executable: String,
+    },
     AppCatalog {
         cursor: u16,
     },
@@ -179,6 +186,11 @@ pub struct WindowTarget {
     pub handle: u64,
     pub pid: u32,
     pub created: u64,
+    #[serde(default, skip_serializing_if = "zero_incarnation")]
+    pub incarnation: u64,
+}
+fn zero_incarnation(value: &u64) -> bool {
+    *value == 0
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -342,6 +354,7 @@ impl Request {
             CLIPBOARD_SYNC_VERSION,
             SHARE_STATUS_VERSION,
             CATALOG_VERSION,
+            WINDOW_IDENTITY_VERSION,
         ]
         .contains(&self.version)
         {
@@ -349,6 +362,65 @@ impl Request {
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == WINDOW_IDENTITY_VERSION {
+            return match &self.action {
+                Action::WindowInventory { pid } if *pid > 0 => Ok(()),
+                Action::FindAppWindows { executable } => {
+                    let p = executable.as_bytes();
+                    if p.len() >= 7
+                        && p.len() <= 2048
+                        && p[0].is_ascii_alphabetic()
+                        && p[1] == b':'
+                        && b"/\\".contains(&p[2])
+                        && executable.to_ascii_lowercase().ends_with(".exe")
+                        && !executable.chars().any(char::is_control)
+                        && !executable.contains('"')
+                    {
+                        Ok(())
+                    } else {
+                        Err(invalid("Expected absolute local Windows executable"))
+                    }
+                }
+                Action::CaptureWindow { target }
+                | Action::WindowClick { target, .. }
+                | Action::WindowText { target, .. }
+                | Action::WindowKey { target, .. }
+                    if target.incarnation > 0 =>
+                {
+                    Request {
+                        version: WINDOW_VERSION,
+                        id: self.id,
+                        action: match &self.action {
+                            Action::CaptureWindow { target } => Action::CaptureWindow {
+                                target: target.clone(),
+                            },
+                            Action::WindowClick { target, x, y } => Action::WindowClick {
+                                target: target.clone(),
+                                x: *x,
+                                y: *y,
+                            },
+                            Action::WindowText { target, text } => Action::WindowText {
+                                target: target.clone(),
+                                text: text.clone(),
+                            },
+                            Action::WindowKey { target, key } => Action::WindowKey {
+                                target: target.clone(),
+                                key: *key,
+                            },
+                            _ => unreachable!(),
+                        },
+                    }
+                    .validate()
+                }
+                _ => Err(invalid("Protocol v9 requires observed window incarnation")),
+            };
+        }
+        if matches!(
+            self.action,
+            Action::WindowInventory { .. } | Action::FindAppWindows { .. }
+        ) {
+            return Err(invalid("Window identity discovery requires protocol v9"));
         }
         if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
             return Err(invalid("Protocol v3 is read-only capability discovery"));

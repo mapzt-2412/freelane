@@ -224,6 +224,7 @@ fn window_extension_rejects_legacy_reply_and_wrong_window_identity() {
             &path,
             Action::CaptureWindow {
                 target: WindowTarget {
+                    incarnation: 0,
                     handle: 10,
                     pid: 20,
                     created: 30,
@@ -238,6 +239,7 @@ fn window_extension_rejects_legacy_reply_and_wrong_window_identity() {
     assert!(exchange(
         VERSION,
         WindowTarget {
+            incarnation: 0,
             handle: 10,
             pid: 20,
             created: 30
@@ -249,6 +251,7 @@ fn window_extension_rejects_legacy_reply_and_wrong_window_identity() {
     assert!(exchange(
         WINDOW_VERSION,
         WindowTarget {
+            incarnation: 0,
             handle: 11,
             pid: 20,
             created: 30

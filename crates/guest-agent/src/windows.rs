@@ -58,6 +58,8 @@ struct BitmapInfo {
 }
 #[link(name = "user32")]
 extern "system" {
+    fn SetPropW(window: Handle, name: *const u16, value: Handle) -> i32;
+    fn GetPropW(window: Handle, name: *const u16) -> Handle;
     fn EnumWindows(callback: extern "system" fn(Handle, isize) -> i32, data: isize) -> i32;
     fn IsWindow(window: Handle) -> i32;
     fn IsWindowVisible(window: Handle) -> i32;
@@ -95,6 +97,12 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
+    fn QueryFullProcessImageNameW(
+        process: Handle,
+        flags: u32,
+        name: *mut u16,
+        size: *mut u32,
+    ) -> i32;
     fn OpenProcess(access: u32, inherit: i32, pid: u32) -> Handle;
     fn GetProcessTimes(
         process: Handle,
@@ -128,6 +136,49 @@ fn created(pid: u32) -> io::Result<u64> {
         Ok((u64::from(c.high) << 32) | u64::from(c.low))
     }
 }
+fn property_name() -> *const u16 {
+    static NAME: std::sync::OnceLock<Vec<u16>> = std::sync::OnceLock::new();
+    NAME.get_or_init(|| {
+        "FreeLane.Window.Incarnation.v9"
+            .encode_utf16()
+            .chain(Some(0))
+            .collect()
+    })
+    .as_ptr()
+}
+fn identities() -> &'static std::sync::Mutex<std::collections::BTreeMap<Handle, u64>> {
+    static VALUES: std::sync::OnceLock<std::sync::Mutex<std::collections::BTreeMap<Handle, u64>>> =
+        std::sync::OnceLock::new();
+    VALUES.get_or_init(Default::default)
+}
+fn incarnation(window: Handle) -> io::Result<u64> {
+    let mut values = identities()
+        .lock()
+        .map_err(|_| invalid("Window identity unavailable"))?;
+    values.retain(|handle, token| unsafe {
+        IsWindow(*handle) != 0 && GetPropW(*handle, property_name()) as u64 == *token
+    });
+    if let Some(token) = values.get(&window) {
+        return Ok(*token);
+    }
+    if values.len() >= 512 {
+        return Err(invalid("Window identity capacity reached"));
+    }
+    let token = loop {
+        let value = getrandom::u64().map_err(|_| invalid("Window identity entropy unavailable"))?
+            & isize::MAX as u64;
+        if value != 0 {
+            break value;
+        }
+    };
+    // Window properties are removed by USER32 when this HWND is destroyed.
+    // UIPI refusal fails closed; no privilege or focus bypass is attempted.
+    if unsafe { SetPropW(window, property_name(), token as isize) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    values.insert(window, token);
+    Ok(token)
+}
 fn checked(target: &WindowTarget) -> io::Result<Handle> {
     let handle = isize::try_from(target.handle).map_err(|_| invalid("Invalid HWND"))?;
     let mut pid = 0;
@@ -139,12 +190,23 @@ fn checked(target: &WindowTarget) -> io::Result<Handle> {
             return Err(invalid("Window closed or identity changed"));
         }
     }
+    if target.incarnation != 0 {
+        let values = identities()
+            .lock()
+            .map_err(|_| invalid("Window identity unavailable"))?;
+        if values.get(&handle) != Some(&target.incarnation)
+            || unsafe { GetPropW(handle, property_name()) as u64 } != target.incarnation
+        {
+            return Err(invalid("Window incarnation changed; refresh inventory"));
+        }
+    }
     if created(pid)? != target.created {
         return Err(invalid("Process identity changed"));
     }
     Ok(handle)
 }
 struct List {
+    guarded: bool,
     pid: u32,
     created: u64,
     windows: Vec<WindowInfo>,
@@ -161,8 +223,17 @@ extern "system" fn enumerate(window: Handle, data: isize) -> i32 {
         let mut title = [0u16; 512];
         let count = GetWindowTextW(window, title.as_mut_ptr(), title.len() as i32);
         if count > 0 {
+            let token = if list.guarded {
+                match incarnation(window) {
+                    Ok(value) => value,
+                    Err(_) => return 1,
+                }
+            } else {
+                0
+            };
             list.windows.push(WindowInfo {
                 target: WindowTarget {
+                    incarnation: token,
                     handle: window as u64,
                     pid,
                     created: list.created,
@@ -173,8 +244,9 @@ extern "system" fn enumerate(window: Handle, data: isize) -> i32 {
     }
     i32::from(list.windows.len() < 16)
 }
-fn list(pid: u32) -> io::Result<Outcome> {
+fn list(pid: u32, guarded: bool) -> io::Result<Outcome> {
     let mut list = List {
+        guarded,
         pid,
         created: created(pid)?,
         windows: Vec::new(),
@@ -184,6 +256,80 @@ fn list(pid: u32) -> io::Result<Outcome> {
     }
     Ok(Outcome::Windows {
         windows: list.windows,
+    })
+}
+struct Find {
+    executable: String,
+    visited: usize,
+    windows: Vec<WindowInfo>,
+}
+extern "system" fn find_window(window: Handle, data: isize) -> i32 {
+    let find = unsafe { &mut *(data as *mut Find) };
+    find.visited += 1;
+    if find.visited > 4096 || find.windows.len() >= 16 {
+        return 0;
+    }
+    let mut pid = 0;
+    unsafe {
+        if IsWindowVisible(window) == 0
+            || GetWindowThreadProcessId(window, &mut pid) == 0
+            || pid == 0
+        {
+            return 1;
+        }
+        let process = OpenProcess(0x1000, 0, pid);
+        if process == 0 {
+            return 1;
+        }
+        let mut path = [0u16; 2049];
+        let mut size = 2049;
+        let mut start = FileTime::default();
+        let mut end = FileTime::default();
+        let mut kernel = FileTime::default();
+        let mut user = FileTime::default();
+        let known = QueryFullProcessImageNameW(process, 0, path.as_mut_ptr(), &mut size) != 0
+            && size <= 2048
+            && GetProcessTimes(process, &mut start, &mut end, &mut kernel, &mut user) != 0;
+        CloseHandle(process);
+        if !known
+            || String::from_utf16_lossy(&path[..size as usize])
+                .replace('/', "\\")
+                .to_lowercase()
+                != find.executable
+        {
+            return 1;
+        }
+        let mut title = [0u16; 512];
+        let count = GetWindowTextW(window, title.as_mut_ptr(), 512);
+        if count <= 0 {
+            return 1;
+        }
+        let Ok(token) = incarnation(window) else {
+            return 1;
+        };
+        find.windows.push(WindowInfo {
+            target: WindowTarget {
+                handle: window as u64,
+                pid,
+                created: (u64::from(start.high) << 32) | u64::from(start.low),
+                incarnation: token,
+            },
+            title: String::from_utf16_lossy(&title[..count as usize]),
+        });
+    }
+    1
+}
+fn find(executable: &str) -> io::Result<Outcome> {
+    let mut find = Find {
+        executable: executable.replace('/', "\\").to_lowercase(),
+        visited: 0,
+        windows: vec![],
+    };
+    unsafe {
+        EnumWindows(find_window, &mut find as *mut Find as isize);
+    }
+    Ok(Outcome::Windows {
+        windows: find.windows,
     })
 }
 struct Drawing {
@@ -431,7 +577,9 @@ fn input(action: &Action, target: &WindowTarget) -> io::Result<Outcome> {
 }
 pub fn handle(action: &Action) -> io::Result<Outcome> {
     match action {
-        Action::Windows { pid } => list(*pid),
+        Action::Windows { pid } => list(*pid, false),
+        Action::WindowInventory { pid } => list(*pid, true),
+        Action::FindAppWindows { executable } => find(executable),
         Action::CaptureWindow { target } => capture(target.clone()),
         Action::WindowClick { target, .. }
         | Action::WindowText { target, .. }

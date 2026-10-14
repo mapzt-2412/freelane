@@ -257,6 +257,19 @@ pub fn open(
             ))
         }
     }
+    let upgraded = crate::agent_capabilities::inspect(&profile.vm)
+        .ok()
+        .is_some_and(|info| {
+            info.supports(
+                "window_identity",
+                freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
+            ) == Some(true)
+        });
+    if upgraded && profile.arguments.is_empty() {
+        if let Some(existing) = find_existing(profile)? {
+            return Ok(existing);
+        }
+    }
     let response = agent::request(
         &profile.vm,
         Action::Launch {
@@ -269,10 +282,24 @@ pub fn open(
     };
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
-        let reply = agent::window_request(&profile.vm, Action::Windows { pid })?;
-        if let Outcome::Windows { windows } = reply.outcome {
-            if !windows.is_empty() {
-                return Ok((pid, windows));
+        if upgraded && profile.arguments.is_empty() {
+            if let Some(existing) = find_existing(profile)? {
+                return Ok(existing);
+            }
+        }
+        if !upgraded || !profile.arguments.is_empty() {
+            let reply = agent::window_request(
+                &profile.vm,
+                if upgraded {
+                    Action::WindowInventory { pid }
+                } else {
+                    Action::Windows { pid }
+                },
+            )?;
+            if let Outcome::Windows { windows } = reply.outcome {
+                if !windows.is_empty() {
+                    return Ok((pid, windows));
+                }
             }
         }
         if Instant::now() >= deadline {
@@ -280,6 +307,32 @@ pub fn open(
         }
         std::thread::sleep(Duration::from_millis(500));
     }
+}
+fn find_existing(
+    profile: &AppProfile,
+) -> Result<Option<(u32, Vec<freelane_agent_protocol::WindowInfo>)>> {
+    let reply = agent::window_request(
+        &profile.vm,
+        Action::FindAppWindows {
+            executable: profile.executable.clone(),
+        },
+    )?;
+    let Outcome::Windows { windows } = reply.outcome else {
+        return Err(Error(
+            "Application inventory unavailable; no launch retry sent".into(),
+        ));
+    };
+    let Some(first) = windows.first() else {
+        return Ok(None);
+    };
+    let pid = first.target.pid;
+    Ok(Some((
+        pid,
+        windows
+            .into_iter()
+            .filter(|w| w.target.pid == pid)
+            .collect(),
+    )))
 }
 fn xml(value: &str) -> String {
     value

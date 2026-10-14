@@ -95,3 +95,7 @@ Periodic refresh encountered a guest capture timeout. The viewer now retries tha
 ![Host viewer connected to the real Windows agent after host UI text entry](assets/windows-app-viewer-live.png)
 
 [Live acceptance evidence](evidence/windows-app-live-acceptance.json) records the scope. This remains an Audit-session Linux test, without normal-user Startup installer or native Mac/Dock runtime validation. The snapshot retry change is on `main`; the earlier `preview.2` DMG predates it.
+
+## Window identity follow-up (newer than preview.16)
+
+Updated agents negotiate v9 window incarnations. Profiles without arguments reattach to a visible matching process image before sending a new launch. Profiles with arguments retain one literal-argument launch; different-image delegates remain unsupported. [Implementation and validation scope](plans/p3-window-identity.md).

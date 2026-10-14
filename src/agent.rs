@@ -79,7 +79,42 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     request_socket_version(socket, action, VERSION)
 }
 pub fn window_request(config: &Path, action: Action) -> Result<Response> {
-    request_vm(config, action, freelane_agent_protocol::WINDOW_VERSION)
+    let upgraded = match &action {
+        Action::WindowInventory { .. } | Action::FindAppWindows { .. } => true,
+        Action::CaptureWindow { target }
+        | Action::WindowClick { target, .. }
+        | Action::WindowText { target, .. }
+        | Action::WindowKey { target, .. } => target.incarnation > 0,
+        _ => false,
+    };
+    request_vm(
+        config,
+        action,
+        if upgraded {
+            freelane_agent_protocol::WINDOW_IDENTITY_VERSION
+        } else {
+            freelane_agent_protocol::WINDOW_VERSION
+        },
+    )
+}
+/// Read-only negotiated inventory. Legacy agents retain their v2 behavior.
+pub fn window_inventory(config: &Path, pid: u32) -> Result<Response> {
+    let upgraded = crate::agent_capabilities::inspect(config)
+        .ok()
+        .is_some_and(|info| {
+            info.supports(
+                "window_identity",
+                freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
+            ) == Some(true)
+        });
+    window_request(
+        config,
+        if upgraded {
+            Action::WindowInventory { pid }
+        } else {
+            Action::Windows { pid }
+        },
+    )
 }
 pub fn request_socket_version(socket: &Path, action: Action, version: u16) -> Result<Response> {
     request_socket_cancellable(socket, action, version, &|| false)
@@ -232,7 +267,9 @@ fn request_socket_cancellable(
                 freelane_agent_protocol::Outcome::AgentInfo { .. }
             )
             | (
-                Action::Windows { .. },
+                Action::Windows { .. }
+                    | Action::WindowInventory { .. }
+                    | Action::FindAppWindows { .. },
                 freelane_agent_protocol::Outcome::Windows { .. }
             )
             | (
@@ -308,9 +345,11 @@ fn request_socket_cancellable(
                 version == freelane_agent_protocol::CAPABILITY_VERSION && info.validate().is_ok()
             }
             (Action::Ping, freelane_agent_protocol::Outcome::Pong { .. }) => version == VERSION,
-            (Action::Ping, freelane_agent_protocol::Outcome::Capabilities { .. }) => {
-                version == freelane_agent_protocol::WINDOW_VERSION
-            }
+            (Action::Ping, freelane_agent_protocol::Outcome::Capabilities { .. }) => [
+                freelane_agent_protocol::WINDOW_VERSION,
+                freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
+            ]
+            .contains(&version),
             (
                 Action::CaptureWindow { target },
                 freelane_agent_protocol::Outcome::WindowFrame {
@@ -328,6 +367,32 @@ fn request_socket_cancellable(
                     && jpeg_hex.len() <= 56000
                     && jpeg_hex.len() % 2 == 0
                     && jpeg_hex.bytes().all(|b| b.is_ascii_hexdigit())
+            }
+            (
+                Action::WindowInventory { pid },
+                freelane_agent_protocol::Outcome::Windows { windows },
+            ) => {
+                windows.len() <= 16
+                    && windows.iter().all(|w| {
+                        w.target.pid == *pid
+                            && w.target.handle > 0
+                            && w.target.created > 0
+                            && w.target.incarnation > 0
+                            && w.title.len() <= 2048
+                    })
+            }
+            (
+                Action::FindAppWindows { .. },
+                freelane_agent_protocol::Outcome::Windows { windows },
+            ) => {
+                windows.len() <= 16
+                    && windows.iter().all(|w| {
+                        w.target.pid > 0
+                            && w.target.handle > 0
+                            && w.target.created > 0
+                            && w.target.incarnation > 0
+                            && w.title.len() <= 2048
+                    })
             }
             (Action::Windows { pid }, freelane_agent_protocol::Outcome::Windows { windows }) => {
                 windows.len() <= 128

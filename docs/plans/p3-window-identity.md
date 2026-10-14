@@ -1,0 +1,9 @@
+# P3 window identity and reattach foundation
+
+Protocol v9 adds `window_inventory` and exact process-image `find_app_windows`. Existing v1 launch and v2 window clients remain compatible. New v9 capture/input requires a nonzero incarnation. Windows assigns a random token to a private window property and its agent-owned map; USER32 removes properties when the HWND is destroyed. Missing/replaced properties, agent restart, inaccessible windows and exhausted identity capacity fail closed. The map is capped at512 and inventories at16. This is an operation-time observation, not an atomic lock over native window destruction/input races. Legacy v2 targets retain their existing process-time identity checks.
+
+App profiles with **no arguments** first find an existing visible window with the exact guest process image path. If found, attach without launch. Otherwise send launch once and look for the matching executable, including a delegate using a different PID. Multiple matching processes select the first visible process and retain only its windows. Paths/aliases or delegates using a different executable image remain unsupported. Profiles with arguments launch once and track the launched PID; arguments are never silently dropped by attaching to an existing unrelated instance.
+
+Viewer refresh and CLI `app-windows` negotiate v9; older agents use v2. Old/nonzero incarnation targets are refused if their observed property/map identity changed. No focus bypass, ShellExecute or launch retry is added.
+
+Tests: protocol gating/legacy serialization; controlled host inventory validation; exact no-launch reattach versus literal-argument single launch; Windows CI creates an owned visible STATIC window, removes its property, verifies input refusal, refreshes identity and finds the actual process image. Native Windows ARM guest and Mac/Dock acceptance remain separate. This foundation does not implement full Coherence, video, Ctrl shortcuts, drag/resize or icons.
