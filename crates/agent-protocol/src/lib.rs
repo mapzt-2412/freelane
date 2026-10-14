@@ -8,6 +8,7 @@ pub const WINDOW_VERSION: u16 = 2;
 /// Read-only extensible capability discovery; existing mutation protocols stay unchanged.
 pub const CAPABILITY_VERSION: u16 = 3;
 pub const CLIPBOARD_VERSION: u16 = 4;
+pub const TRANSFER_VERSION: u16 = 5;
 pub const MAX_CLIPBOARD_TEXT: usize = 8192;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +21,9 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    Transfer {
+        operation: TransferAction,
+    },
     ClipboardGet,
     ClipboardSet {
         source: String,
@@ -50,6 +54,62 @@ pub enum Action {
         executable: String,
         arguments: Vec<String>,
     },
+}
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TransferAction {
+    Open {
+        token: String,
+    },
+    Begin {
+        name: String,
+        size: u64,
+        sha256: String,
+    },
+    Chunk {
+        token: String,
+        offset: u64,
+        data_hex: String,
+    },
+    Finish {
+        token: String,
+    },
+    Cancel {
+        token: String,
+    },
+}
+impl TransferAction {
+    pub fn validate(&self) -> io::Result<()> {
+        let hex = |s: &str, len: usize| s.len() == len && s.bytes().all(|b| b.is_ascii_hexdigit());
+        match self {
+            Self::Begin { name, size, sha256 }
+                if name.is_empty()
+                    || name.len() > 240
+                    || name.chars().any(char::is_control)
+                    || *size > 64 * 1024 * 1024 * 1024
+                    || !hex(sha256, 64) =>
+            {
+                return Err(invalid("Invalid transfer metadata"))
+            }
+            Self::Chunk {
+                token, data_hex, ..
+            } if !hex(token, 32)
+                || data_hex.is_empty()
+                || data_hex.len() > 32768
+                || data_hex.len() % 2 != 0
+                || !data_hex.bytes().all(|b| b.is_ascii_hexdigit()) =>
+            {
+                return Err(invalid("Invalid transfer chunk"))
+            }
+            Self::Finish { token } | Self::Cancel { token } | Self::Open { token }
+                if !hex(token, 32) =>
+            {
+                return Err(invalid("Invalid transfer identity"))
+            }
+            _ => {}
+        }
+        Ok(())
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -155,6 +215,15 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    TransferReady {
+        token: String,
+    },
+    TransferProgress {
+        received: u64,
+    },
+    TransferComplete,
+    DocumentOpened,
+    TransferCanceled,
     Clipboard {
         snapshot: ClipboardSnapshot,
     },
@@ -196,6 +265,7 @@ impl Request {
             WINDOW_VERSION,
             CAPABILITY_VERSION,
             CLIPBOARD_VERSION,
+            TRANSFER_VERSION,
         ]
         .contains(&self.version)
         {
@@ -206,6 +276,15 @@ impl Request {
         }
         if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
             return Err(invalid("Protocol v3 is read-only capability discovery"));
+        }
+        if let Action::Transfer { operation } = &self.action {
+            if self.version != TRANSFER_VERSION {
+                return Err(invalid("Transfers require protocol v5"));
+            }
+            return operation.validate();
+        }
+        if self.version == TRANSFER_VERSION {
+            return Err(invalid("Protocol v5 only supports file transfer"));
         }
         let clipboard = matches!(
             self.action,

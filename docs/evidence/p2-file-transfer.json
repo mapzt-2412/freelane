@@ -1,0 +1,21 @@
+{
+  "native_agent": true,
+  "host_cli": true,
+  "bytes": 3145728,
+  "sha256_match": true,
+  "unicode_filename": true,
+  "conflict_preserved": true,
+  "cancel_clean": true,
+  "vm_boot": false,
+  "date": "2026-10-14",
+  "workspace_tests_passed": 136,
+  "workspace_tests_ignored": 8,
+  "clippy": "passed",
+  "review_important_fixed": [
+    "exact validated file handle publication",
+    "fixed text editor, no file associations"
+  ],
+  "windows_native_storage": "pending CI",
+  "native_mac_guest": "deferred",
+  "document_runtime": "not accepted on a real interactive guest"
+}

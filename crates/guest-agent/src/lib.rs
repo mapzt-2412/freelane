@@ -1,4 +1,6 @@
 //! Execute only in the guest's interactive user session. Never install as a privileged host service.
+mod documents;
+pub mod transfer;
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
 use std::io::{self, BufRead, Write};
 #[cfg(any(windows, target_os = "linux"))]
@@ -6,6 +8,18 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn open_document(&mut self, _: &std::path::Path) -> io::Result<()> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+    fn transfer_support(&self) -> bool {
+        false
+    }
+    fn transfer_action(
+        &mut self,
+        _: &freelane_agent_protocol::TransferAction,
+    ) -> io::Result<Outcome> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
     fn clipboard_support(&self) -> bool {
         false
     }
@@ -37,6 +51,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     name: "launch".into(),
                     protocol: VERSION,
                 }];
+                if launcher.transfer_support() {
+                    features.push(freelane_agent_protocol::Feature {
+                        name: "file_transfer".into(),
+                        protocol: freelane_agent_protocol::TRANSFER_VERSION,
+                    });
+                }
                 if launcher.window_support() {
                     features.push(freelane_agent_protocol::Feature {
                         name: "window_snapshots".into(),
@@ -65,6 +85,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                         } else {
                             None
                         })
+                        .chain(
+                            launcher
+                                .transfer_support()
+                                .then_some(freelane_agent_protocol::TRANSFER_VERSION),
+                        )
                         .collect(),
                         features,
                         max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -80,6 +105,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                 os: std::env::consts::OS.into(),
                 arch: std::env::consts::ARCH.into(),
             },
+            Action::Transfer { ref operation } => launcher
+                .transfer_action(operation)
+                .unwrap_or_else(|_| Outcome::Failed {
+                    message: "File transfer unavailable or refused".into(),
+                }),
             Action::Launch {
                 executable,
                 arguments,
@@ -106,6 +136,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::WINDOW_VERSION,
             freelane_agent_protocol::CAPABILITY_VERSION,
             freelane_agent_protocol::CLIPBOARD_VERSION,
+            freelane_agent_protocol::TRANSFER_VERSION,
         ]
         .contains(&request.version)
         {
@@ -135,6 +166,9 @@ pub fn serve(
 pub struct WindowsLauncher;
 #[cfg(windows)]
 impl Launcher for WindowsLauncher {
+    fn open_document(&mut self, p: &std::path::Path) -> io::Result<()> {
+        documents::open(p)
+    }
     fn clipboard_support(&self) -> bool {
         clipboard::available()
     }
@@ -180,6 +214,9 @@ impl Launcher for WindowsLauncher {
 pub struct LinuxLauncher;
 #[cfg(target_os = "linux")]
 impl Launcher for LinuxLauncher {
+    fn open_document(&mut self, p: &std::path::Path) -> io::Result<()> {
+        documents::open(p)
+    }
     fn clipboard_support(&self) -> bool {
         clipboard::available()
     }
@@ -357,5 +394,126 @@ mod discovery_tests {
             &mut launcher,
         );
         assert!(matches!(response.outcome, Outcome::Failed { .. }));
+    }
+}
+
+/// Explicitly configured inbox; transfer state belongs to this agent session.
+pub struct TransferLauncher<L> {
+    inner: L,
+    root: Option<cap_std::fs::Dir>,
+    completed: Option<(String, String, u64, String)>,
+    active: Option<(String, transfer::Transfer, std::time::Instant)>,
+}
+impl<L> TransferLauncher<L> {
+    pub fn new(inner: L, root: Option<&std::path::Path>) -> io::Result<Self> {
+        Ok(Self {
+            inner,
+            root: root
+                .map(|p| cap_std::fs::Dir::open_ambient_dir(p, cap_std::ambient_authority()))
+                .transpose()?,
+            active: None,
+            completed: None,
+        })
+    }
+    pub fn disconnect(&mut self) {
+        self.active = None;
+        self.completed = None;
+    }
+}
+impl<L: Launcher> Launcher for TransferLauncher<L> {
+    fn launch(&mut self, e: &str, a: &[String]) -> io::Result<u32> {
+        self.inner.launch(e, a)
+    }
+    fn window_support(&self) -> bool {
+        self.inner.window_support()
+    }
+    fn window_action(&mut self, a: &Action) -> io::Result<Outcome> {
+        self.inner.window_action(a)
+    }
+    fn clipboard_support(&self) -> bool {
+        self.inner.clipboard_support()
+    }
+    fn clipboard_action(&mut self, a: &Action) -> io::Result<Outcome> {
+        self.inner.clipboard_action(a)
+    }
+    fn transfer_support(&self) -> bool {
+        self.root.is_some()
+    }
+    fn transfer_action(
+        &mut self,
+        a: &freelane_agent_protocol::TransferAction,
+    ) -> io::Result<Outcome> {
+        use freelane_agent_protocol::TransferAction as T;
+        a.validate()?;
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|(_, _, time)| time.elapsed() > std::time::Duration::from_secs(300))
+        {
+            self.active = None;
+        }
+        let root = self.root.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        if let T::Open { token } = a {
+            let (id, name, size, hash) = self.completed.as_ref().ok_or(io::ErrorKind::NotFound)?;
+            if id != token {
+                return Err(io::ErrorKind::NotFound.into());
+            }
+            let file = root.open(name)?.into_std();
+            let path = documents::verified_path(file, name, *size, hash)?;
+            self.inner.open_document(&path)?;
+            return Ok(Outcome::DocumentOpened);
+        }
+        if let T::Begin { name, size, sha256 } = a {
+            if self.active.is_some() {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            let mut random = [0; 16];
+            getrandom::fill(&mut random).map_err(|_| io::ErrorKind::Other)?;
+            let token: String = random.iter().map(|b| format!("{b:02x}")).collect();
+            self.active = Some((
+                token.clone(),
+                transfer::Transfer::begin_dir(root.try_clone()?, name, *size, sha256)?,
+                std::time::Instant::now(),
+            ));
+            return Ok(Outcome::TransferReady { token });
+        }
+        let token = match a {
+            T::Chunk { token, .. } | T::Finish { token } | T::Cancel { token } => token,
+            _ => unreachable!(),
+        };
+        if !self.active.as_ref().is_some_and(|(id, _, _)| id == token) {
+            return Err(io::ErrorKind::NotFound.into());
+        }
+        match a {
+            T::Chunk {
+                offset, data_hex, ..
+            } => {
+                let data: Vec<u8> = data_hex
+                    .as_bytes()
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|b| u8::from_str_radix(std::str::from_utf8(b).unwrap(), 16).unwrap())
+                    .collect();
+                let (_, t, time) = self.active.as_mut().unwrap();
+                t.write(*offset, &data)?;
+                *time = std::time::Instant::now();
+                Ok(Outcome::TransferProgress {
+                    received: t.received(),
+                })
+            }
+            T::Finish { .. } => {
+                let (token, t, _) = self.active.take().unwrap();
+                let (name, size, hash) = t.receipt();
+                t.finish()?;
+                self.completed = Some((token, name, size, hash));
+                Ok(Outcome::TransferComplete)
+            }
+            T::Cancel { .. } => {
+                self.active = None;
+                Ok(Outcome::TransferCanceled)
+            }
+            _ => unreachable!(),
+        }
     }
 }

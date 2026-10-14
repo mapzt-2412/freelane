@@ -6,6 +6,7 @@ mod interface;
 mod mobile_ui;
 mod settings_io;
 mod setup;
+mod transfer_ui;
 mod wizard;
 use eframe::egui;
 use freelane::{agent, qemu, Config, GuestOs};
@@ -35,6 +36,7 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    TransferDone(String),
     Clipboard(clipboard_ui::Session, String),
     ClipboardFailed(String),
     Loaded(VmInfo, Option<String>),
@@ -58,6 +60,10 @@ type WorkResult = Result<Event, String>;
 
 #[derive(Default)]
 struct Desktop {
+    transfer_open_document: bool,
+    transfer_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
+    transfer_progress: Option<mpsc::Receiver<(u64, u64)>>,
+    transfer_status: Option<(u64, u64)>,
     wizard: wizard::Wizard,
     clipboard_enabled: bool,
     clipboard_permission: Option<Arc<std::sync::atomic::AtomicBool>>,
@@ -465,6 +471,11 @@ impl Desktop {
                 self.setup_status = Some(message);
             }
         }
+        if let Some(rx) = &self.transfer_progress {
+            while let Ok(progress) = rx.try_recv() {
+                self.transfer_status = Some(progress);
+            }
+        }
         self.poll_mobile(ctx);
         if let Some(receiver) = &self.creation_progress {
             while let Ok(stage) = receiver.try_recv() {
@@ -478,6 +489,12 @@ impl Desktop {
                     self.creation_progress = None;
                     self.creation_stage = None;
                     match result {
+                        Ok(Event::TransferDone(message)) => {
+                            self.transfer_cancel = None;
+                            self.transfer_progress = None;
+                            self.transfer_status = None;
+                            self.notice = message;
+                        }
                         Ok(Event::ClipboardFailed(message)) => self.notice = message,
                         Ok(Event::Clipboard(session, message)) => {
                             self.clipboard_session = Some(session);
@@ -726,6 +743,9 @@ impl Desktop {
 }
 impl eframe::App for Desktop {
     fn on_exit(&mut self, _: Option<&eframe::glow::Context>) {
+        if let Some(cancel) = &self.transfer_cancel {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
         if let Some(permission) = &self.clipboard_permission {
             permission.store(false, std::sync::atomic::Ordering::Relaxed);
         }

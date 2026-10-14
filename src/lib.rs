@@ -4,6 +4,7 @@ pub mod app_launcher;
 pub mod benchmark;
 pub mod checkpoint;
 pub mod diagnostics;
+pub mod file_transfer;
 pub mod library;
 pub mod mobile;
 pub mod provision;

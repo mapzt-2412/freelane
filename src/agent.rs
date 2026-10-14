@@ -161,7 +161,9 @@ fn request_socket_cancellable(
     }
     if let freelane_agent_protocol::Outcome::Failed { message } = &response.outcome {
         return Err(Error(
-            if version == freelane_agent_protocol::CLIPBOARD_VERSION {
+            if version == freelane_agent_protocol::TRANSFER_VERSION {
+                "Guest file transfer unavailable or refused".into()
+            } else if version == freelane_agent_protocol::CLIPBOARD_VERSION {
                 "Guest clipboard unavailable or refused".into()
             } else {
                 format!("Guest agent: {message}")
@@ -171,6 +173,31 @@ fn request_socket_cancellable(
     let expected = matches!(
         (&request.action, &response.outcome),
         (
+            Action::Transfer {
+                operation: freelane_agent_protocol::TransferAction::Open { .. }
+            },
+            freelane_agent_protocol::Outcome::DocumentOpened
+        ) | (
+            Action::Transfer {
+                operation: freelane_agent_protocol::TransferAction::Begin { .. }
+            },
+            freelane_agent_protocol::Outcome::TransferReady { .. }
+        ) | (
+            Action::Transfer {
+                operation: freelane_agent_protocol::TransferAction::Chunk { .. }
+            },
+            freelane_agent_protocol::Outcome::TransferProgress { .. }
+        ) | (
+            Action::Transfer {
+                operation: freelane_agent_protocol::TransferAction::Finish { .. }
+            },
+            freelane_agent_protocol::Outcome::TransferComplete
+        ) | (
+            Action::Transfer {
+                operation: freelane_agent_protocol::TransferAction::Cancel { .. }
+            },
+            freelane_agent_protocol::Outcome::TransferCanceled
+        ) | (
             Action::ClipboardGet,
             freelane_agent_protocol::Outcome::Clipboard { .. }
         ) | (
@@ -204,6 +231,21 @@ fn request_socket_cancellable(
     );
     let expected = expected
         && match (&request.action, &response.outcome) {
+            (
+                Action::Transfer {
+                    operation: freelane_agent_protocol::TransferAction::Begin { .. },
+                },
+                freelane_agent_protocol::Outcome::TransferReady { token },
+            ) => token.len() == 32 && token.bytes().all(|b| b.is_ascii_hexdigit()),
+            (
+                Action::Transfer {
+                    operation:
+                        freelane_agent_protocol::TransferAction::Chunk {
+                            offset, data_hex, ..
+                        },
+                },
+                freelane_agent_protocol::Outcome::TransferProgress { received },
+            ) => offset.checked_add((data_hex.len() / 2) as u64) == Some(*received),
             (Action::ClipboardGet, freelane_agent_protocol::Outcome::Clipboard { snapshot }) => {
                 snapshot.validate().is_ok()
             }
@@ -279,6 +321,19 @@ pub fn clipboard_request_cancellable(
         config,
         action,
         freelane_agent_protocol::CLIPBOARD_VERSION,
+        cancelled,
+    )
+}
+
+pub fn transfer_request(
+    config: &Path,
+    operation: freelane_agent_protocol::TransferAction,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    request_vm_cancellable(
+        config,
+        Action::Transfer { operation },
+        freelane_agent_protocol::TRANSFER_VERSION,
         cancelled,
     )
 }

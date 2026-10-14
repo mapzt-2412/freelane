@@ -10,6 +10,15 @@ impl Language {
             return english;
         }
         match english {
+            "Open text document after transfer"=>"Mở văn bản sau khi chuyển",
+            "File transferred; document opening unavailable or refused"=>"Đã chuyển file; chưa thể mở tài liệu trong máy ảo",
+            "File transferred; document opening canceled"=>"Đã chuyển file; đã hủy mở tài liệu",
+            "Send file to guest"=>"Gửi file vào máy ảo",
+            "Cancel transfer"=>"Hủy chuyển file",
+            "File transferred and verified"=>"Đã chuyển và xác minh file",
+            "File transfer failed or canceled; existing guest files preserved"=>"Chuyển file thất bại hoặc đã hủy; file cũ trong máy ảo được giữ nguyên",
+            "Enable an inbox with --transfer-root in the updated guest agent"=>"Chọn thư mục nhận bằng --transfer-root khi chạy guest agent mới",
+            "Guest file transfer unavailable or refused"=>"Máy ảo chưa sẵn sàng nhận file hoặc đã từ chối",
             "Clipboard sharing disabled"=>"Đã tắt chia sẻ clipboard",
             "Clipboard sharing disabled; no request sent"=>"Đã tắt chia sẻ clipboard; chưa gửi dữ liệu",
             "Guest clipboard unavailable or refused"=>"Clipboard máy ảo chưa sẵn sàng hoặc đã từ chối",

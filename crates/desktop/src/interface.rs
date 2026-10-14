@@ -513,6 +513,7 @@ impl Desktop {
         match self.view {
             View::Display => {
                 self.clipboard_ui(ui, ctx);
+                self.transfer_ui(ui, ctx);
                 ui.horizontal_wrapped(|ui| {
                     if ui
                         .add_enabled(!busy, egui::Button::new(lang.text("Refresh display")))

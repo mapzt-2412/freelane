@@ -15,6 +15,8 @@ jobs:
         with:
           toolchain: 1.99.0
           targets: aarch64-pc-windows-msvc
+      - name: Verify native Windows transfer storage and document refusal
+        run: cargo test --locked -p freelane-guest-agent --test transfer --test transfer_rpc
       - run: cargo build --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc
       - name: Verify per-user agent lifecycle with a real ARM64 artifact
         shell: pwsh
