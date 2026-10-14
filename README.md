@@ -30,18 +30,18 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 - One setup action: select a Windows ARM64 ISO or Ubuntu Server LTS version; download missing VM tools and Ubuntu media automatically. [Setup guide](docs/setup.md).
 - Desktop VM library, resource cards, settings and Vietnamese/English language selection.
 - Explicit verified file transfer into an opt-in guest inbox, with cancellation/conflict preservation and optional text-document opening. [File transfer](docs/file-transfer.md).
-- Opt-in Unicode text clipboard send/copy with an updated graphical-session guest agent; verified Windows agent install/update/rollback/uninstall. [Clipboard](docs/clipboard.md).
+- Opt-in Unicode text clipboard send/copy and conflict-aware automatic synchronization with an updated graphical-session guest agent; verified Windows agent install/update/rollback/uninstall. [Clipboard](docs/clipboard.md).
 - CPU, RAM, acceleration, network, media, display, guest-agent and USB configuration.
 - Read-only USB folder transfer for Windows/Ubuntu; live read/write 9p sharing for Ubuntu.
 - Ubuntu Virtio GPU **2D** display, with a real ARM Linux scanout test.
 - Mobile device controls, app installation/launch and actual PNG snapshots.
 - CLI and **14 stdio MCP tools** for fixed build/test jobs, registered VM/mobile controls, captures and guest requests.
 
-The desktop displays snapshots, with optional refresh for desktop VMs. Continuous VM video and full keyboard forwarding are pending; use backend native windows for desktop input. The experimental [Windows app viewer](docs/app-windows.md) supports separate snapshot windows, targeted clicks/text/navigation and named Dock launchers with an updated guest agent. Physical USB selectors are implemented but need hardware testing. Windows two-way folder sharing, accelerated 3D/Metal, Apple GPU passthrough, automatic clipboard synchronization and live Coherence-style app integration remain pending.
+The desktop displays snapshots, with optional refresh for desktop VMs. Continuous VM video and full keyboard forwarding are pending; use backend native windows for desktop input. The experimental [Windows app viewer](docs/app-windows.md) supports separate snapshot windows, targeted clicks/text/navigation and named Dock launchers with an updated guest agent. Physical USB selectors are implemented but need hardware testing. Windows two-way folder sharing, accelerated 3D/Metal, Apple GPU passthrough and live Coherence-style app integration remain pending.
 
 ## Download an experimental build
 
-[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.13): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
+[Download the Apple Silicon prerelease](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.14): Mac DMG/ZIP, Windows ARM64 guest-agent ZIP and SHA256 files. Open the DMG and drag FreeLane into Applications. Includes experimental app windows and Dock export; read the release notes before installation.
 
 The [Mac Apple Silicon packaging workflow](https://github.com/puma2k/freelane/actions/workflows/release.yml) produces an experimental `.app` ZIP on a Mac runner. Download the artifact only from a successful run. It needs macOS14+; the VM setup flow downloads missing backends automatically, while mobile runtimes use separate setup; it is ad-hoc signed, not notarized. See [release instructions](docs/release.md). Linux cloud binaries are a separate build and cannot run on Mac.
 

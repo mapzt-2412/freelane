@@ -1,6 +1,6 @@
 # Clipboard văn bản giữa máy chủ và máy ảo
 
-Trong tab **Màn hình**, bật **Chia sẻ clipboard văn bản**, rồi bấm **Gửi clipboard vào máy ảo** hoặc **Lấy clipboard từ máy ảo**. Mặc định tắt; mỗi lần mở VM cần bật lại. Bản mới đã chuẩn bị thêm Tự đồng bộ clipboard văn bản, mặc định tắt và chỉ áp dụng cho VM đang chọn; chưa publish. Ảnh và rich text vẫn để sau.
+Trong tab **Màn hình**, bật **Chia sẻ clipboard văn bản**, rồi bấm **Gửi clipboard vào máy ảo** hoặc **Lấy clipboard từ máy ảo**. Mặc định tắt; mỗi lần mở VM cần bật lại. Có thêm Tự đồng bộ clipboard văn bản, mặc định tắt và chỉ áp dụng cho VM đang chọn. Ảnh và rich text vẫn để sau.
 
 Guest cần agent mới có tính năng `text_clipboard` protocol v4 và phiên người dùng có giao diện. Ubuntu Server không có desktop/X11 thì không có clipboard GUI; dùng thao tác copy/paste bình thường của terminal. Agent Windows được cài/cập nhật bằng [bộ cài có xác minh checksum](agent-lifecycle.md).
 

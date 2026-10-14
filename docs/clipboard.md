@@ -1,6 +1,6 @@
 # Text clipboard between host and guest
 
-Open a VM's **Display** tab, enable **Share text clipboard**, then use **Send clipboard to guest** or **Copy clipboard from guest**. Sharing defaults off and consent resets when a VM is opened. The prepared automatic mode additionally requires Automatically synchronize text, defaults off and is scoped to the selected VM. It is not published yet. Images and rich text remain pending.
+Open a VM's **Display** tab, enable **Share text clipboard**, then use **Send clipboard to guest** or **Copy clipboard from guest**. Sharing defaults off and consent resets when a VM is opened. Automatic mode additionally requires Automatically synchronize text, defaults off and is scoped to the selected VM. Images and rich text remain pending.
 
 The guest needs an updated agent advertising `text_clipboard` with protocol v4 and an interactive graphical user session. Ubuntu Server without an X11/desktop session has no native GUI clipboard; use normal terminal copy/paste there. Install/update the Windows agent using [the verified lifecycle helper](agent-lifecycle.md).
 
