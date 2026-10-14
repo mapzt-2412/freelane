@@ -19,6 +19,7 @@ enum Event {
 }
 type Reply = Result<Event, String>;
 struct Viewer {
+    language: super::Language,
     profile: AppProfile,
     attach_pid: Option<u32>,
     pid: Option<u32>,
@@ -50,7 +51,7 @@ impl Viewer {
         if self.queue.len() < 32 {
             self.queue.push_back(action);
         } else {
-            self.notice = "Hàng đợi nhập đã đầy; thao tác mới chưa gửi.".into();
+            self.notice = "Input queue full; new action was not sent".into();
         }
     }
     fn capture(&mut self, ctx: &egui::Context) {
@@ -87,7 +88,7 @@ impl Viewer {
                 ..
             } = reply.outcome
             else {
-                return Err("Guest không trả khung hình".into());
+                return Err("Guest did not return a window frame".into());
             };
             let bytes: Result<Vec<u8>, _> = jpeg_hex
                 .as_bytes()
@@ -108,7 +109,7 @@ impl Viewer {
             reader.limits(limits);
             let rgb = reader.decode().map_err(|e| e.to_string())?.into_rgb8();
             if rgb.width() != width || rgb.height() != height {
-                return Err("JPEG và kích thước RPC không khớp".into());
+                return Err("JPEG dimensions do not match the response".into());
             }
             Ok(Event::Frame(
                 target,
@@ -124,17 +125,21 @@ impl eframe::App for Viewer {
             self.started = true;
             let p = self.profile.clone();
             let attach_pid = self.attach_pid;
-            self.notice = "Đang chờ Windows và agent, sau đó mở app một lần…".into();
+            self.notice = "Waiting for Windows and agent; launch will be sent once".into();
             self.task(&ctx, move || {
                 let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-                let cli = exe.parent().ok_or("Không tìm thấy CLI")?.join("freelane");
+                let cli = exe.parent().ok_or("CLI not found")?.join("freelane");
                 let (pid, windows) = if let Some(pid) = attach_pid {
                     match agent::window_request(&p.vm, Action::Windows { pid })
                         .map_err(|e| e.to_string())?
                         .outcome
                     {
                         Outcome::Windows { windows } if !windows.is_empty() => (pid, windows),
-                        _ => return Err("PID không có cửa sổ tương tác; không gửi launch".into()),
+                        _ => {
+                            return Err(
+                                "Process has no interactive window; launch was not sent".into()
+                            )
+                        }
                     }
                 } else {
                     app_launcher::open(&p, &cli).map_err(|e| e.to_string())?
@@ -156,7 +161,7 @@ impl eframe::App for Viewer {
                     Ok(Event::Opened(pid, windows)) => {
                         self.pid = Some(pid);
                         self.windows = windows;
-                        self.notice = "App đã mở; đang lấy ảnh cửa sổ thật.".into();
+                        self.notice = "Application opened; capturing window".into();
                         self.next = Instant::now();
                     }
                     Ok(Event::Frame(target, frame)) => {
@@ -170,8 +175,7 @@ impl eframe::App for Viewer {
                             frame,
                             egui::TextureOptions::LINEAR,
                         ));
-                        self.notice =
-                            "Ảnh cửa sổ đã cập nhật. Đây chưa phải video trực tiếp.".into();
+                        self.notice.clear();
                         self.next = Instant::now() + Duration::from_secs(1);
                     }
                     Ok(Event::Windows(windows)) => {
@@ -188,7 +192,7 @@ impl eframe::App for Viewer {
                         self.notice = if self.queue.is_empty() {
                             e
                         } else {
-                            format!("{e}. Đã hủy {} thao tác đang chờ, chưa gửi; kiểm tra app trước khi nhập lại.", self.queue.len())
+                            format!("{e}. Discarded {} unsent actions; inspect the application before retrying", self.queue.len())
                         };
                         self.live = false;
                         self.queue.clear();
@@ -196,6 +200,7 @@ impl eframe::App for Viewer {
                 }
             }
         }
+        let lang = self.language;
         egui::Panel::top("toolbar")
             .frame(
                 egui::Frame::new()
@@ -203,8 +208,28 @@ impl eframe::App for Viewer {
                     .inner_margin(16),
             )
             .show(ui, |ui| {
-                ui.heading(&self.profile.name);
-                ui.small("Cửa sổ Windows riêng · bản thử nghiệm ảnh chụp");
+                ui.horizontal(|ui| {
+                    ui.heading(&self.profile.name);
+                    egui::ComboBox::from_id_salt("viewer-language")
+                        .selected_text(if self.language == super::Language::English {
+                            "English"
+                        } else {
+                            "Tiếng Việt"
+                        })
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.language,
+                                super::Language::English,
+                                "English",
+                            );
+                            ui.selectable_value(
+                                &mut self.language,
+                                super::Language::Vietnamese,
+                                "Tiếng Việt",
+                            );
+                        });
+                });
+                ui.small(lang.text("Windows app viewer"));
                 ui.horizontal_wrapped(|ui| {
                     let old = self.selected;
                     egui::ComboBox::from_id_salt("guest-window")
@@ -212,7 +237,7 @@ impl eframe::App for Viewer {
                             self.windows
                                 .get(self.selected)
                                 .map(|w| w.title.as_str())
-                                .unwrap_or("Chưa có cửa sổ"),
+                                .unwrap_or(lang.text("No windows")),
                         )
                         .show_ui(ui, |ui| {
                             for (index, window) in self.windows.iter().enumerate() {
@@ -224,11 +249,11 @@ impl eframe::App for Viewer {
                         self.queue.clear();
                         self.next = Instant::now();
                     }
-                    ui.checkbox(&mut self.live, "Cập nhật mỗi giây");
+                    ui.checkbox(&mut self.live, lang.text("Refresh every second"));
                     if ui
                         .add_enabled(
                             self.worker.is_none() && self.target().is_some(),
-                            egui::Button::new("Chụp lại"),
+                            egui::Button::new(lang.text("Refresh frame")),
                         )
                         .clicked()
                     {
@@ -237,7 +262,7 @@ impl eframe::App for Viewer {
                     if ui
                         .add_enabled(
                             self.worker.is_none() && self.pid.is_some(),
-                            egui::Button::new("Danh sách cửa sổ"),
+                            egui::Button::new(lang.text("Refresh windows")),
                         )
                         .clicked()
                     {
@@ -249,7 +274,7 @@ impl eframe::App for Viewer {
                                 .outcome
                             {
                                 Outcome::Windows { windows } => Ok(Event::Windows(windows)),
-                                _ => Err("Phản hồi cửa sổ không hợp lệ".into()),
+                                _ => Err("Invalid window response".into()),
                             }
                         });
                     }
@@ -257,12 +282,12 @@ impl eframe::App for Viewer {
                 ui.horizontal(|ui| {
                     ui.add(
                         egui::TextEdit::singleline(&mut self.text)
-                            .hint_text("Văn bản gửi tới ô đang focus trong app Windows"),
+                            .hint_text(lang.text("Text for focused guest control")),
                     );
                     if ui
                         .add_enabled(
                             self.target().is_some() && !self.text.is_empty(),
-                            egui::Button::new("Gửi chữ"),
+                            egui::Button::new(lang.text("Send text")),
                         )
                         .clicked()
                     {
@@ -273,29 +298,82 @@ impl eframe::App for Viewer {
                                 text,
                             });
                         } else {
-                            self.notice = "Giới hạn 1024 byte mỗi lần gửi.".into();
+                            self.notice = "Text is limited to 1024 bytes per request".into();
                         }
                     }
                 });
                 if self.worker.is_some() {
                     ui.spinner();
                 }
-                ui.label(&self.notice);
+                ui.label(lang.message(&self.notice));
             });
-        egui::CentralPanel::default().show(ui,|ui|{
-   if let Some(texture)=&self.texture {
-    let response=ui.add(egui::Image::new(texture).max_size(ui.available_size()).sense(egui::Sense::click()));
-    if response.clicked(){response.request_focus();if let(Some(pos),Some(target))=(response.interact_pointer_pos(),self.target()){let rect=response.rect;let x=((pos.x-rect.left())/rect.width()*32767.0).clamp(0.0,32767.0) as u16;let y=((pos.y-rect.top())/rect.height()*32767.0).clamp(0.0,32767.0) as u16;self.enqueue(Action::WindowClick{target,x,y});}}
-    if response.has_focus(){for event in ctx.input(|i|i.events.clone()) {match event {
-     egui::Event::Text(text) if text.len()<=1024=>{if let Some(target)=self.target(){self.enqueue(Action::WindowText{target,text});}},
-     egui::Event::Key{key,pressed:true,modifiers,..} if !modifiers.ctrl && !modifiers.command && !modifiers.alt=>{
-      let code=match key{egui::Key::Backspace=>8,egui::Key::Tab=>9,egui::Key::Enter=>13,egui::Key::Escape=>27,egui::Key::PageUp=>33,egui::Key::PageDown=>34,egui::Key::End=>35,egui::Key::Home=>36,egui::Key::ArrowLeft=>37,egui::Key::ArrowUp=>38,egui::Key::ArrowRight=>39,egui::Key::ArrowDown=>40,egui::Key::Delete=>46,_=>0};
-      if code!=0 {if let Some(target)=self.target(){self.enqueue(Action::WindowKey{target,key:code});}}
-     },_=>{}
-    }}}
-   }else{ui.label("Chưa có ảnh cửa sổ. Windows cần agent mới chạy trong phiên người dùng tương tác.");}
-   ui.small("Đóng cửa sổ Mac chỉ đóng viewer; app Windows và VM vẫn chạy. Menu mở app trong guest, UAC và app dùng GPU có thể cần màn hình VM.");
-  });
+        egui::CentralPanel::default().show(ui, |ui| {
+            if let Some(texture) = &self.texture {
+                let response = ui.add(
+                    egui::Image::new(texture)
+                        .max_size(ui.available_size())
+                        .sense(egui::Sense::click()),
+                );
+                if response.clicked() {
+                    response.request_focus();
+                    if let (Some(pos), Some(target)) =
+                        (response.interact_pointer_pos(), self.target())
+                    {
+                        let rect = response.rect;
+                        let x = ((pos.x - rect.left()) / rect.width() * 32767.0).clamp(0.0, 32767.0)
+                            as u16;
+                        let y = ((pos.y - rect.top()) / rect.height() * 32767.0).clamp(0.0, 32767.0)
+                            as u16;
+                        self.enqueue(Action::WindowClick { target, x, y });
+                    }
+                }
+                if response.has_focus() {
+                    for event in ctx.input(|i| i.events.clone()) {
+                        match event {
+                            egui::Event::Text(text) if text.len() <= 1024 => {
+                                if let Some(target) = self.target() {
+                                    self.enqueue(Action::WindowText { target, text });
+                                }
+                            }
+                            egui::Event::Key {
+                                key,
+                                pressed: true,
+                                modifiers,
+                                ..
+                            } if !modifiers.ctrl && !modifiers.command && !modifiers.alt => {
+                                let code = match key {
+                                    egui::Key::Backspace => 8,
+                                    egui::Key::Tab => 9,
+                                    egui::Key::Enter => 13,
+                                    egui::Key::Escape => 27,
+                                    egui::Key::PageUp => 33,
+                                    egui::Key::PageDown => 34,
+                                    egui::Key::End => 35,
+                                    egui::Key::Home => 36,
+                                    egui::Key::ArrowLeft => 37,
+                                    egui::Key::ArrowUp => 38,
+                                    egui::Key::ArrowRight => 39,
+                                    egui::Key::ArrowDown => 40,
+                                    egui::Key::Delete => 46,
+                                    _ => 0,
+                                };
+                                if code != 0 {
+                                    if let Some(target) = self.target() {
+                                        self.enqueue(Action::WindowKey { target, key: code });
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            } else {
+                ui.label(
+                    lang.text("No window frame; run the updated agent in the Windows user session"),
+                );
+            }
+            ui.small(lang.text("Closing this viewer keeps the guest application and VM running"));
+        });
         if self.worker.is_none() {
             if let Some(action) = self.queue.pop_front() {
                 let vm = self.profile.vm.clone();
@@ -310,7 +388,7 @@ impl eframe::App for Viewer {
         ctx.request_repaint_after(Duration::from_millis(250));
     }
 }
-pub fn run(path: &Path, attach_pid: Option<u32>) -> eframe::Result {
+pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> eframe::Result {
     let profile = match AppProfile::load(path) {
         Ok(p) => p,
         Err(e) => {
@@ -330,6 +408,7 @@ pub fn run(path: &Path, attach_pid: Option<u32>) -> eframe::Result {
         Box::new(move |creation| {
             super::interface::install_style(&creation.egui_ctx);
             Ok(Box::new(Viewer {
+                language,
                 profile,
                 attach_pid,
                 pid: None,

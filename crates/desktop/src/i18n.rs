@@ -10,6 +10,25 @@ impl Language {
             return english;
         }
         match english {
+            "Input queue full; new action was not sent"=>"Hàng đợi nhập đã đầy; thao tác mới chưa gửi.",
+            "Guest did not return a window frame"=>"Guest không trả khung hình",
+            "JPEG dimensions do not match the response"=>"JPEG và kích thước RPC không khớp",
+            "Waiting for Windows and agent; launch will be sent once"=>"Đang chờ Windows và agent, sau đó mở app một lần…",
+            "CLI not found"=>"Không tìm thấy CLI",
+            "Process has no interactive window; launch was not sent"=>"PID không có cửa sổ tương tác; không gửi launch",
+            "Application opened; capturing window"=>"App đã mở; đang lấy ảnh cửa sổ thật.",
+            "Windows app viewer"=>"Cửa sổ ứng dụng Windows",
+            "No windows"=>"Chưa có cửa sổ",
+            "Refresh every second"=>"Cập nhật mỗi giây",
+            "Refresh frame"=>"Chụp lại",
+            "Refresh windows"=>"Danh sách cửa sổ",
+            "Invalid window response"=>"Phản hồi cửa sổ không hợp lệ",
+            "Text for focused guest control"=>"Nhập chữ vào app Windows",
+            "Send text"=>"Gửi chữ",
+            "Text is limited to 1024 bytes per request"=>"Giới hạn 1024 byte mỗi lần gửi.",
+            "No window frame; run the updated agent in the Windows user session"=>"Chưa có ảnh cửa sổ. Windows cần agent mới chạy trong phiên người dùng tương tác.",
+            "Closing this viewer keeps the guest application and VM running"=>"Đóng viewer vẫn giữ app và VM chạy.",
+
             "Backup name"=>"Tên bản sao lưu",
             "Backups"=>"Sao lưu",
             "Snapshots and backups"=>"Snapshot và sao lưu",

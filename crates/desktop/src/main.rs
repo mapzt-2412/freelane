@@ -157,6 +157,11 @@ impl Desktop {
             boot_timeout_seconds: 600,
         };
         let output = PathBuf::from(self.app_profile_output.trim());
+        let language = if self.language == Language::English {
+            "en"
+        } else {
+            "vi"
+        };
         self.work(ctx, move || {
             profile.save(&output).map_err(|e| e.to_string())?;
             if open {
@@ -165,6 +170,8 @@ impl Desktop {
                     .args([
                         "--app",
                         output.to_str().ok_or("Profile path must be UTF-8")?,
+                        "--lang",
+                        language,
                     ])
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
@@ -868,7 +875,19 @@ impl eframe::App for Desktop {
     }
 }
 fn main() -> eframe::Result {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let mut app_language = Language::Vietnamese;
+    if let Some(index) = args.iter().position(|a| a == "--lang") {
+        app_language = match args.get(index + 1).map(String::as_str) {
+            Some("en") => Language::English,
+            Some("vi") => Language::Vietnamese,
+            _ => {
+                eprintln!("Use --lang vi or --lang en");
+                std::process::exit(2);
+            }
+        };
+        args.drain(index..index + 2);
+    }
     if let [flag, path, attach, pid] = args.as_slice() {
         if flag == "--app" && attach == "--pid" {
             let pid = match pid.parse::<u32>() {
@@ -878,12 +897,12 @@ fn main() -> eframe::Result {
                     std::process::exit(2);
                 }
             };
-            return app_ui::run(Path::new(path), Some(pid));
+            return app_ui::run(Path::new(path), Some(pid), app_language);
         }
     }
     if let [flag, path] = args.as_slice() {
         if flag == "--app" {
-            return app_ui::run(Path::new(path), None);
+            return app_ui::run(Path::new(path), None, app_language);
         }
     }
     if args.is_empty() {
@@ -891,7 +910,7 @@ fn main() -> eframe::Result {
             if let Some(contents) = exe.parent().and_then(|p| p.parent()) {
                 let profile = contents.join("Resources/app.toml");
                 if profile.is_file() {
-                    return app_ui::run(&profile, None);
+                    return app_ui::run(&profile, None, app_language);
                 }
             }
         }
