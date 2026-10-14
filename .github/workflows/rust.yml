@@ -35,6 +35,9 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends xvfb xauth
           xvfb-run -a -s '-screen 0 1280x900x24 -nolisten tcp' cargo test --locked -p freelane-guest-agent --test clipboard_native -- --ignored
+      - name: Verify automatic clipboard on two owned authenticated displays
+        if: runner.os == 'Linux'
+        run: python3 tests/clipboard_auto_native.py
   arm-emulation:
     runs-on: ubuntu-latest
     container: debian:trixie-slim

@@ -163,7 +163,9 @@ fn request_socket_cancellable(
         return Err(Error(
             if version == freelane_agent_protocol::TRANSFER_VERSION {
                 "Guest file transfer unavailable or refused".into()
-            } else if version == freelane_agent_protocol::CLIPBOARD_VERSION {
+            } else if version == freelane_agent_protocol::CLIPBOARD_VERSION
+                || version == freelane_agent_protocol::CLIPBOARD_SYNC_VERSION
+            {
                 "Guest clipboard unavailable or refused".into()
             } else {
                 format!("Guest agent: {message}")
@@ -173,6 +175,13 @@ fn request_socket_cancellable(
     let expected = matches!(
         (&request.action, &response.outcome),
         (
+            Action::ClipboardSyncGet,
+            freelane_agent_protocol::Outcome::ClipboardSync { .. }
+        ) | (
+            Action::ClipboardSyncSet { .. },
+            freelane_agent_protocol::Outcome::ClipboardAccepted { .. }
+                | freelane_agent_protocol::Outcome::ClipboardConflict
+        ) | (
             Action::Transfer {
                 operation: freelane_agent_protocol::TransferAction::Open { .. }
             },
@@ -246,6 +255,18 @@ fn request_socket_cancellable(
                 },
                 freelane_agent_protocol::Outcome::TransferProgress { received },
             ) => offset.checked_add((data_hex.len() / 2) as u64) == Some(*received),
+            (
+                Action::ClipboardSyncGet,
+                freelane_agent_protocol::Outcome::ClipboardSync { instance, snapshot },
+            ) => {
+                instance.len() == 32
+                    && instance.bytes().all(|b| b.is_ascii_hexdigit())
+                    && snapshot.validate().is_ok()
+            }
+            (
+                Action::ClipboardSyncSet { update, .. },
+                freelane_agent_protocol::Outcome::ClipboardAccepted { source, sequence },
+            ) => source == &update.source && sequence == &update.sequence,
             (Action::ClipboardGet, freelane_agent_protocol::Outcome::Clipboard { snapshot }) => {
                 snapshot.validate().is_ok()
             }
@@ -334,6 +355,25 @@ pub fn transfer_request(
         config,
         Action::Transfer { operation },
         freelane_agent_protocol::TRANSFER_VERSION,
+        cancelled,
+    )
+}
+
+pub fn clipboard_sync_request(
+    config: &Path,
+    action: Action,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    if !matches!(
+        action,
+        Action::ClipboardSyncGet | Action::ClipboardSyncSet { .. }
+    ) {
+        return Err(Error("Invalid clipboard sync action".into()));
+    }
+    request_vm_cancellable(
+        config,
+        action,
+        freelane_agent_protocol::CLIPBOARD_SYNC_VERSION,
         cancelled,
     )
 }

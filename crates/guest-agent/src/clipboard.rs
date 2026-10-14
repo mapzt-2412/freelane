@@ -55,6 +55,20 @@ pub fn handle(action: &Action) -> io::Result<Outcome> {
         .as_mut()
         .ok_or_else(|| io::Error::other("Clipboard state unavailable"))?;
     match action {
+        Action::ClipboardSyncGet => Ok(Outcome::ClipboardSync {
+            instance: machine.source().into(),
+            snapshot: machine.read()?,
+        }),
+        Action::ClipboardSyncSet { expected, update } => {
+            if machine.accept_if_unchanged(expected, update.clone())? {
+                Ok(Outcome::ClipboardAccepted {
+                    source: update.source.clone(),
+                    sequence: update.sequence,
+                })
+            } else {
+                Ok(Outcome::ClipboardConflict)
+            }
+        }
         Action::ClipboardGet => Ok(Outcome::Clipboard {
             snapshot: machine.read()?,
         }),

@@ -36,6 +36,12 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    ClipboardAuto(
+        clipboard_ui::Session,
+        freelane_agent_protocol::clipboard_sync::SyncState,
+        Arc<std::sync::atomic::AtomicBool>,
+        Result<freelane_agent_protocol::clipboard_sync::Decision, String>,
+    ),
     TransferDone(String),
     Clipboard(clipboard_ui::Session, String),
     ClipboardFailed(String),
@@ -65,6 +71,12 @@ struct Desktop {
     transfer_progress: Option<mpsc::Receiver<(u64, u64)>>,
     transfer_status: Option<(u64, u64)>,
     wizard: wizard::Wizard,
+    clipboard_auto_enabled: bool,
+    clipboard_auto_paused: bool,
+    clipboard_auto_checked: bool,
+    clipboard_auto_permission: Option<Arc<std::sync::atomic::AtomicBool>>,
+    clipboard_auto_policy: freelane_agent_protocol::clipboard_sync::SyncState,
+    clipboard_auto_at: Option<Instant>,
     clipboard_enabled: bool,
     clipboard_permission: Option<Arc<std::sync::atomic::AtomicBool>>,
     clipboard_session: Option<clipboard_ui::Session>,
@@ -495,8 +507,34 @@ impl Desktop {
                             self.transfer_status = None;
                             self.notice = message;
                         }
+                        Ok(Event::ClipboardAuto(session, policy, permission, result)) => {
+                            self.clipboard_session = Some(session);
+                            if self
+                                .clipboard_auto_permission
+                                .as_ref()
+                                .is_some_and(|current| Arc::ptr_eq(current, &permission))
+                                && permission.load(std::sync::atomic::Ordering::Relaxed)
+                            {
+                                self.clipboard_auto_policy = policy;
+                                self.clipboard_auto_checked = true;
+                                use freelane_agent_protocol::clipboard_sync::Decision;
+                                match result {
+                                    Ok(Decision::Conflict) => {
+                                        self.clipboard_auto_paused = true;
+                                        self.notice="Both clipboards changed. Choose Send or Copy to continue".into();
+                                    }
+                                    Ok(Decision::Restarted) | Err(_) => {
+                                        self.stop_clipboard_auto();
+                                        self.notice="Clipboard synchronization stopped. Enable it again after reconnecting".into();
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                         Ok(Event::ClipboardFailed(message)) => self.notice = message,
                         Ok(Event::Clipboard(session, message)) => {
+                            self.clipboard_auto_policy = Default::default();
+                            self.clipboard_auto_paused = false;
                             self.clipboard_session = Some(session);
                             self.notice = message;
                         }
@@ -575,6 +613,7 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.stop_clipboard_auto();
                             self.clipboard_enabled = false;
                             if let Some(permission) = &self.clipboard_permission {
                                 permission.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -743,6 +782,7 @@ impl Desktop {
 }
 impl eframe::App for Desktop {
     fn on_exit(&mut self, _: Option<&eframe::glow::Context>) {
+        self.stop_clipboard_auto();
         if let Some(cancel) = &self.transfer_cancel {
             cancel.store(true, std::sync::atomic::Ordering::Relaxed);
         }
@@ -756,6 +796,7 @@ impl eframe::App for Desktop {
     fn ui(&mut self, ui: &mut egui::Ui, _: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.receive(&ctx);
+        self.poll_clipboard_auto(&ctx);
         self.draw(ui, &ctx);
         self.mobile_ui(&ctx);
         self.wizard_ui(&ctx);

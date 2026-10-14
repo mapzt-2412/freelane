@@ -10,6 +10,10 @@ impl Language {
             return english;
         }
         match english {
+            "Clipboard conflict. Choose Send or Copy"=>"Clipboard khác nhau. Chọn Gửi hoặc Lấy",
+            "Automatically synchronize text"=>"Tự đồng bộ clipboard văn bản",
+            "Both clipboards changed. Choose Send or Copy to continue"=>"Clipboard hai bên đã thay đổi. Chọn Gửi hoặc Lấy để tiếp tục",
+            "Clipboard synchronization stopped. Enable it again after reconnecting"=>"Đã dừng đồng bộ clipboard. Bật lại sau khi kết nối được khôi phục",
             "Open text document after transfer"=>"Mở văn bản sau khi chuyển",
             "File transferred; document opening unavailable or refused"=>"Đã chuyển file; chưa thể mở tài liệu trong máy ảo",
             "File transferred; document opening canceled"=>"Đã chuyển file; đã hủy mở tài liệu",

@@ -51,6 +51,20 @@ impl<B: Backend> Machine<B> {
         self.last = Some(snapshot);
         Ok(())
     }
+    /// Refuse changes observed since polling. Native APIs cannot lock out all other apps.
+    pub fn accept_if_unchanged(
+        &mut self,
+        expected: &ClipboardSnapshot,
+        snapshot: ClipboardSnapshot,
+    ) -> io::Result<bool> {
+        expected.validate()?;
+        snapshot.validate()?;
+        if self.read()? != *expected {
+            return Ok(false);
+        }
+        self.write(snapshot)?;
+        Ok(true)
+    }
     pub fn source(&self) -> &str {
         &self.source
     }

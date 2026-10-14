@@ -1,5 +1,6 @@
 //! Versioned, bounded guest RPC. Launch requests contain an executable and literal arguments, never shell text.
 pub mod clipboard;
+pub mod clipboard_sync;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
 pub const VERSION: u16 = 1;
@@ -9,6 +10,7 @@ pub const WINDOW_VERSION: u16 = 2;
 pub const CAPABILITY_VERSION: u16 = 3;
 pub const CLIPBOARD_VERSION: u16 = 4;
 pub const TRANSFER_VERSION: u16 = 5;
+pub const CLIPBOARD_SYNC_VERSION: u16 = 6;
 pub const MAX_CLIPBOARD_TEXT: usize = 8192;
 pub const MAX_FRAME: usize = 64 * 1024;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -21,6 +23,11 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    ClipboardSyncGet,
+    ClipboardSyncSet {
+        expected: ClipboardSnapshot,
+        update: ClipboardSnapshot,
+    },
     Transfer {
         operation: TransferAction,
     },
@@ -215,6 +222,11 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    ClipboardSync {
+        instance: String,
+        snapshot: ClipboardSnapshot,
+    },
+    ClipboardConflict,
     TransferReady {
         token: String,
     },
@@ -266,6 +278,7 @@ impl Request {
             CAPABILITY_VERSION,
             CLIPBOARD_VERSION,
             TRANSFER_VERSION,
+            CLIPBOARD_SYNC_VERSION,
         ]
         .contains(&self.version)
         {
@@ -276,6 +289,24 @@ impl Request {
         }
         if self.version == CAPABILITY_VERSION && !matches!(self.action, Action::Ping) {
             return Err(invalid("Protocol v3 is read-only capability discovery"));
+        }
+        if matches!(
+            self.action,
+            Action::ClipboardSyncGet | Action::ClipboardSyncSet { .. }
+        ) {
+            if self.version != CLIPBOARD_SYNC_VERSION {
+                return Err(invalid("Automatic clipboard requires protocol v6"));
+            }
+            if let Action::ClipboardSyncSet { expected, update } = &self.action {
+                expected.validate()?;
+                update.validate()?;
+            }
+            return Ok(());
+        }
+        if self.version == CLIPBOARD_SYNC_VERSION {
+            return Err(invalid(
+                "Protocol v6 only supports conditional text clipboard",
+            ));
         }
         if let Action::Transfer { operation } = &self.action {
             if self.version != TRANSFER_VERSION {

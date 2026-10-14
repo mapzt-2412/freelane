@@ -41,102 +41,116 @@ pub trait Launcher {
     fn launch(&mut self, executable: &str, arguments: &[String]) -> io::Result<u32>;
 }
 pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
-    let outcome = match request.validate() {
-        Err(error) => Outcome::Failed {
-            message: error.to_string(),
-        },
-        Ok(()) => match request.action {
-            Action::Ping if request.version == freelane_agent_protocol::CAPABILITY_VERSION => {
-                let mut features = vec![freelane_agent_protocol::Feature {
-                    name: "launch".into(),
-                    protocol: VERSION,
-                }];
-                if launcher.transfer_support() {
-                    features.push(freelane_agent_protocol::Feature {
-                        name: "file_transfer".into(),
-                        protocol: freelane_agent_protocol::TRANSFER_VERSION,
-                    });
-                }
-                if launcher.window_support() {
-                    features.push(freelane_agent_protocol::Feature {
-                        name: "window_snapshots".into(),
-                        protocol: freelane_agent_protocol::WINDOW_VERSION,
-                    });
-                }
-                if launcher.clipboard_support() {
-                    features.push(freelane_agent_protocol::Feature {
-                        name: "text_clipboard".into(),
-                        protocol: freelane_agent_protocol::CLIPBOARD_VERSION,
-                    });
-                }
-                Outcome::AgentInfo {
-                    info: freelane_agent_protocol::AgentInfo {
-                        agent_version: env!("CARGO_PKG_VERSION").into(),
-                        os: std::env::consts::OS.into(),
-                        arch: std::env::consts::ARCH.into(),
-                        protocols: vec![
-                            VERSION,
-                            freelane_agent_protocol::WINDOW_VERSION,
-                            freelane_agent_protocol::CAPABILITY_VERSION,
-                        ]
-                        .into_iter()
-                        .chain(if launcher.clipboard_support() {
-                            Some(freelane_agent_protocol::CLIPBOARD_VERSION)
-                        } else {
-                            None
-                        })
-                        .chain(
-                            launcher
-                                .transfer_support()
-                                .then_some(freelane_agent_protocol::TRANSFER_VERSION),
-                        )
-                        .collect(),
-                        features,
-                        max_frame: freelane_agent_protocol::MAX_FRAME as u32,
-                    },
-                }
-            }
-            Action::Ping if request.version == freelane_agent_protocol::WINDOW_VERSION => {
-                Outcome::Capabilities {
-                    window_snapshots: launcher.window_support(),
-                }
-            }
-            Action::Ping => Outcome::Pong {
-                os: std::env::consts::OS.into(),
-                arch: std::env::consts::ARCH.into(),
+    let outcome =
+        match request.validate() {
+            Err(error) => Outcome::Failed {
+                message: error.to_string(),
             },
-            Action::Transfer { ref operation } => launcher
-                .transfer_action(operation)
-                .unwrap_or_else(|_| Outcome::Failed {
-                    message: "File transfer unavailable or refused".into(),
-                }),
-            Action::Launch {
-                executable,
-                arguments,
-            } => match launcher.launch(&executable, &arguments) {
-                Ok(pid) => Outcome::Launched { pid },
-                Err(error) => Outcome::Failed {
-                    message: format!("Launch failed ({:?})", error.kind()),
+            Ok(()) => match request.action {
+                Action::Ping if request.version == freelane_agent_protocol::CAPABILITY_VERSION => {
+                    let mut features = vec![freelane_agent_protocol::Feature {
+                        name: "launch".into(),
+                        protocol: VERSION,
+                    }];
+                    if launcher.transfer_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "file_transfer".into(),
+                            protocol: freelane_agent_protocol::TRANSFER_VERSION,
+                        });
+                    }
+                    if launcher.window_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "window_snapshots".into(),
+                            protocol: freelane_agent_protocol::WINDOW_VERSION,
+                        });
+                    }
+                    if launcher.clipboard_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "clipboard_sync".into(),
+                            protocol: freelane_agent_protocol::CLIPBOARD_SYNC_VERSION,
+                        });
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "text_clipboard".into(),
+                            protocol: freelane_agent_protocol::CLIPBOARD_VERSION,
+                        });
+                    }
+                    Outcome::AgentInfo {
+                        info: freelane_agent_protocol::AgentInfo {
+                            agent_version: env!("CARGO_PKG_VERSION").into(),
+                            os: std::env::consts::OS.into(),
+                            arch: std::env::consts::ARCH.into(),
+                            protocols: vec![
+                                VERSION,
+                                freelane_agent_protocol::WINDOW_VERSION,
+                                freelane_agent_protocol::CAPABILITY_VERSION,
+                            ]
+                            .into_iter()
+                            .chain(if launcher.clipboard_support() {
+                                Some(freelane_agent_protocol::CLIPBOARD_VERSION)
+                            } else {
+                                None
+                            })
+                            .chain(
+                                launcher
+                                    .clipboard_support()
+                                    .then_some(freelane_agent_protocol::CLIPBOARD_SYNC_VERSION),
+                            )
+                            .chain(
+                                launcher
+                                    .transfer_support()
+                                    .then_some(freelane_agent_protocol::TRANSFER_VERSION),
+                            )
+                            .collect(),
+                            features,
+                            max_frame: freelane_agent_protocol::MAX_FRAME as u32,
+                        },
+                    }
+                }
+                Action::Ping if request.version == freelane_agent_protocol::WINDOW_VERSION => {
+                    Outcome::Capabilities {
+                        window_snapshots: launcher.window_support(),
+                    }
+                }
+                Action::Ping => Outcome::Pong {
+                    os: std::env::consts::OS.into(),
+                    arch: std::env::consts::ARCH.into(),
                 },
+                Action::Transfer { ref operation } => launcher
+                    .transfer_action(operation)
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "File transfer unavailable or refused".into(),
+                    }),
+                Action::Launch {
+                    executable,
+                    arguments,
+                } => match launcher.launch(&executable, &arguments) {
+                    Ok(pid) => Outcome::Launched { pid },
+                    Err(error) => Outcome::Failed {
+                        message: format!("Launch failed ({:?})", error.kind()),
+                    },
+                },
+                ref action @ (Action::ClipboardGet
+                | Action::ClipboardSet { .. }
+                | Action::ClipboardSyncGet
+                | Action::ClipboardSyncSet { .. }) => launcher
+                    .clipboard_action(action)
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "Text clipboard transfer unavailable or refused".into(),
+                    }),
+                ref action => launcher
+                    .window_action(action)
+                    .unwrap_or_else(|e| Outcome::Failed {
+                        message: e.to_string(),
+                    }),
             },
-            ref action @ (Action::ClipboardGet | Action::ClipboardSet { .. }) => launcher
-                .clipboard_action(action)
-                .unwrap_or_else(|_| Outcome::Failed {
-                    message: "Text clipboard transfer unavailable or refused".into(),
-                }),
-            ref action => launcher
-                .window_action(action)
-                .unwrap_or_else(|e| Outcome::Failed {
-                    message: e.to_string(),
-                }),
-        },
-    };
+        };
     Response {
         version: if [
             freelane_agent_protocol::WINDOW_VERSION,
             freelane_agent_protocol::CAPABILITY_VERSION,
             freelane_agent_protocol::CLIPBOARD_VERSION,
             freelane_agent_protocol::TRANSFER_VERSION,
+            freelane_agent_protocol::CLIPBOARD_SYNC_VERSION,
         ]
         .contains(&request.version)
         {

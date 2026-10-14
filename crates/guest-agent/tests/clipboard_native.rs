@@ -110,6 +110,55 @@ fn native_user_clipboard_roundtrip_and_replay_refusal() {
         Outcome::Failed { .. }
     ));
     assert_eq!(native.get_text().unwrap(), inward);
+    info.validate().unwrap();
+    assert!(info
+        .features
+        .iter()
+        .any(|f| f.name == "clipboard_sync" && f.protocol == 6));
+    let Outcome::ClipboardSync {
+        instance,
+        snapshot: expected,
+    } = call(6, Action::ClipboardSyncGet)
+    else {
+        panic!("missing conditional clipboard")
+    };
+    assert_eq!(instance.len(), 32);
+    native.set_text("concurrent guest fixture").unwrap();
+    let update = ClipboardSnapshot {
+        source: "a".repeat(32),
+        sequence: 2,
+        text: "Xin chào tự đồng bộ 👋".into(),
+    };
+    assert_eq!(
+        call(
+            6,
+            Action::ClipboardSyncSet {
+                expected,
+                update: update.clone()
+            }
+        ),
+        Outcome::ClipboardConflict
+    );
+    assert_eq!(native.get_text().unwrap(), "concurrent guest fixture");
+    let Outcome::ClipboardSync {
+        instance: again,
+        snapshot: expected,
+    } = call(6, Action::ClipboardSyncGet)
+    else {
+        panic!("missing sync read")
+    };
+    assert_eq!(instance, again);
+    assert!(matches!(
+        call(
+            6,
+            Action::ClipboardSyncSet {
+                expected,
+                update: update.clone()
+            }
+        ),
+        Outcome::ClipboardAccepted { .. }
+    ));
+    assert_eq!(native.get_text().unwrap(), update.text);
     native.set_text("x".repeat(8193)).unwrap();
     assert!(matches!(
         call(4, Action::ClipboardGet),

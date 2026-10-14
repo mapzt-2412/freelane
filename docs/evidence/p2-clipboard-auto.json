@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-14",
+  "workspace_tests_passed": 142,
+  "workspace_tests_ignored": 9,
+  "mcp_tests_passed": 11,
+  "clippy_build": "passed",
+  "mac_cross_checks": "passed",
+  "windows_arm64_build": "passed",
+  "native_synthetic_two_display_acceptance": "passed",
+  "actual_desktop_conflict_resolution_and_automatic_pull": "passed",
+  "personal_clipboard_access": false,
+  "vm_boot": false,
+  "review": "no Critical or Important",
+  "deferred_minor": "native host initialization failure repeats at polling interval",
+  "publication": "explicit user approval received; CI pending",
+  "native_mac_windows_guest": "pending"
+}
