@@ -24,5 +24,12 @@
   "mac_host_core_check": "passed",
   "mac_guest_agent_strict_cross_lint": "passed",
   "mcp_tests_passed": 11,
-  "deferred_minor": "initial source hashing has no progress display"
+  "deferred_minor": "initial source hashing has no progress display",
+  "ui_captures": [
+    "docs/assets/file-transfer-en.png",
+    "docs/assets/file-transfer-vi.png"
+  ],
+  "ui_fixture": "actual desktop, private authenticated X11, nonbooted disposable VM profile",
+  "required_ci": "passed",
+  "release_tag": "v0.1.0-preview.13"
 }

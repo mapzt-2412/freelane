@@ -1,0 +1,14 @@
+{
+  "tag": "v0.1.0-preview.13",
+  "dmg": "FreeLane-0.1.0-dfbd1d69fa02-macos-arm64.dmg",
+  "sha256": "abf5bd35ae3d288d9de5a897277e4716db10f63e5c0bcc76a5fb83a3cb1978e9",
+  "bytes": 12757267,
+  "udif_footer": true,
+  "public_download_verified": true,
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.13/FreeLane-0.1.0-dfbd1d69fa02-macos-arm64.dmg",
+  "source": "dfbd1d69fa0272e551cd5231821462aa47a03f4c",
+  "native_packaging_workflow": "https://github.com/puma2k/freelane/actions/runs/38523358555",
+  "required_ci_workflow": "https://github.com/puma2k/freelane/actions/runs/38523358565",
+  "windows_native_workflow": "https://github.com/puma2k/freelane/actions/runs/38523358533",
+  "status": "Success"
+}
