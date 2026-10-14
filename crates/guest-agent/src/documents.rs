@@ -136,10 +136,6 @@ pub fn open(path: &Path) -> io::Result<()> {
     });
     Ok(())
 }
-#[cfg(not(any(windows, target_os = "linux")))]
-pub fn open(_: &Path) -> io::Result<()> {
-    Err(refused())
-}
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     #[test]
