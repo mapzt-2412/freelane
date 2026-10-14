@@ -15,7 +15,14 @@
     "exact validated file handle publication",
     "fixed text editor, no file associations"
   ],
-  "windows_native_storage": "pending CI",
+  "windows_native_storage": "passed",
   "native_mac_guest": "deferred",
-  "document_runtime": "not accepted on a real interactive guest"
+  "document_runtime": "not accepted on a real interactive guest",
+  "windows_native_lifecycle": "passed",
+  "windows_ci_run": "https://github.com/puma2k/freelane/actions/runs/38522841949",
+  "windows_ci_source": "2f75423",
+  "mac_host_core_check": "passed",
+  "mac_guest_agent_strict_cross_lint": "passed",
+  "mcp_tests_passed": 11,
+  "deferred_minor": "initial source hashing has no progress display"
 }
