@@ -70,6 +70,18 @@ class ServerTests(unittest.TestCase):
             with self.assertRaises(ValueError): self.server.call(tool,{"vm":"missing",**extra})
         with self.assertRaises(ValueError): self.server.call("guest_catalog",{"vm":"test","cursor":513})
 
+    def test_checkpoint_info_job_only_reads_completed_session_owned_backup(self):
+        self.cli_fixture()
+        with self.assertRaises(ValueError):
+            self.server.call("checkpoint_info",{"checkpoint_id":"0"*32})
+        source=self.root/"completed checkpoint & literal"
+        self.server.checkpoints["a"*32]=source
+        job=self.server.call("checkpoint_info",{"checkpoint_id":"a"*32})
+        result=self.await_job(job["job_id"])
+        self.assertEqual(result["status"],"passed")
+        self.assertEqual(json.loads(result["output"]),["checkpoint-info",str(source)])
+        self.assertEqual(self.server.vms,{"test":self.root/"vm.toml"})
+
     def test_checkpoint_jobs_restore_only_owned_completed_backup_to_fresh_vm(self):
         self.cli_fixture()
         binary=self.root/"target/debug/freelane"

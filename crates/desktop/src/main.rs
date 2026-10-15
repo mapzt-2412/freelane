@@ -43,6 +43,7 @@ struct VmInfo {
 enum Event {
     Resources(PathBuf, serde_json::Value),
     CheckpointPicked(Option<String>),
+    CheckpointInfo(String, Result<freelane::checkpoint::Info, String>),
     CheckpointCreated(PathBuf),
     CheckpointRestored(PathBuf, Vec<freelane::library::Entry>),
     AppCatalog(PathBuf, Vec<freelane_agent_protocol::AppEntry>),
@@ -125,6 +126,7 @@ struct Desktop {
     resource_capacity: Option<freelane::resource_presets::HostCapacity>,
     checkpoint_label: String,
     checkpoint_source: String,
+    checkpoint_info: Option<freelane::checkpoint::Info>,
     app_catalog: Vec<freelane_agent_protocol::AppEntry>,
     app_catalog_search: String,
     app_name: String,
@@ -536,11 +538,27 @@ impl Desktop {
                         Ok(Event::CheckpointPicked(path)) => {
                             if let Some(path) = path {
                                 self.checkpoint_source = path;
+                                self.inspect_checkpoint(ctx);
+                            }
+                        }
+                        Ok(Event::CheckpointInfo(source, info)) => {
+                            if self.checkpoint_source == source {
+                                match info {
+                                    Ok(info) => {
+                                        self.checkpoint_info = Some(info);
+                                        self.notice.clear();
+                                    }
+                                    Err(error) => {
+                                        self.checkpoint_info = None;
+                                        self.notice = error;
+                                    }
+                                }
                             }
                         }
                         Ok(Event::CheckpointCreated(path)) => {
                             self.checkpoint_source = path.display().to_string();
                             self.notice = "Checkpoint saved".into();
+                            self.inspect_checkpoint(ctx);
                         }
                         Ok(Event::CheckpointRestored(path, entries)) => {
                             self.library = entries

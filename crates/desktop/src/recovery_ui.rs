@@ -28,7 +28,12 @@ impl Desktop {
         }
         ui.separator();
         ui.label(lang.text("Checkpoint folder"));
-        ui.text_edit_singleline(&mut self.checkpoint_source);
+        if ui
+            .text_edit_singleline(&mut self.checkpoint_source)
+            .changed()
+        {
+            self.checkpoint_info = None;
+        }
         if ui
             .add_enabled(!busy, egui::Button::new(lang.text("Choose checkpoint")))
             .clicked()
@@ -40,12 +45,46 @@ impl Desktop {
         if ui
             .add_enabled(
                 !busy && !self.checkpoint_source.is_empty(),
+                egui::Button::new(lang.text("Verify backup")),
+            )
+            .clicked()
+        {
+            self.inspect_checkpoint(ctx);
+        }
+        if let Some(info) = &self.checkpoint_info {
+            ui.group(|ui| {
+                ui.strong(&info.label);
+                ui.label(
+                    info.created_utc
+                        .as_deref()
+                        .unwrap_or(lang.text("Unknown date")),
+                );
+                ui.label(format!(
+                    "{} · {} {} · {:.1} MiB",
+                    lang.text("Integrity checked"),
+                    info.file_count,
+                    lang.text("files"),
+                    info.stored_bytes as f64 / (1024.0 * 1024.0)
+                ));
+            });
+        }
+        if ui
+            .add_enabled(
+                !busy && !self.checkpoint_source.is_empty(),
                 egui::Button::new(lang.text("Restore as new VM")),
             )
             .clicked()
         {
             self.restore_checkpoint(ctx);
         }
+    }
+    pub fn inspect_checkpoint(&mut self, ctx: &egui::Context) {
+        self.checkpoint_info = None;
+        let source = self.checkpoint_source.clone();
+        self.work(ctx, move || {
+            let info = freelane::checkpoint::inspect(Path::new(&source)).map_err(|e| e.to_string());
+            Ok(Event::CheckpointInfo(source, info))
+        });
     }
     fn create_checkpoint(&mut self, ctx: &egui::Context) {
         let Some(vm) = &self.vm else {

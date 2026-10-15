@@ -44,6 +44,7 @@ VM = {"type": "string", "minLength": 1, "maxLength": 64}
 TOOLS = [
     ("vm_readiness", "Inspect registered VM prerequisites and readiness without starting it.", schema({"vm":VM},["vm"])),
     ("guest_capabilities", "Negotiate declared guest agent capabilities without launching an application.", schema({"vm":VM},["vm"])),
+    ("checkpoint_info", "Start read-only checksum verification and metadata inspection of a completed session-owned checkpoint; poll dev_result. This does not establish guest boot or TPM recovery.", schema({"checkpoint_id":{"type":"string","minLength":32,"maxLength":32}},["checkpoint_id"])),
     ("checkpoint_create", "Start an offline full backup of a stopped registered VM. Retains original files; poll dev_result for completion. Checkpoints are retained after disconnect.", schema({"vm":VM,"label":{"type":"string","minLength":1,"maxLength":128}},["vm","label"])),
     ("checkpoint_restore", "Restore a completed session-owned checkpoint into a fresh workspace. Registers the new VM in this MCP session, without booting it or overwriting a source. Guest identity is retained, so this is not an independent guest clone.", schema({"checkpoint_id":{"type":"string","minLength":32,"maxLength":32},"vm":VM},["checkpoint_id","vm"])),
     ("vm_resources", "Observe resident host memory and cumulative CPU time of the connected VM process. Requires a running QMP backend.", schema({"vm":VM},["vm"])),
@@ -340,6 +341,14 @@ class Server:
                 return {key: value for key, value in job.items() if key != "process"}
         if name.startswith("mobile_"):
             return self.call_mobile(name,arguments)
+        if name == "checkpoint_info":
+            checkpoint_id=arguments["checkpoint_id"]
+            with self.lock:
+                source=self.checkpoints.get(checkpoint_id)
+                if source is None:
+                    raise ValueError("Checkpoint must be completed and owned by this MCP session")
+            binary=self.repo/"target/debug/freelane"
+            return self.start_job("checkpoint_info",[str(binary),"checkpoint-info",str(source)],{"checkpoint_id":checkpoint_id,"read_only":True})
         vm = arguments["vm"]
         if name == "checkpoint_create":
             self.cli("checkpoint-create", vm)  # Refuse unregistered VM before creating artifacts.

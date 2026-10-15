@@ -1,0 +1,18 @@
+{
+  "scope": "Read-only verified metadata, not guest boot/TPM recovery",
+  "rust_passed": 175,
+  "rust_ignored": 9,
+  "mcp_passed": 14,
+  "real_sparse_disk_roundtrip": true,
+  "corruption_and_overwrite_refused": true,
+  "source_hashes_preserved": true,
+  "forged_runtime_verified_claim_ignored": true,
+  "utc_epoch_and_out_of_range_checked": true,
+  "native_ui": "Owned authenticated Linux EN/VI display; actual small qcow2 checkpoint and nonbootable firmware; no guest boot",
+  "review": "Single fresh whole-batch review; no Critical/Important/Minor correctness findings",
+  "screenshots": [
+    "docs/assets/backup-info-en.png",
+    "docs/assets/backup-info-vi.png"
+  ],
+  "physical_mac_acceptance": false
+}

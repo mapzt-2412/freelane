@@ -452,13 +452,13 @@ fn standalone_disk(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Restore a verified checkpoint into a fresh directory. Never overwrite an existing VM.
-pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
-    if fs::symlink_metadata(output).is_ok() {
-        return Err(Error(
-            "Restore requires a new directory; existing VM data is preserved".into(),
-        ));
-    }
+struct Verified {
+    source: PathBuf,
+    manifest: Manifest,
+    source_files: BTreeMap<String, PathBuf>,
+    config: Config,
+}
+fn verify(snapshot: &Path) -> Result<Verified> {
     let source = fs::canonicalize(snapshot).map_err(error)?;
     let marker = source.join(MARKER);
     let m = fs::symlink_metadata(&marker).map_err(error)?;
@@ -468,6 +468,9 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
     let manifest: Manifest = serde_json::from_slice(&fs::read(&marker).map_err(error)?)
         .map_err(|_| Error("Invalid checkpoint manifest; source preserved".into()))?;
     if manifest.version != 1
+        || manifest.label.is_empty()
+        || manifest.label.len() > 128
+        || manifest.label.chars().any(char::is_control)
         || manifest.kind != "stopped_workspace_copy"
         || manifest.files_sha256.len() > 1028
     {
@@ -522,6 +525,74 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
             "Checkpoint configuration paths are not self-contained".into(),
         ));
     }
+    Ok(Verified {
+        source,
+        manifest,
+        source_files,
+        config,
+    })
+}
+#[derive(Debug, Serialize)]
+pub struct Info {
+    pub label: String,
+    pub created_unix_seconds: u64,
+    pub created_utc: Option<String>,
+    pub guest_os: crate::GuestOs,
+    pub file_count: usize,
+    pub stored_bytes: u64,
+    pub integrity_checked: bool,
+    pub guest_runtime_verified: bool,
+}
+fn utc(seconds: u64) -> Option<String> {
+    let seconds: libc::time_t = seconds.try_into().ok()?;
+    let mut result = std::mem::MaybeUninit::<libc::tm>::zeroed();
+    if unsafe { libc::gmtime_r(&seconds, result.as_mut_ptr()) }.is_null() {
+        return None;
+    }
+    let t = unsafe { result.assume_init() };
+    Some(format!(
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02} UTC",
+        i64::from(t.tm_year) + 1900,
+        t.tm_mon + 1,
+        t.tm_mday,
+        t.tm_hour,
+        t.tm_min,
+        t.tm_sec
+    ))
+}
+/// Hash-verified, read-only metadata; does not establish a successful guest boot.
+pub fn inspect(snapshot: &Path) -> Result<Info> {
+    let verified = verify(snapshot)?;
+    let stored_bytes = verified.source_files.values().try_fold(0u64, |sum, path| {
+        let size = fs::metadata(path).map_err(error)?.len();
+        sum.checked_add(size)
+            .ok_or_else(|| Error("Checkpoint size exceeds supported arithmetic".into()))
+    })?;
+    Ok(Info {
+        label: verified.manifest.label,
+        created_unix_seconds: verified.manifest.created_unix_seconds,
+        created_utc: utc(verified.manifest.created_unix_seconds),
+        guest_os: verified.config.guest_os,
+        file_count: verified.source_files.len(),
+        stored_bytes,
+        integrity_checked: true,
+        guest_runtime_verified: false,
+    })
+}
+/// Restore a verified checkpoint into a fresh directory. Never overwrite an existing VM.
+pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
+    if fs::symlink_metadata(output).is_ok() {
+        return Err(Error(
+            "Restore requires a new directory; existing VM data is preserved".into(),
+        ));
+    }
+    let Verified {
+        source,
+        manifest,
+        source_files,
+        config,
+    } = verify(snapshot)?;
+    let r = config.runtime.as_ref().unwrap();
     let parent = fs::canonicalize(
         output
             .parent()
@@ -595,6 +666,11 @@ pub fn restore(snapshot: &Path, output: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn metadata_utc_handles_epoch_and_unrepresentable_time() {
+        assert_eq!(utc(0).as_deref(), Some("1970-01-01 00:00:00 UTC"));
+        assert_eq!(utc(u64::MAX), None);
+    }
     #[test]
     fn publication_never_replaces_even_an_empty_existing_directory() {
         let root = std::env::temp_dir().join(format!("fl-publish-{}", std::process::id()));

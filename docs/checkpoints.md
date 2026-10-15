@@ -33,3 +33,15 @@ Checkpoint configurations detach installation media. For this NoCloud test, the 
 ## Thin backup allocation (newer than preview.16)
 
 Backup creation now runs `qemu-img measure -f qcow2 -O qcow2 --output=json` and validates required/fully-allocated sizes. Free-space estimation uses the expected converted allocation, firmware/NVRAM lengths and 80 MiB allowance for bounded TPM/configuration/metadata, instead of the guest virtual capacity. A sparse256GiB disk with small patterns at both ends completed backup/restore with source hashes preserved, and existing overwrite/corruption refusal checks retained. This is an estimate, not a reservation; genuine insufficient space still refuses or fails safely. Windows protected-storage/TPM restore remains unaccepted.
+
+## Inspect before restore
+
+`freelane checkpoint-info /path/to/checkpoint` verifies the manifest, component hashes, standalone disk header and contained configuration before returning JSON metadata: label, creation time in UTC, guest type, component count and stored file bytes. The desktop verifies a chosen backup asynchronously and displays these details; editing its path clears the prior result. Verify backup checks a typed path. Restore independently verifies again before writing to a new destination.
+
+Checksums establish point-in-time file integrity, not the authenticity of an externally supplied label/time or guest boot/TPM recovery. Even a forged manifest claiming guest_runtime_verified=true cannot promote inspection into runtime evidence.
+
+![Verified backup in English](assets/backup-info-en.png)
+
+![Verified backup in Vietnamese](assets/backup-info-vi.png)
+
+[Evidence](evidence/backup-info.json).

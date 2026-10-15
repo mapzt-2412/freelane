@@ -35,6 +35,10 @@ fn run() -> Result<()> {
             Ok(())
         }
 
+        [command, snapshot] if command == "checkpoint-info" => {
+            let info=freelane::checkpoint::inspect(Path::new(snapshot))?;
+            println!("{}",serde_json::to_string_pretty(&info).map_err(|e|Error(e.to_string()))?);Ok(())
+        }
         [command, snapshot, output] if command == "checkpoint-restore" => {
             let config=freelane::checkpoint::restore(Path::new(snapshot),Path::new(output))?;
             println!("Restored to new workspace {}. Guest boot and TPM/data recovery remain unverified.",config.display());
@@ -223,7 +227,7 @@ fn run() -> Result<()> {
             if command == "shutdown" { println!("Guest powerdown requested; completion is not guaranteed."); }
             Ok(())
         }
-        _ => Err(Error("Usage: freelane doctor | probe-hypervisor | init <new-dir> <firmware.fd> <vars-template.fd> [windows|ubuntu] | agent-ping <config.toml> | launch <config.toml> <absolute-guest-executable> [args...] | screenshot <config.toml> <new-output.ppm> | send-key <config.toml> <qcode> [qcodes...] | click <config.toml> <x:0..32767> <y:0..32767> | benchmark <frame_ms.csv> | validate <config.toml> | plan <config.toml> | start <config.toml> | status|pause|resume|shutdown|stop <config.toml>".into())),
+        _ => Err(Error("Usage: freelane checkpoint-info <checkpoint-dir> | doctor | probe-hypervisor | init <new-dir> <firmware.fd> <vars-template.fd> [windows|ubuntu] | agent-ping <config.toml> | launch <config.toml> <absolute-guest-executable> [args...] | screenshot <config.toml> <new-output.ppm> | send-key <config.toml> <qcode> [qcodes...] | click <config.toml> <x:0..32767> <y:0..32767> | benchmark <frame_ms.csv> | validate <config.toml> | plan <config.toml> | start <config.toml> | status|pause|resume|shutdown|stop <config.toml>".into())),
     }
 }
 fn main() {

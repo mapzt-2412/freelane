@@ -42,6 +42,21 @@ def main():
         try:
             run(CLI, 'checkpoint-create', config, checkpoint, 'File roundtrip')
             manifest = json.loads((checkpoint / 'freelane-checkpoint.json').read_text())
+            info = json.loads(run(CLI, 'checkpoint-info', checkpoint).stdout)
+            assert info['label'] == 'File roundtrip'
+            assert info['guest_os'] == 'ubuntu'
+            assert info['file_count'] == len(manifest['files_sha256'])
+            assert info['stored_bytes'] == sum((checkpoint / name).stat().st_size for name in manifest['files_sha256'])
+            assert info['created_unix_seconds'] == manifest['created_unix_seconds']
+            assert info['integrity_checked'] and not info['guest_runtime_verified']
+            # Deliberately forge this fixture's unauthenticated metadata claim.
+            marker = checkpoint / 'freelane-checkpoint.json'
+            original_marker = marker.read_bytes()
+            marker.chmod(0o600)
+            marker.write_text(json.dumps({**manifest, 'guest_runtime_verified': True}))
+            assert not json.loads(run(CLI, 'checkpoint-info', checkpoint).stdout)['guest_runtime_verified']
+            marker.write_bytes(original_marker)
+            marker.chmod(0o400)
             assert manifest['kind'] == 'stopped_workspace_copy'
             assert not manifest['guest_runtime_verified']
             for name, digest in manifest['files_sha256'].items():
@@ -56,6 +71,7 @@ def main():
             run(CLI, 'checkpoint-restore', checkpoint, restored, success=False)
             (checkpoint / 'nvram.fd').chmod(0o600)  # Deliberate fixture corruption, not a normal app operation.
             (checkpoint / 'nvram.fd').write_bytes(b'CORRUPTED FIXTURE')
+            run(CLI, 'checkpoint-info', checkpoint, success=False)
             run(CLI, 'checkpoint-restore', checkpoint, root / 'bad-restore', success=False)
             assert not (root / 'bad-restore').exists()
             assert hashes(vm) == original
