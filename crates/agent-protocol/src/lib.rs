@@ -1,6 +1,7 @@
 //! Versioned, bounded guest RPC. Launch requests contain an executable and literal arguments, never shell text.
 pub mod clipboard;
 pub mod clipboard_sync;
+pub mod export;
 pub mod window_input;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
@@ -27,6 +28,9 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    Export {
+        operation: export::Operation,
+    },
     WindowPointer {
         target: WindowTarget,
         gesture: window_input::Gesture,
@@ -304,6 +308,18 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    ExportReady {
+        token: String,
+        size: u64,
+    },
+    ExportFinished {
+        sha256: String,
+    },
+    ExportChunk {
+        offset: u64,
+        data_hex: String,
+    },
+    ExportClosed,
     AppCatalog {
         page: AppPage,
     },
@@ -371,6 +387,7 @@ impl Request {
             CATALOG_VERSION,
             WINDOW_IDENTITY_VERSION,
             window_input::VERSION,
+            export::VERSION,
         ]
         .contains(&self.version)
         {
@@ -378,6 +395,15 @@ impl Request {
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == export::VERSION {
+            return match &self.action {
+                Action::Export { operation } => operation.validate(),
+                _ => Err(invalid("Protocol v11 only supports file export")),
+            };
+        }
+        if matches!(self.action, Action::Export { .. }) {
+            return Err(invalid("File export requires protocol v11"));
         }
         if self.version == window_input::VERSION {
             return window_input::validate(&self.action);
@@ -736,5 +762,35 @@ mod clipboard_tests {
         let mut bytes = vec![];
         write_frame(&mut bytes, &controls).unwrap();
         assert!(bytes.len() <= MAX_FRAME);
+    }
+}
+
+#[cfg(test)]
+mod export_contract_tests {
+    use super::*;
+    #[test]
+    fn export_requires_v11_and_a_single_portable_filename() {
+        let valid = r#"{"version":11,"id":1,"action":{"type":"export","operation":{"operation":"begin","name":"Tài liệu.txt"}}}"#;
+        let r: Request = serde_json::from_str(valid).expect("export wire action");
+        r.validate().unwrap();
+        for version in [1, 5, 10] {
+            let mut r: Request = serde_json::from_str(valid).unwrap();
+            r.version = version;
+            assert!(r.validate().is_err());
+        }
+        for name in [
+            "../secret",
+            "a/b",
+            "a\\b",
+            "CON.txt",
+            "a:ads",
+            ".hidden",
+            "a.",
+        ] {
+            let mut v: serde_json::Value = serde_json::from_str(valid).unwrap();
+            v["action"]["operation"]["name"] = name.into();
+            let r: Request = serde_json::from_value(v).unwrap();
+            assert!(r.validate().is_err(), "{name}");
+        }
     }
 }

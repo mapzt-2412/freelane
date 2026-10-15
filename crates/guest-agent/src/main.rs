@@ -17,9 +17,21 @@ fn main() {
     } else {
         None
     };
+    let export_root = if let Some(index) = args.iter().position(|a| a == "--export-root") {
+        if index + 1 >= args.len() {
+            eprintln!("Missing export outbox directory");
+            std::process::exit(2);
+        }
+        let root = std::path::PathBuf::from(args.remove(index + 1));
+        args.remove(index);
+        Some(root)
+    } else {
+        None
+    };
     let mut launcher = freelane_guest_agent::TransferLauncher::new(launcher, root.as_deref())
+        .and_then(|launcher| launcher.with_export_root(export_root.as_deref()))
         .unwrap_or_else(|_| {
-            eprintln!("Cannot open transfer inbox");
+            eprintln!("Cannot open transfer inbox or export outbox");
             std::process::exit(2)
         });
     if args == ["--stdio"] {
@@ -38,7 +50,7 @@ fn main() {
         [] => default_device().into(),
         [path] if !path.starts_with("--") => path.clone(),
         _ => {
-            eprintln!("Usage: freelane-guest-agent [device-path | --stdio] [--transfer-root existing-directory]");
+            eprintln!("Usage: freelane-guest-agent [device-path | --stdio] [--transfer-root existing-directory] [--export-root existing-directory]");
             std::process::exit(2);
         }
     };

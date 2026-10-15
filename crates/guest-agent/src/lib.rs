@@ -1,6 +1,7 @@
 //! Execute only in the guest's interactive user session. Never install as a privileged host service.
 pub mod catalog;
 mod documents;
+pub mod export;
 pub mod mounts;
 pub mod transfer;
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
@@ -10,6 +11,15 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn export_support(&self) -> bool {
+        false
+    }
+    fn export_action(
+        &mut self,
+        _: &freelane_agent_protocol::export::Operation,
+    ) -> io::Result<Outcome> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
     fn window_input_support(&self) -> bool {
         false
     }
@@ -96,6 +106,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                             protocol: freelane_agent_protocol::SHARE_STATUS_VERSION,
                         });
                     }
+                    if launcher.export_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "file_export".into(),
+                            protocol: freelane_agent_protocol::export::VERSION,
+                        });
+                    }
                     if launcher.transfer_support() {
                         features.push(freelane_agent_protocol::Feature {
                             name: "file_transfer".into(),
@@ -164,6 +180,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                                     .window_input_support()
                                     .then_some(freelane_agent_protocol::window_input::VERSION),
                             )
+                            .chain(
+                                launcher
+                                    .export_support()
+                                    .then_some(freelane_agent_protocol::export::VERSION),
+                            )
                             .collect(),
                             features,
                             max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -179,6 +200,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     os: std::env::consts::OS.into(),
                     arch: std::env::consts::ARCH.into(),
                 },
+                Action::Export { ref operation } => launcher
+                    .export_action(operation)
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "File export unavailable or refused".into(),
+                    }),
                 Action::Transfer { ref operation } => launcher
                     .transfer_action(operation)
                     .unwrap_or_else(|_| Outcome::Failed {
@@ -231,6 +257,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::CATALOG_VERSION,
             freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
             freelane_agent_protocol::window_input::VERSION,
+            freelane_agent_protocol::export::VERSION,
         ]
         .contains(&request.version)
         {
@@ -518,6 +545,7 @@ mod discovery_tests {
 /// Explicitly configured inbox; transfer state belongs to this agent session.
 pub struct TransferLauncher<L> {
     inner: L,
+    outbox: export::Outbox,
     root: Option<cap_std::fs::Dir>,
     completed: Option<(String, String, u64, String)>,
     active: Option<(String, transfer::Transfer, std::time::Instant)>,
@@ -526,6 +554,7 @@ impl<L> TransferLauncher<L> {
     pub fn new(inner: L, root: Option<&std::path::Path>) -> io::Result<Self> {
         Ok(Self {
             inner,
+            outbox: export::Outbox::default(),
             root: root
                 .map(|p| cap_std::fs::Dir::open_ambient_dir(p, cap_std::ambient_authority()))
                 .transpose()?,
@@ -533,12 +562,26 @@ impl<L> TransferLauncher<L> {
             completed: None,
         })
     }
+    pub fn with_export_root(mut self, root: Option<&std::path::Path>) -> io::Result<Self> {
+        self.outbox = export::Outbox::new(root)?;
+        Ok(self)
+    }
     pub fn disconnect(&mut self) {
+        self.outbox.disconnect();
         self.active = None;
         self.completed = None;
     }
 }
 impl<L: Launcher> Launcher for TransferLauncher<L> {
+    fn export_support(&self) -> bool {
+        self.outbox.enabled()
+    }
+    fn export_action(
+        &mut self,
+        operation: &freelane_agent_protocol::export::Operation,
+    ) -> io::Result<Outcome> {
+        self.outbox.action(operation)
+    }
     fn catalog_support(&self) -> bool {
         self.inner.catalog_support()
     }
