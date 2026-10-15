@@ -27,8 +27,9 @@ def main():
         root = Path(directory)
         vm = root / 'vm'
         vm.mkdir(mode=0o700)
-        run('qemu-img', 'create', '-f', 'qcow2', vm / 'disk.qcow2', '8M')
+        run('qemu-img', 'create', '-f', 'qcow2', vm / 'disk.qcow2', '256G')
         run('qemu-io', '-f', 'qcow2', '-c', 'write -P 0x5a 0 4096', vm / 'disk.qcow2')
+        run('qemu-io', '-f', 'qcow2', '-c', 'write -P 0x7c 274877902848 4096', vm / 'disk.qcow2')
         (vm / 'firmware.fd').write_bytes(b'FIRMWARE FIXTURE; NOT BOOTABLE')
         (vm / 'nvram.fd').write_bytes(b'VARIABLE FIXTURE; NOT BOOTABLE')
         (vm / 'tpm').mkdir(mode=0o700)
@@ -48,6 +49,7 @@ def main():
             run(CLI, 'plan', checkpoint / 'vm.toml', success=False)
             run(CLI, 'checkpoint-restore', checkpoint, restored)
             run('qemu-io', '-f', 'qcow2', '-c', 'read -P 0x5a 0 4096', restored / 'disk.qcow2')
+            run('qemu-io', '-f', 'qcow2', '-c', 'read -P 0x7c 274877902848 4096', restored / 'disk.qcow2')
             run(CLI, 'plan', restored / 'vm.toml')
             assert (restored / 'tpm/state.bin').read_bytes() == (vm / 'tpm/state.bin').read_bytes()
             run(CLI, 'checkpoint-create', config, checkpoint, 'Overwrite', success=False)
@@ -57,7 +59,7 @@ def main():
             run(CLI, 'checkpoint-restore', checkpoint, root / 'bad-restore', success=False)
             assert not (root / 'bad-restore').exists()
             assert hashes(vm) == original
-            print('Checkpoint file roundtrip passed: logical disk pattern, state-file checksums, source preservation, overwrite/corruption refusal. Guest boot and real TPM recovery NOT tested.')
+            print('Checkpoint file roundtrip passed: sparse256GiB virtual disk, start/end logical patterns, state-file checksums, source preservation, overwrite/corruption refusal. Guest boot and real TPM recovery NOT tested.')
         finally:
             # Only the temporary fixture's host lock directory is owned by this test.
             value = 0xcbf29ce484222325

@@ -174,6 +174,39 @@ impl Drop for Pending {
     }
 }
 
+fn measured_disk_bytes(value: &serde_json::Value, virtual_bytes: u64) -> Result<u64> {
+    let invalid = || Error("Invalid qcow2 allocation measurement; backup not started".into());
+    let required = value["required"].as_u64().ok_or_else(invalid)?;
+    let fully_allocated = value["fully-allocated"].as_u64().ok_or_else(invalid)?;
+    if required == 0 || required > fully_allocated || fully_allocated < virtual_bytes {
+        return Err(invalid());
+    }
+    Ok(required)
+}
+#[cfg(test)]
+mod allocation_tests {
+    use super::*;
+    #[test]
+    fn thin_allocation_estimate_does_not_reserve_virtual_capacity() {
+        assert_eq!(
+            measured_disk_bytes(
+                &serde_json::json!({"required":196608,"fully-allocated":274900000000u64}),
+                256 * 1024 * 1024 * 1024
+            )
+            .unwrap(),
+            196608
+        );
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"required":-1,"fully-allocated":100}),
+            serde_json::json!({"required":100,"fully-allocated":99}),
+            serde_json::json!({"required":0,"fully-allocated":100}),
+            serde_json::json!({"required":1,"fully-allocated":1}),
+        ] {
+            assert!(measured_disk_bytes(&value, 100).is_err());
+        }
+    }
+}
 pub fn create(config_path: &Path, output: &Path, label: &str, qemu_img: &Path) -> Result<PathBuf> {
     if label.is_empty() || label.len() > 128 || label.chars().any(char::is_control) {
         return Err(Error(
@@ -275,13 +308,21 @@ pub fn create(config_path: &Path, output: &Path, label: &str, qemu_img: &Path) -
     let virtual_bytes = info["virtual-size"]
         .as_u64()
         .ok_or_else(|| Error("Unknown guest virtual disk size".into()))?;
-    let required = virtual_bytes
+    let measurement = command(
+        qemu_img,
+        &["measure", "--output=json", "-f", "qcow2", "-O", "qcow2"],
+        &[&disk],
+    )?;
+    let measurement: serde_json::Value =
+        serde_json::from_slice(&measurement.stdout).map_err(error)?;
+    let disk_bytes = measured_disk_bytes(&measurement, virtual_bytes)?;
+    let required = disk_bytes
         .saturating_add(fs::metadata(&firmware).map_err(error)?.len())
         .saturating_add(fs::metadata(&vars).map_err(error)?.len())
-        .saturating_add(64 * 1024 * 1024);
+        .saturating_add(80 * 1024 * 1024);
     let free = free_space(&parent)?;
     if free < required {
-        return Err(Error(format!("Checkpoint storage insufficient: require conservative {} MiB, available {} MiB. Use a destination with more space.",required/1024/1024,free/1024/1024)));
+        return Err(Error(format!("Checkpoint storage insufficient: require estimated {} MiB, available {} MiB. Use a destination with more space.",required/1024/1024,free/1024/1024)));
     }
     let pending = parent.join(format!(
         ".freelane-checkpoint-{:016x}.pending",
