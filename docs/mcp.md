@@ -112,7 +112,7 @@ Connect locally or through an authorized existing remote connection. First verif
 
 ## Workspace automation additions
 
-The current server exposes 21 tools. `vm_resources`, `vm_readiness`, `guest_capabilities`, `guest_catalog` and `share_status` read registered VM metadata. Catalog cursors range from 0 to 512; a page contains at most 12 known applications.
+The current server exposes 22 tools. `vm_resources`, `vm_readiness`, `guest_capabilities`, `guest_catalog` and `share_status` read registered VM metadata. Catalog cursors range from 0 to 512; a page contains at most 12 known applications.
 
 `checkpoint_create` takes a registered `vm` and `label`, returns a `job_id` and `checkpoint_id`; poll `dev_result`. After success, `checkpoint_restore` accepts that session-owned ID and an unused VM name, restores into a fresh artifact folder and registers its `vm.toml` for this session. It never boots or overwrites the original. Keep the returned configuration path in your MCP TOML for later sessions. These are stopped-VM full copies retaining guest identity, not independent clones. Artifacts survive disconnect; do not delete backups as test cleanup.
 
@@ -120,4 +120,4 @@ See [scope and validation](plans/portable-workspace-batch.md).
 
 `dev_run` also exposes the fixed Linux-only `bench_viewer_idle` task when Xvfb and the built viewer are available. It creates a private authenticated display and a nonbootable synthetic profile, measures only its own child process, then closes its own processes. It measures idle UI CPU/RSS, not VM, video or native Mac performance.
 
-The server now exposes22 tools. `checkpoint_info` takes a completed session-owned `checkpoint_id` and starts an asynchronous read-only checksum/metadata job. Poll `dev_result` for real status, exit code and bounded JSON output. Unknown/incomplete IDs and arbitrary source paths are refused; no VM is started or registered by inspection. File integrity does not establish guest boot or TPM recovery.
+The server now exposes 22 tools. `checkpoint_info` takes a completed session-owned `checkpoint_id` and starts an asynchronous read-only checksum/metadata job. Poll `dev_result` for real status, exit code and bounded JSON output. Unknown/incomplete IDs and arbitrary source paths are refused; no VM is started or registered by inspection. File integrity does not establish guest boot or TPM recovery.
