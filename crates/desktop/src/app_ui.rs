@@ -385,7 +385,16 @@ impl eframe::App for Viewer {
                 self.capture(&ctx);
             }
         }
-        ctx.request_repaint_after(Duration::from_millis(250));
+        let repaint = if self.worker.is_some() || !self.queue.is_empty() {
+            Duration::from_millis(250) // Observe a disconnected worker even if it never sends a wakeup.
+        } else if self.live && self.target().is_some() {
+            self.next
+                .saturating_duration_since(Instant::now())
+                .max(Duration::from_millis(16))
+        } else {
+            Duration::from_secs(5) // Native input and worker completion still wake the event loop immediately.
+        };
+        ctx.request_repaint_after(repaint);
     }
 }
 pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> eframe::Result {

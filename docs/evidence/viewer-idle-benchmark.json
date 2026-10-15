@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-15",
+  "before": {
+    "label": "before_adaptive_idle",
+    "scope": "Linux software-rendered idle viewer with no guest/window target; not VM/video performance",
+    "samples": [
+      {
+        "wall_seconds": 4.000372179012629,
+        "cpu_seconds": 0.16000000000000003,
+        "percent_of_one_cpu": 3.999627855613454,
+        "resident_bytes": 99180544
+      },
+      {
+        "wall_seconds": 4.000331172996084,
+        "cpu_seconds": 0.14999999999999997,
+        "percent_of_one_cpu": 3.74968955101925,
+        "resident_bytes": 99180544
+      },
+      {
+        "wall_seconds": 4.000319789003697,
+        "cpu_seconds": 0.17000000000000004,
+        "percent_of_one_cpu": 4.249660251345544,
+        "resident_bytes": 99180544
+      }
+    ],
+    "median_percent_of_one_cpu": 3.999627855613454,
+    "median_resident_bytes": 99180544
+  },
+  "after": {
+    "label": "after_adaptive_idle",
+    "scope": "Linux software-rendered idle viewer with no guest/window target; not VM/video performance",
+    "samples": [
+      {
+        "wall_seconds": 4.000320207996992,
+        "cpu_seconds": 0.009999999999999953,
+        "percent_of_one_cpu": 0.2499799886021392,
+        "resident_bytes": 98725888
+      },
+      {
+        "wall_seconds": 4.000340220998623,
+        "cpu_seconds": 0.020000000000000018,
+        "percent_of_one_cpu": 0.49995747599206264,
+        "resident_bytes": 98725888
+      },
+      {
+        "wall_seconds": 4.000309928000206,
+        "cpu_seconds": 0.0,
+        "percent_of_one_cpu": 0.0,
+        "resident_bytes": 98725888
+      }
+    ],
+    "median_percent_of_one_cpu": 0.2499799886021392,
+    "median_resident_bytes": 98725888
+  },
+  "before_app_ui_sha256": "ec5a9fdc8677ea91214c4e4d0e30e0b7273ed2cc93902faae9e5bcdf45b264ee",
+  "after_app_ui_sha256": "599d91311d39927000bab882cb597da2ecf5fe0dab1e54431c6d0f399c7415e3",
+  "scope": "Owned authenticated Linux Xvfb, debug viewer, no guest/window target. Three4-second samples per build. Does not measure VM throughput, active capture, battery life, native Mac behavior or Parallels.",
+  "idle_language_menu_interaction": "Verified EN-to-VI selection after6seconds idle on owned display"
+}

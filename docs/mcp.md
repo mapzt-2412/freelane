@@ -117,3 +117,5 @@ The current server exposes 21 tools. `vm_resources`, `vm_readiness`, `guest_capa
 `checkpoint_create` takes a registered `vm` and `label`, returns a `job_id` and `checkpoint_id`; poll `dev_result`. After success, `checkpoint_restore` accepts that session-owned ID and an unused VM name, restores into a fresh artifact folder and registers its `vm.toml` for this session. It never boots or overwrites the original. Keep the returned configuration path in your MCP TOML for later sessions. These are stopped-VM full copies retaining guest identity, not independent clones. Artifacts survive disconnect; do not delete backups as test cleanup.
 
 See [scope and validation](plans/portable-workspace-batch.md).
+
+`dev_run` also exposes the fixed Linux-only `bench_viewer_idle` task when Xvfb and the built viewer are available. It creates a private authenticated display and a nonbootable synthetic profile, measures only its own child process, then closes its own processes. It measures idle UI CPU/RSS, not VM, video or native Mac performance.

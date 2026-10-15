@@ -121,3 +121,13 @@ Preview.16 publicly downloaded and verified:FreeLane-0.1.0-3f2fa70869f4-macos-ar
 P3 identity/reattach foundation in validation: v9 window properties plus agent map reject observed HWND incarnation changes; v1/v2 compatibility retained. Empty-argument profiles attach to matching process image without launch, otherwise launch once; profiles with arguments preserve one literal launch and launched-PID tracking.158 portable tests/9ignored, strictlint, WindowsARM64 build and Mac core crosscheck passed. Added owned USER32 native identity/lookup test; Windows CI execution pending. No native Mac/Dock, full input, video or different-image delegated-app acceptance claimed.
 
 P3 native Windows USER32 test passed in job115828258567 (run38556921189); Windows agent lifecycle38556921176 passed. Overall CI failed at Mac app_reattach fixture. Inherited nonblocking accepted socket behavior reproduced on Linux with identical WouldBlock→missing-CLI failure. Fixture now explicitly restores blocking mode and5s deadlines; focused test and strictlint passed. Product checks were not weakened; native CI retry pending.
+
+### 2026-10-15 — Thin backups and adaptive idle viewer
+
+P3 required CI38558068955 Success after explicitly restoring blocking mode on accepted fixture sockets; original failure reproduced before correction. Native Windows owned-window property/refusal/image lookup checks passed.
+
+Thin backup refusal reproduced with a sparse256GiB virtual disk and tiny real contents. Creation now validates qemu-img allocation measurements and estimates converted allocation plus firmware/NVRAM and80MiB TPM/config/metadata allowance. Actual start/end logical-pattern backup/restore, source hashes, overwrite/corruption refusal passed. Still no Windows protected-storage restore or independent guest clone acceptance.
+
+Adaptive viewer scheduling preserves pending-worker polling and active capture deadlines while idle/no-target repaints use5s. Owned authenticated Linux software-rendered empty-viewer CPU median was4.00%→0.25% of one core across three4s samples per build; EN-to-VI native menu interaction after idle verified. This is not VM/video/Mac/battery or Parallels evidence.159Rust/9ignored,13MCP and strictlint passed. Single fresh whole-batch review in progress before commit/publication.
+
+Review follow-up (2026-10-15): Restore is available from an empty library; checkpoint creation still requires a selected VM. Two headless UI regressions reproduced the missing entry and now pass. Saved app launch preserves EN/VI. Full validation: 161 Rust tests passed, 9 ignored, strict workspace clippy passed. Native Mac guest acceptance and the full roadmap remain unfinished.

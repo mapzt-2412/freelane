@@ -23,6 +23,7 @@ MAX_MESSAGE = 1024 * 1024
 MAX_OUTPUT = 16 * 1024
 VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 TASKS = {
+    "bench_viewer_idle": [sys.executable, "tests/viewer_idle_benchmark.py", "--label", "mcp_idle_viewer"],
     "build": ["cargo", "build", "--locked", "--workspace"],
     "test": ["cargo", "test", "--locked", "--workspace"],
     "test_arm": ["cargo", "test", "--locked", "--test", "qemu_smoke", "--", "--ignored"],
