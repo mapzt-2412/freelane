@@ -26,5 +26,15 @@
     "vi"
   ],
   "ui_fixture": "Owned nonbootable Linux desktop; native Mac dialogs remain untested",
-  "native_mac_windows_arm_interactive_acceptance": false
+  "native_mac_windows_arm_interactive_acceptance": false,
+  "native_ui_receive": {
+    "scope": "Owned Linux native UI + host RPC + stdio Linux guest agent, folder dialog substituted with an owned path; no VM boot/native Mac claim",
+    "languages": [
+      "en",
+      "vi"
+    ],
+    "source_and_received_bytes_equal": true,
+    "saved_config_unchanged": true,
+    "source_files_preserved": true
+  }
 }
