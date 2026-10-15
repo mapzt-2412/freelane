@@ -190,12 +190,40 @@ impl Desktop {
                         .color(MUTED),
                 );
                 ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button("×")
+                            .on_hover_text(lang.text("Clear search"))
+                            .clicked()
+                        {
+                            self.library_search.clear();
+                        }
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.library_search)
+                                .desired_width(ui.available_width())
+                                .hint_text(lang.text("Find virtual machines")),
+                        );
+                    });
+                });
+                let query = self.library_search.trim().to_lowercase();
                 let mut chosen = None;
                 let mut repair = None;
                 egui::ScrollArea::vertical()
                     .max_height((ui.available_height() - 140.0).max(120.0))
                     .show(ui, |ui| {
                         for (path, name, os) in &self.library {
+                            let guest = match os {
+                                GuestOs::Windows => "windows",
+                                GuestOs::Ubuntu => "ubuntu",
+                            };
+                            if !query.is_empty()
+                                && !name.to_lowercase().contains(&query)
+                                && !guest.contains(&query)
+                            {
+                                continue;
+                            }
+
                             let selected = self.vm.as_ref().is_some_and(|vm| vm.path == *path);
                             let response = egui::Frame::new()
                                 .fill(if selected {
@@ -974,12 +1002,14 @@ impl Desktop {
 mod recovery_access_tests {
     use super::*;
     fn text_for(view: View) -> String {
-        let ctx = egui::Context::default();
-        let mut desktop = Desktop {
+        rendered(Desktop {
             language: Language::English,
             view,
             ..Default::default()
-        };
+        })
+    }
+    fn rendered(mut desktop: Desktop) -> String {
+        let ctx = egui::Context::default();
         let mut output = ctx.run_ui(
             egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
@@ -1010,6 +1040,52 @@ mod recovery_access_tests {
             collect(&shape.shape, &mut text);
         }
         text
+    }
+    #[test]
+    fn library_search_matches_name_case_and_guest_type() {
+        let desktop = Desktop {
+            language: Language::English,
+            library_search: "  UBUNTU  ".into(),
+            library: vec![
+                (
+                    "/missing-windows.toml".into(),
+                    "Accounting fixture".into(),
+                    GuestOs::Windows,
+                ),
+                (
+                    "/missing-ubuntu.toml".into(),
+                    "Build fixture".into(),
+                    GuestOs::Ubuntu,
+                ),
+            ],
+            ..Default::default()
+        };
+        let text = rendered(desktop);
+        assert!(text.contains("Build fixture"));
+        assert!(!text.contains("Accounting fixture"));
+    }
+    #[test]
+    fn vietnamese_library_search_is_case_insensitive() {
+        let desktop = Desktop {
+            language: Language::Vietnamese,
+            library_search: "MÁY".into(),
+            library: vec![
+                (
+                    "/missing-a.toml".into(),
+                    "Máy học tập".into(),
+                    GuestOs::Ubuntu,
+                ),
+                (
+                    "/missing-b.toml".into(),
+                    "Accounting fixture".into(),
+                    GuestOs::Windows,
+                ),
+            ],
+            ..Default::default()
+        };
+        let text = rendered(desktop);
+        assert!(text.contains("Máy học tập"));
+        assert!(!text.contains("Accounting fixture"));
     }
     #[test]
     fn empty_library_exposes_restore_without_an_existing_vm() {

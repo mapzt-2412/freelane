@@ -45,6 +45,8 @@ impl Language {
             "Integrity checked"=>"Đã kiểm tra toàn vẹn",
             "Unknown date"=>"Chưa rõ thời điểm",
             "files"=>"tệp",
+            "Find virtual machines"=>"Tìm máy ảo",
+            "Clear search"=>"Xóa tìm kiếm",
             "Back"=>"Quay lại",
             "Backups"=>"Sao lưu",
             "Snapshots and backups"=>"Snapshot và sao lưu",

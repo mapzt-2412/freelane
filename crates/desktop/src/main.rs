@@ -112,6 +112,7 @@ struct Desktop {
     agent_info: Option<freelane::agent_capabilities::Report>,
     language: Language,
     library: Vec<(PathBuf, String, GuestOs)>,
+    library_search: String,
     library_notice: String,
     open_dialog: bool,
     view: interface::View,

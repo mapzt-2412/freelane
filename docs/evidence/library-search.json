@@ -1,0 +1,14 @@
+{
+  "scope": "Owned authenticated Linux EN/VI desktop with three synthetic bookmarks; no VM boot",
+  "rust_passed": 177,
+  "rust_ignored": 9,
+  "search_tests_red_green": true,
+  "native_filter_and_clear_inspected": true,
+  "bookmark_file_unchanged": true,
+  "review": "One fresh review; filter/state sound. Sidebar width finding completed under requested responsive UI polish and actual captures. Existing recovery tests caught a misplaced layout scope before commit; corrected and green.",
+  "screenshots": [
+    "docs/assets/library-search-en.png",
+    "docs/assets/library-search-vi.png"
+  ],
+  "native_mac_acceptance": false
+}

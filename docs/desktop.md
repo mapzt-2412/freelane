@@ -56,3 +56,11 @@ Capacity means physical/detected capacity, not free memory or a reservation; oth
 ![Vietnamese resource presets](assets/resource-presets-vi.png)
 
 [Owned UI and test evidence](evidence/resource-presets.json). Native Mac memory pressure/battery and multi-VM policies remain pending.
+
+## Find a virtual machine
+
+The library search matches VM names or Windows/Ubuntu guest types, trims surrounding whitespace and ignores letter case, including Vietnamese uppercase/lowercase. It preserves bookmarks and the selected VM. Clear the field with × to show the full library. Search is session-only and does not remove accents.
+
+![English library search](assets/library-search-en.png)
+
+![Vietnamese library search](assets/library-search-vi.png)
