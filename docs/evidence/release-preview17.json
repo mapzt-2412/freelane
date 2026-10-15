@@ -1,0 +1,60 @@
+{
+  "tag": "v0.1.0-preview.17",
+  "source_prefix": "f0893e928e80",
+  "public_download_verified": true,
+  "assets": [
+    {
+      "name": "FreeLane-0.1.0-f0893e928e80-macos-arm64.dmg",
+      "sha256": "015cfb67028480718406e905ef949df187d21e624faa820b9bf1361f134bb6d3",
+      "bytes": 13885370,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.17/FreeLane-0.1.0-f0893e928e80-macos-arm64.dmg",
+      "udif_footer": true
+    },
+    {
+      "name": "FreeLane-0.1.0-f0893e928e80-macos-arm64.zip",
+      "sha256": "3a147885e86e0b80673b9d84c8ca192bf7cc007de035dd486b74b40b6516965b",
+      "bytes": 11466713,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.17/FreeLane-0.1.0-f0893e928e80-macos-arm64.zip",
+      "embedded_source_revision": "f0893e928e80",
+      "macos_arm64_macho_cli_and_desktop": true
+    },
+    {
+      "name": "FreeLane-v0.1.0-preview.17-windows-arm64-agent.zip",
+      "sha256": "16af88343db9275aeacc8b9b96c33a24aa9711980afc761e71bdae9e4a70e3da",
+      "bytes": 1371654,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.17/FreeLane-v0.1.0-preview.17-windows-arm64-agent.zip",
+      "windows_arm64_pe_and_inner_sha256": true
+    }
+  ],
+  "dmg": "FreeLane-0.1.0-f0893e928e80-macos-arm64.dmg",
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.17/FreeLane-0.1.0-f0893e928e80-macos-arm64.dmg",
+  "sha256": "015cfb67028480718406e905ef949df187d21e624faa820b9bf1361f134bb6d3",
+  "bytes": 13885370,
+  "udif_footer": true,
+  "source_commit": "f0893e928e801fc74e9a5ed674e73fdef097273c",
+  "required_main_ci": {
+    "run": "38738680227",
+    "status": "Success"
+  },
+  "tag_workflows": [
+    {
+      "run": "38739130031",
+      "kind": "required Rust/ARM/Windows/Mac checks",
+      "status": "Success"
+    },
+    {
+      "run": "38739129906",
+      "kind": "native Mac and Windows packaging/publication",
+      "status": "Success"
+    },
+    {
+      "run": "38739129891",
+      "kind": "Windows agent lifecycle",
+      "status": "Success"
+    }
+  ],
+  "native_package_scope": "Mac CI builds ARM64 CLI/desktop, verifies ad-hoc signatures and offline Dock fixture, verifies and read-only mounts DMG. Public packages independently SHA256 checked; ZIP binary architectures and embedded source revision checked.",
+  "native_mac_guest_hvf_dock_sleep_devices_accepted": false,
+  "notarized": false,
+  "full_roadmap_complete": false
+}

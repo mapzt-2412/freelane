@@ -6,7 +6,7 @@ This is a first integration path, not Parallels Coherence parity. The viewer use
 
 ## Download this revision
 
-[Published prerelease with Mac and Windows agent ZIPs](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.2). Earlier [Mac build](https://github.com/puma2k/freelane/actions/runs/38275323897#artifacts): `FreeLane-experimental-macos-arm64`. [Windows ARM64 agent](https://github.com/puma2k/freelane/actions/runs/38272833003#artifacts): `experimental-windows-arm64-agent`. Both packaging/upload jobs passed; sign in to GitHub to download. The broader second workflow has failed MCP steps, so its overall red status must not be described as a complete CI pass. [Build evidence](evidence/app-window-release-build.json) records these separately.
+[Current Mac DMG/ZIP and Windows ARM64 agent](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.17) include the matching v9/v10 app-window implementation. Required native CI and public checksums passed; see [release verification](evidence/release-preview17.json). Install the matching updated guest agent for the new input controls. Historical cloud observations below retain their original scope.
 
 ## Prepare Windows
 
@@ -100,7 +100,7 @@ Periodic refresh encountered a guest capture timeout. The viewer now retries tha
 
 Updated agents negotiate v9 window incarnations. Profiles without arguments reattach to a visible matching process image before sending a new launch. Profiles with arguments retain one literal-argument launch; different-image delegates remain unsupported. [Implementation and validation scope](plans/p3-window-identity.md).
 
-## Extended input (newer than preview.16)
+## Extended input (preview.17)
 
 The viewer negotiates `window_input` v10. Click/right-click/double-click and wheel map to client coordinates. A drag is delivered as one bounded gesture on release, with16 interpolated moves; it is not a continuous native pointer stream. `Guest window size` requests a client width/height of64–8192 pixels; Windows/app constraints may limit the result. Selecting another window discards queued input.
 
