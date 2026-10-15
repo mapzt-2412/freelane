@@ -79,7 +79,11 @@ def main():
         client = Client(mcp_config)
         try:
             catalog = client.request("tools/list", {})
-            assert len(catalog["tools"]) == 21
+            assert len(catalog["tools"]) == 22
+            tool_names={tool["name"] for tool in catalog["tools"]}
+            assert len(tool_names)==22
+            assert {"checkpoint_info","checkpoint_create","checkpoint_restore"} <= tool_names
+            assert client.tool("checkpoint_info",checkpoint_id="0"*32)["isError"]
             assert client.data("host_info")["vms"] == ["uefi"]
             for task in ("test", "test_arm"):
                 job = client.data("dev_run", task=task)

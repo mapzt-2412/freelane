@@ -1,0 +1,16 @@
+{
+  "scope": "Actual stdio MCP server with disposable ARM UEFI/QEMU fixture, not installed Windows/Ubuntu or native Mac acceptance",
+  "catalog_tools": 22,
+  "required_backup_tools_present": true,
+  "unknown_checkpoint_id_refused": true,
+  "fixed_development_tasks": [
+    "test",
+    "test_arm"
+  ],
+  "vm_start_duplicate_pause_resume_capture_key_click_disconnect_adoption_shutdown_request": true,
+  "owned_fixture_cleanup": true,
+  "shared_nvram_template_unchanged": true,
+  "real_png_sha256": "9583b111078754cecf036b02afb397b8a9123c46c2cd3aacfe065b02ecdb9812",
+  "red_cause": "Real integration catalog assertion still expected21 before the22nd tool was added",
+  "green_exit_code": 0
+}
