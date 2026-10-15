@@ -10,6 +10,9 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn window_input_support(&self) -> bool {
+        false
+    }
     fn window_identity_support(&self) -> bool {
         false
     }
@@ -69,6 +72,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                         name: "launch".into(),
                         protocol: VERSION,
                     }];
+                    if launcher.window_input_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "window_input".into(),
+                            protocol: freelane_agent_protocol::window_input::VERSION,
+                        });
+                    }
                     if launcher.window_identity_support() {
                         features.push(freelane_agent_protocol::Feature {
                             name: "window_identity".into(),
@@ -150,6 +159,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                                     .window_identity_support()
                                     .then_some(freelane_agent_protocol::WINDOW_IDENTITY_VERSION),
                             )
+                            .chain(
+                                launcher
+                                    .window_input_support()
+                                    .then_some(freelane_agent_protocol::window_input::VERSION),
+                            )
                             .collect(),
                             features,
                             max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -216,6 +230,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::SHARE_STATUS_VERSION,
             freelane_agent_protocol::CATALOG_VERSION,
             freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
+            freelane_agent_protocol::window_input::VERSION,
         ]
         .contains(&request.version)
         {
@@ -245,6 +260,9 @@ pub fn serve(
 pub struct WindowsLauncher;
 #[cfg(windows)]
 impl Launcher for WindowsLauncher {
+    fn window_input_support(&self) -> bool {
+        true
+    }
     fn window_identity_support(&self) -> bool {
         true
     }
@@ -535,6 +553,9 @@ impl<L: Launcher> Launcher for TransferLauncher<L> {
     }
     fn launch(&mut self, e: &str, a: &[String]) -> io::Result<u32> {
         self.inner.launch(e, a)
+    }
+    fn window_input_support(&self) -> bool {
+        self.inner.window_input_support()
     }
     fn window_identity_support(&self) -> bool {
         self.inner.window_identity_support()

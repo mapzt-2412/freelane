@@ -79,6 +79,13 @@ pub fn request_socket(socket: &Path, action: Action) -> Result<Response> {
     request_socket_version(socket, action, VERSION)
 }
 pub fn window_request(config: &Path, action: Action) -> Result<Response> {
+    if freelane_agent_protocol::window_input::target(&action).is_some() {
+        return request_vm(
+            config,
+            action,
+            freelane_agent_protocol::window_input::VERSION,
+        );
+    }
     let upgraded = match &action {
         Action::WindowInventory { .. } | Action::FindAppWindows { .. } => true,
         Action::CaptureWindow { target }
@@ -277,7 +284,12 @@ fn request_socket_cancellable(
                 freelane_agent_protocol::Outcome::WindowFrame { .. }
             )
             | (
-                Action::WindowClick { .. } | Action::WindowText { .. } | Action::WindowKey { .. },
+                Action::WindowClick { .. }
+                    | Action::WindowText { .. }
+                    | Action::WindowKey { .. }
+                    | Action::WindowPointer { .. }
+                    | Action::WindowShortcut { .. }
+                    | Action::WindowResize { .. },
                 freelane_agent_protocol::Outcome::WindowInputAccepted
             )
             | (

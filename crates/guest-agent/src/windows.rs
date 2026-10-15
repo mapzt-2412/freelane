@@ -1,4 +1,5 @@
 //! Snapshot/input prototype for ordinary Win32 client windows in the agent's user session.
+mod input;
 use freelane_agent_protocol::{Action, Outcome, WindowInfo, WindowTarget};
 use std::{
     io,
@@ -577,6 +578,9 @@ fn input(action: &Action, target: &WindowTarget) -> io::Result<Outcome> {
 }
 pub fn handle(action: &Action) -> io::Result<Outcome> {
     match action {
+        Action::WindowPointer { .. }
+        | Action::WindowShortcut { .. }
+        | Action::WindowResize { .. } => input::handle(action),
         Action::Windows { pid } => list(*pid, false),
         Action::WindowInventory { pid } => list(*pid, true),
         Action::FindAppWindows { executable } => find(executable),

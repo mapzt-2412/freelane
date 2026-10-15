@@ -1,6 +1,7 @@
 //! Versioned, bounded guest RPC. Launch requests contain an executable and literal arguments, never shell text.
 pub mod clipboard;
 pub mod clipboard_sync;
+pub mod window_input;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
 pub const VERSION: u16 = 1;
@@ -26,6 +27,20 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    WindowPointer {
+        target: WindowTarget,
+        gesture: window_input::Gesture,
+    },
+    WindowShortcut {
+        target: WindowTarget,
+        key: u16,
+        modifiers: u8,
+    },
+    WindowResize {
+        target: WindowTarget,
+        width: u16,
+        height: u16,
+    },
     WindowInventory {
         pid: u32,
     },
@@ -355,6 +370,7 @@ impl Request {
             SHARE_STATUS_VERSION,
             CATALOG_VERSION,
             WINDOW_IDENTITY_VERSION,
+            window_input::VERSION,
         ]
         .contains(&self.version)
         {
@@ -362,6 +378,12 @@ impl Request {
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == window_input::VERSION {
+            return window_input::validate(&self.action);
+        }
+        if window_input::target(&self.action).is_some() {
+            return Err(invalid("Extended window input requires protocol v10"));
         }
         if self.version == WINDOW_IDENTITY_VERSION {
             return match &self.action {
