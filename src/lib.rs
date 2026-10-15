@@ -10,6 +10,7 @@ pub mod mobile;
 pub mod provision;
 pub mod qemu;
 pub mod qmp;
+pub mod resource_presets;
 mod socket_wait;
 pub mod telemetry;
 

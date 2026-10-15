@@ -1,0 +1,17 @@
+{
+  "scope": "Owned nonbootable Linux UI fixture; no VM started",
+  "preset": "Performance",
+  "draft_expected": {
+    "cpus": 3,
+    "memory_mib": 16384
+  },
+  "saved_config_unchanged": true,
+  "rust_passed": 174,
+  "rust_ignored": 9,
+  "core_tests_red_green": true,
+  "review_fix": "Nested/remapped/v1 cgroup layouts now disable suggestions instead of treating mount-root memory as effective; reproduced RED\u2192GREEN",
+  "strict_lint": true,
+  "mac_core_cross_check": true,
+  "native_mac_acceptance": false,
+  "measured_battery_or_speed_improvement": false
+}

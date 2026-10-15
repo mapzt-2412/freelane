@@ -467,6 +467,7 @@ impl Desktop {
                 .clicked()
             {
                 self.notice.clear();
+                self.resource_capacity = freelane::resource_presets::HostCapacity::detect();
                 self.settings_open = true;
             }
         });
@@ -882,6 +883,8 @@ impl Desktop {
                 let Some(config) = self.settings.as_mut() else { return };
                 match self.settings_tab {
                     SettingsTab::Hardware => {
+                        super::resource_ui::presets(ui,config,self.resource_capacity,lang);
+                        ui.separator();
                         ui.label(lang.text("Name")); ui.text_edit_singleline(&mut config.name);
                         ui.add(egui::Slider::new(&mut config.cpus, 1..=64).text(lang.text("Virtual CPUs")));
                         ui.horizontal(|ui| { ui.label(lang.text("RAM (MiB)")); ui.add(egui::DragValue::new(&mut config.memory_mib).range(2048..=1_048_576).speed(256)); });

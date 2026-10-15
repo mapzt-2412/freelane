@@ -138,7 +138,12 @@
   "key_mapping_red": "None instead of Command-A and copy shortcut",
   "windows_arm64_cross_build": true,
   "windows_integration_test_cross_check": true,
-  "native_windows_execution": "pending",
+  "native_windows_execution": {
+    "run": "38672599763",
+    "job": "116218940350",
+    "status": "Success",
+    "scope": "Owned USER32 pointer message sequence/resize/stale target and background shortcut refusal; not live Windows ARM guest or successful foreground shortcut acceptance"
+  },
   "physical_mac_acceptance": false,
   "rust_passed": 170,
   "rust_ignored": 9,

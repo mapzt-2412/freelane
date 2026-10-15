@@ -44,3 +44,15 @@ The redesign was exercised on authenticated Linux Xvfb. GPU/headless settings we
 ## Mobile devices
 
 Use **Android & iOS** in the sidebar, or `freelane-desktop --mobile /absolute/path/to/mobile.toml`. Click Open to load an existing Android AVD/Xcode Simulator profile. The mobile panel operates separately from the selected Windows/Ubuntu VM; SDK errors do not replace VM state. It supports install, launch and PNG snapshots; scroll to see the complete phone frame. iOS requires Mac/Xcode and Simulator builds. See [mobile setup, evidence and known cloud ANR](mobile.md).
+
+## Resource allocation presets
+
+Hardware settings offer Battery, Balanced and Performance CPU/RAM suggestions with visible values. They reserve one available host CPU and2GiB RAM, keep Windows2CPU/4GiB and Ubuntu1CPU/2GiB minima, and respect configuration maxima. They change only the draft; Save requires the VM stopped and applies at its next start. Other settings and files remain unchanged. These are allocation suggestions, not measured energy/speed improvements or live CPU quotas.
+
+Capacity means physical/detected capacity, not free memory or a reservation; other VMs/apps still consume resources. Unknown Linux cgroup membership/mount layouts disable suggestions and leave manual controls available. Small hosts may show disabled presets because guest minimums plus the host reserve cannot fit.
+
+![English resource presets](assets/resource-presets-en.png)
+
+![Vietnamese resource presets](assets/resource-presets-vi.png)
+
+[Owned UI and test evidence](evidence/resource-presets.json). Native Mac memory pressure/battery and multi-VM policies remain pending.

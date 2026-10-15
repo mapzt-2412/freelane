@@ -7,6 +7,7 @@ mod i18n;
 mod interface;
 mod mobile_ui;
 mod recovery_ui;
+mod resource_ui;
 mod settings_io;
 mod setup;
 mod sharing_ui;
@@ -121,6 +122,7 @@ struct Desktop {
     shared_path: String,
     draft_path: String,
     resources: Option<serde_json::Value>,
+    resource_capacity: Option<freelane::resource_presets::HostCapacity>,
     checkpoint_label: String,
     checkpoint_source: String,
     app_catalog: Vec<freelane_agent_protocol::AppEntry>,
