@@ -1,0 +1,40 @@
+{
+  "tag": "v0.1.0-preview.18",
+  "source_prefix": "52a5780fe8a1",
+  "public_download_verified": true,
+  "assets": [
+    {
+      "name": "FreeLane-0.1.0-52a5780fe8a1-macos-arm64.dmg",
+      "sha256": "71a830945c44fe9dd90f0f7d41e062a0a90e8cf3522b4f8d9edf1281b24da556",
+      "bytes": 14069643,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.18/FreeLane-0.1.0-52a5780fe8a1-macos-arm64.dmg",
+      "udif_footer": true
+    },
+    {
+      "name": "FreeLane-0.1.0-52a5780fe8a1-macos-arm64.zip",
+      "sha256": "0f1f148137e37d07d2130f1bf2519ff3013f5f8210017729f03208bbd85246ff",
+      "bytes": 11707124,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.18/FreeLane-0.1.0-52a5780fe8a1-macos-arm64.zip",
+      "embedded_source_revision": "52a5780fe8a1",
+      "macos_arm64_macho_cli_and_desktop": true
+    },
+    {
+      "name": "FreeLane-v0.1.0-preview.18-windows-arm64-agent.zip",
+      "sha256": "4190f698b2d508368ca54aedc9553a28a80e23b7eca25cc2e1ee0a7bf69cbdd6",
+      "bytes": 1388300,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.18/FreeLane-v0.1.0-preview.18-windows-arm64-agent.zip",
+      "windows_arm64_pe_and_inner_sha256": true
+    }
+  ],
+  "dmg": "FreeLane-0.1.0-52a5780fe8a1-macos-arm64.dmg",
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.18/FreeLane-0.1.0-52a5780fe8a1-macos-arm64.dmg",
+  "sha256": "71a830945c44fe9dd90f0f7d41e062a0a90e8cf3522b4f8d9edf1281b24da556",
+  "bytes": 14069643,
+  "udif_footer": true,
+  "source_commit": "52a5780fe8a123b364dc21566c59f6553ede5849",
+  "required_source_ci": "https://github.com/puma2k/freelane/actions/runs/38761696548",
+  "native_source_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38761696661",
+  "packaging_ci": "https://github.com/puma2k/freelane/actions/runs/38762133633",
+  "tag_required_ci": "https://github.com/puma2k/freelane/actions/runs/38762133607",
+  "tag_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38762133732"
+}

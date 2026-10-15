@@ -6,7 +6,7 @@ This is a first integration path, not Parallels Coherence parity. The viewer use
 
 ## Download this revision
 
-[Current Mac DMG/ZIP and Windows ARM64 agent](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.17) include the matching v9/v10 app-window implementation. Required native CI and public checksums passed; see [release verification](evidence/release-preview17.json). Install the matching updated guest agent for the new input controls. Historical cloud observations below retain their original scope.
+[Current Mac DMG/ZIP and Windows ARM64 agent](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.18) include the matching v9/v10 app-window implementation. Required native CI and public checksums passed; see [release verification](evidence/release-preview18.json). Install the matching updated guest agent for the new input controls. Historical cloud observations below retain their original scope.
 
 ## Prepare Windows
 

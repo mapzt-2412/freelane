@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.17](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.17) adds extended Windows app input, verified backup details, host-aware CPU/RAM suggestions, library search and22MCP tools. [Verification](evidence/release-preview17.json) records successful required/native CI and independently downloaded DMG/ZIP checksums, ARM64 binaries and source revision. Physical Mac guest/HVF/Dock/device acceptance remains pending.
+[Latest preview: v0.1.0-preview.18](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.18) adds explicit guest-to-host file reception through a separately enabled outbox, preserving existing host files and verifying final size/SHA-256. It retains preview.17 app input, backup details, CPU/RAM suggestions, library search and22MCP tools. [Verification](evidence/release-preview18.json) records successful required/native CI and independently downloaded DMG/ZIP checksums, ARM64 binaries and source revision. Physical Mac guest/HVF/Dock/device acceptance remains pending.
 
 [Preview.12 verification](evidence/release-preview12.json) records native packaging/required checks and an independently downloaded public DMG checksum. Preview.11 did not publish because of a corrected attribution staging error.
 

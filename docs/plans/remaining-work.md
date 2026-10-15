@@ -1,4 +1,4 @@
-# Remaining product work after the preview.17 source milestone
+# Remaining product work after the preview.18 source milestone
 
 This is an implementation/acceptance inventory, not a declaration that the product roadmap is finished. The user deferred physical-Mac testing; that deferral does not convert untested behavior into acceptance.
 
