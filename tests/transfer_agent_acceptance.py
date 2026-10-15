@@ -5,12 +5,12 @@ from pathlib import Path
 def main():
     repo=Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix='freelane-transfer-',dir=os.environ.get('TMPDIR')) as directory:
-        root=Path(directory); inbox=root/'inbox';inbox.mkdir()
+        root=Path(directory); inbox=root/'inbox';inbox.mkdir(); outbox=root/'outbox';outbox.mkdir();host=root/'received';host.mkdir()
         config=root/'vm.toml';config.write_text('name = "Transfer acceptance"\nguest_os = "ubuntu"\ncpus = 2\nmemory_mib = 2048\ndisk = "disk.qcow2"\n[runtime]\nfirmware = "code.fd"\nnvram = "vars.fd"\naccelerator = "tcg"\nheadless = true\nguest_agent = true\n')
         value=0xcbf29ce484222325
         for byte in str(config.resolve()).encode():value=((value^byte)*0x100000001b3)&((1<<64)-1)
         runtime=Path(tempfile.gettempdir())/f'freelane-{value:016x}';runtime.mkdir(mode=0o700)
-        agent=subprocess.Popen([str(repo/'target/debug/freelane-guest-agent'),'--stdio','--transfer-root',str(inbox)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
+        agent=subprocess.Popen([str(repo/'target/debug/freelane-guest-agent'),'--stdio','--transfer-root',str(inbox),'--export-root',str(outbox)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
         server=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);server.bind(str(runtime/'agent.sock'));server.listen();server.settimeout(.2)
         stopped=threading.Event();lock=threading.Lock();errors=[]
         def exchange(request):
@@ -41,8 +41,18 @@ def main():
             assert call({'operation':'chunk','token':token,'offset':0,'data_hex':'61'})['received']==1
             assert call({'operation':'cancel','token':token})['status']=='transfer_canceled'
             assert not (inbox/'cancel.txt').exists()
+            exported=outbox/'Kết quả.bin';exported.write_bytes(data)
+            receive=[str(repo/'target/debug/freelane'),'file-receive',str(config),exported.name,str(host)]
+            subprocess.run(receive,check=True,stdout=subprocess.DEVNULL,timeout=60)
+            assert (host/exported.name).read_bytes()==data
+            assert subprocess.run(receive,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=60).returncode!=0
+            assert (host/exported.name).read_bytes()==data
+            (outbox/'empty.txt').write_bytes(b'')
+            subprocess.run([*receive[:3],'empty.txt',str(host)],check=True,stdout=subprocess.DEVNULL,timeout=60)
+            assert (host/'empty.txt').read_bytes()==b''
+            assert len(list(host.iterdir()))==2
             assert len(list(inbox.iterdir()))==1 and not errors
-            print(json.dumps({'native_agent':True,'host_cli':True,'bytes':len(data),'sha256_match':True,'unicode_filename':True,'conflict_preserved':True,'cancel_clean':True,'vm_boot':False}))
+            print(json.dumps({'native_agent':True,'host_cli':True,'bytes':len(data),'sha256_match':True,'unicode_filename':True,'conflict_preserved':True,'cancel_clean':True,'guest_to_host_verified':True,'empty_file_verified':True,'vm_boot':False}))
         finally:
             stopped.set();server.close();worker.join(timeout=3);agent.terminate();agent.wait(timeout=5)
             for path in runtime.iterdir():path.unlink()

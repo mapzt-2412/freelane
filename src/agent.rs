@@ -221,6 +221,26 @@ fn request_socket_cancellable(
     let expected = matches!(
         (&request.action, &response.outcome),
         (
+            Action::Export {
+                operation: freelane_agent_protocol::export::Operation::Begin { .. }
+            },
+            freelane_agent_protocol::Outcome::ExportReady { .. }
+        ) | (
+            Action::Export {
+                operation: freelane_agent_protocol::export::Operation::Read { .. }
+            },
+            freelane_agent_protocol::Outcome::ExportChunk { .. }
+        ) | (
+            Action::Export {
+                operation: freelane_agent_protocol::export::Operation::Finish { .. }
+            },
+            freelane_agent_protocol::Outcome::ExportFinished { .. }
+        ) | (
+            Action::Export {
+                operation: freelane_agent_protocol::export::Operation::Close { .. }
+            },
+            freelane_agent_protocol::Outcome::ExportClosed
+        ) | (
             Action::AppCatalog { .. },
             freelane_agent_protocol::Outcome::AppCatalog { .. }
         ) | (
@@ -493,5 +513,18 @@ pub fn app_catalog(config: &Path, cursor: u16) -> Result<Response> {
         config,
         Action::AppCatalog { cursor },
         freelane_agent_protocol::CATALOG_VERSION,
+    )
+}
+
+pub fn export_request(
+    config: &Path,
+    operation: freelane_agent_protocol::export::Operation,
+    cancelled: &impl Fn() -> bool,
+) -> Result<Response> {
+    request_vm_cancellable(
+        config,
+        Action::Export { operation },
+        freelane_agent_protocol::export::VERSION,
+        cancelled,
     )
 }

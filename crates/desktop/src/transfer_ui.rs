@@ -20,13 +20,23 @@ impl Desktop {
             &mut self.transfer_open_document,
             lang.text("Open text document after transfer"),
         );
-        if !ui
+        let send = ui
             .add_enabled(
                 self.pending.is_none(),
                 egui::Button::new(lang.text("Send file to guest")),
             )
-            .clicked()
-        {
+            .clicked();
+        ui.separator();
+        ui.label(lang.text("File name in guest outbox"));
+        ui.text_edit_singleline(&mut self.transfer_export_name);
+        let receive = ui
+            .add_enabled(
+                self.pending.is_none()
+                    && freelane_agent_protocol::export::valid_name(&self.transfer_export_name),
+                egui::Button::new(lang.text("Receive file from guest")),
+            )
+            .clicked();
+        if !send && !receive {
             return;
         }
         let Some(vm) = &self.vm else {
@@ -34,6 +44,7 @@ impl Desktop {
         };
         let config = vm.path.clone();
         let open = self.transfer_open_document;
+        let name = self.transfer_export_name.clone();
         let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
         self.transfer_cancel = Some(cancel.clone());
         let (tx, rx) = mpsc::channel();
@@ -42,20 +53,32 @@ impl Desktop {
         let repaint = ctx.clone();
         self.work(ctx, move || {
             let result = (|| -> Result<String, String> {
-                let Some(source) = file_picker::choose(false)? else {
+                let Some(source) = file_picker::choose(receive)? else {
                     return Ok(String::new());
                 };
-                freelane::file_transfer::send_options(
-                    &config,
-                    Path::new(&source),
-                    open,
-                    &|| cancel.load(std::sync::atomic::Ordering::Relaxed),
-                    &mut |done, total| {
-                        let _ = tx.send((done, total));
-                        repaint.request_repaint();
-                    },
-                )
-                .map_err(|e| e.to_string())?;
+                let mut progress = |done, total| {
+                    let _ = tx.send((done, total));
+                    repaint.request_repaint();
+                };
+                if receive {
+                    freelane::file_receive::receive(
+                        &config,
+                        &name,
+                        Path::new(&source),
+                        &|| cancel.load(std::sync::atomic::Ordering::Relaxed),
+                        &mut progress,
+                    )
+                    .map_err(|e| e.to_string())?;
+                } else {
+                    freelane::file_transfer::send_options(
+                        &config,
+                        Path::new(&source),
+                        open,
+                        &|| cancel.load(std::sync::atomic::Ordering::Relaxed),
+                        &mut progress,
+                    )
+                    .map_err(|e| e.to_string())?;
+                }
                 Ok("File transferred and verified".into())
             })();
             Ok(Event::TransferDone(result.unwrap_or_else(|e| e)))

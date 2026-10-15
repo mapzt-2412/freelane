@@ -80,6 +80,7 @@ type WorkResult = Result<Event, String>;
 #[derive(Default)]
 struct Desktop {
     transfer_open_document: bool,
+    transfer_export_name: String,
     transfer_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     transfer_progress: Option<mpsc::Receiver<(u64, u64)>>,
     transfer_status: Option<(u64, u64)>,

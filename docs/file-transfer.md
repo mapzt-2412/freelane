@@ -28,3 +28,21 @@ Transfers use 16 KiB sequential chunks, a declared size, SHA-256 and publication
 One active transfer per agent, maximum 64 GiB per file. Source hashing runs before upload; progress currently starts with upload. The limit bounds this transport, not VM disk capacity. Linux requires anonymous-file/hard-link support (e.g. ext4); Windows requires hard-link support (e.g. NTFS). Unsupported filesystems fail without replacing existing files. Unexpected termination on Windows may retain a private `.freelane-stage-*` file; inspect and clean it only after stopping the agent. Root capabilities keep an inbox rename from redirecting writes.
 
 Portable Linux stdio agent/host CLI acceptance and Windows native CI are separate from real Mac/Windows guest boot and editor acceptance. Normal-user login startup and native Mac testing remain pending.
+
+## Receive a guest file
+
+Run the matching agent in the guest user session with an existing, dedicated outbox:
+
+```text
+freelane-guest-agent --export-root <existing-outbox-directory>
+```
+
+`--transfer-root` (inbox) and `--export-root` (outbox) are independent and disabled by default. Put the file to export directly in the outbox. In the Display tab, enter its filename under **File name in guest outbox**, click **Receive file from guest**, and choose an existing host destination folder, including an external drive. The CLI equivalent is:
+
+```text
+freelane file-receive vm.toml "Result.txt" /path/to/host-folder
+```
+
+Requires advertised `file_export` protocol v11; older agents continue supporting their existing features. Only a single portable filename is accepted: no paths, subdirectories or directory browsing. Each session reads one regular file through its opened handle, in chunks up to 16 KiB, with a 64 GiB per-file transfer bound (not a virtual-disk limit). The agent hashes each bounded read and returns the checksum on Finish after checking source size/modification time. Host publication requires the announced size and matching final SHA-256; changed bytes, malformed responses, cancellation and destination conflicts leave no completed output. Existing files, including dangling symlinks, are preserved. The temporary host file is private and created in the selected folder; that local folder must be trusted against other processes replacing temporary entries. This is an explicit copy, not a live mount or conflict-aware synchronization. Do not edit a source while transferring; this does not create an atomic filesystem snapshot.
+
+One active read per agent, a five-minute idle expiry and channel disconnect revoke its token. No automatic retries, execution, deletion of guest source files or automatic opening of received files. Startup installation currently starts the agent without an outbox; stop that agent and run the command above to opt in for the session. Native Mac/Windows ARM interactive acceptance remains pending.

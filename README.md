@@ -31,7 +31,7 @@ See [Windows evidence](docs/test-evidence.md), [Ubuntu evidence](docs/ubuntu-tes
 - Searchable VM library, visible CPU/RAM allocation presets, settings and Vietnamese/English language selection.
 - Known guest app discovery/search, stable exported Dock identities, stopped-VM backup/restore UI and observed host RAM/CPU counters. [Current scope](docs/plans/portable-workspace-batch.md).
 - Live Ubuntu9p sharing in read-only or read/write mode, with folder availability/reselection controls. [Sharing](docs/sharing.md).
-- Explicit verified file transfer into an opt-in guest inbox, with cancellation/conflict preservation and optional text-document opening. [File transfer](docs/file-transfer.md).
+- Explicit SHA-256 verified file copies in both directions through opt-in guest inbox/outbox folders, preserving existing files; optional opening of sent text documents. [File transfer](docs/file-transfer.md).
 - Opt-in Unicode text clipboard send/copy and conflict-aware automatic synchronization with an updated graphical-session guest agent; verified Windows agent install/update/rollback/uninstall. [Clipboard](docs/clipboard.md).
 - CPU, RAM, acceleration, network, media, display, guest-agent and USB configuration.
 - Read-only USB folder transfer for Windows/Ubuntu; live read/write 9p sharing for Ubuntu.
