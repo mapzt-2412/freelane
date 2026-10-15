@@ -187,12 +187,18 @@ impl Desktop {
     }
     fn open_saved_app(&mut self, ctx: &egui::Context) {
         let path = PathBuf::from(self.app_profile_output.trim());
+        let language = if self.language == Language::English {
+            "en"
+        } else {
+            "vi"
+        };
         self.work(ctx, move || {
             let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
             freelane::app_launcher::AppProfile::load(&path).map_err(|e| e.to_string())?;
             Command::new(std::env::current_exe().map_err(|e| e.to_string())?)
                 .arg("--app")
                 .arg(&path)
+                .args(["--lang", language])
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())

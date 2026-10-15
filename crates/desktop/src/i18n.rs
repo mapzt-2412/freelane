@@ -30,6 +30,8 @@ impl Language {
             "Closing this viewer keeps the guest application and VM running"=>"Đóng viewer vẫn giữ app và VM chạy.",
 
             "Backup name"=>"Tên bản sao lưu",
+            "Restore virtual machine"=>"Khôi phục máy ảo",
+            "Back"=>"Quay lại",
             "Backups"=>"Sao lưu",
             "Snapshots and backups"=>"Snapshot và sao lưu",
             "Stop the VM before saving. Restore creates a new VM and preserves originals."=>"Tắt VM trước khi lưu. Khôi phục tạo VM mới và giữ nguyên bản gốc.",

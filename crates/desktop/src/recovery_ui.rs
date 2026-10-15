@@ -4,6 +4,9 @@ impl Desktop {
     pub fn recovery_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let lang = self.language;
         let busy = self.pending.is_some();
+        if ui.button(lang.text("Back")).clicked() {
+            self.view = interface::View::Display;
+        }
         ui.heading(lang.text("Snapshots and backups"));
         ui.label(
             lang.text(
@@ -15,7 +18,10 @@ impl Desktop {
                 .hint_text(lang.text("Backup name")),
         );
         if ui
-            .add_enabled(!busy, egui::Button::new(lang.text("Save full checkpoint")))
+            .add_enabled(
+                !busy && self.vm.is_some(),
+                egui::Button::new(lang.text("Save full checkpoint")),
+            )
             .clicked()
         {
             self.create_checkpoint(ctx);

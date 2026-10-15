@@ -277,6 +277,15 @@ impl Desktop {
                 {
                     self.wizard.begin();
                 }
+                if ui
+                    .add_enabled(
+                        self.pending.is_none(),
+                        egui::Button::new(lang.text("Restore virtual machine")),
+                    )
+                    .clicked()
+                {
+                    self.view = View::Recovery;
+                }
                 if ui.button(lang.text("Android & iOS")).clicked() {
                     self.mobile_open = true;
                 }
@@ -290,7 +299,9 @@ impl Desktop {
             .show(ui, |ui| {
                 let viewport_height = ui.available_height();
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    if self.vm.is_some() {
+                    if self.view == View::Recovery {
+                        self.recovery_ui(ui, ctx);
+                    } else if self.vm.is_some() {
                         self.machine_ui(ui, ctx, viewport_height);
                     } else {
                         ui.vertical_centered(|ui| {
@@ -953,5 +964,56 @@ impl Desktop {
         } else if export {
             self.export_settings_ui(ctx);
         }
+    }
+}
+
+#[cfg(test)]
+mod recovery_access_tests {
+    use super::*;
+    fn text_for(view: View) -> String {
+        let ctx = egui::Context::default();
+        let mut desktop = Desktop {
+            language: Language::English,
+            view,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1200.0, 820.0),
+                )),
+                ..Default::default()
+            },
+            |ui| desktop.draw(ui, &ctx),
+        );
+        fn collect(shape: &egui::epaint::Shape, text: &mut String) {
+            match shape {
+                egui::epaint::Shape::Text(value) => {
+                    text.push_str(value.galley.text());
+                    text.push('\n');
+                }
+                egui::epaint::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect(shape, text)
+                    }
+                }
+                _ => {}
+            }
+        }
+        output.textures_delta.clear();
+        let mut text = String::new();
+        for shape in output.shapes {
+            collect(&shape.shape, &mut text);
+        }
+        text
+    }
+    #[test]
+    fn empty_library_exposes_restore_without_an_existing_vm() {
+        assert!(text_for(View::Display).contains("Restore virtual machine"));
+    }
+    #[test]
+    fn recovery_screen_can_choose_a_checkpoint_without_loading_a_vm() {
+        assert!(text_for(View::Recovery).contains("Choose checkpoint"));
     }
 }
