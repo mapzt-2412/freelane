@@ -1,0 +1,148 @@
+{
+  "scope": "Owned authenticated Linux Xvfb viewer plus synthetic local metadata/control replies; rendered previously recorded Notepad JPEG. No live Windows input or physical Mac acceptance.",
+  "fixture_requests": [
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "click",
+        "at": {
+          "x": 9830,
+          "y": 9221
+        },
+        "button": "primary",
+        "count": 1
+      }
+    },
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "click",
+        "at": {
+          "x": 9830,
+          "y": 9221
+        },
+        "button": "primary",
+        "count": 2
+      }
+    },
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "click",
+        "at": {
+          "x": 9830,
+          "y": 9221
+        },
+        "button": "secondary",
+        "count": 1
+      }
+    },
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "wheel",
+        "at": {
+          "x": 9830,
+          "y": 9221
+        },
+        "horizontal": false,
+        "delta": 120
+      }
+    },
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "wheel",
+        "at": {
+          "x": 9830,
+          "y": 9221
+        },
+        "horizontal": false,
+        "delta": 120
+      }
+    },
+    {
+      "type": "window_pointer",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "gesture": {
+        "kind": "drag",
+        "from": {
+          "x": 7782,
+          "y": 10116
+        },
+        "to": {
+          "x": 12390,
+          "y": 16383
+        },
+        "button": "primary"
+      }
+    },
+    {
+      "type": "window_resize",
+      "target": {
+        "handle": 1,
+        "pid": 2,
+        "created": 3,
+        "incarnation": 4
+      },
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "screenshots": {
+    "en": {
+      "path": "docs/assets/app-input-en.png",
+      "sha256": "12bc22d003086862b1c8539eaa201689bacc66d745bc510c1f94250d92340d93"
+    },
+    "vi": {
+      "path": "docs/assets/app-input-vi.png",
+      "sha256": "09e6acf85143bd0cad7449b466c0f761b5bc68e473b3bf16308a6c8e3eb54de3"
+    }
+  },
+  "protocol_red": "unknown variant window_pointer before implementation",
+  "key_mapping_red": "None instead of Command-A and copy shortcut",
+  "windows_arm64_cross_build": true,
+  "windows_integration_test_cross_check": true,
+  "native_windows_execution": "pending",
+  "physical_mac_acceptance": false,
+  "rust_passed": 170,
+  "rust_ignored": 9,
+  "mcp_passed": 13,
+  "strict_lint_workspace_and_windows": true,
+  "review": "one fresh whole-batch review; shifted printable duplication and horizontal direction reproduced RED and fixed GREEN; native paste event limitation deferred with toolbar workaround"
+}

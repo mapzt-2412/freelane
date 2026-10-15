@@ -64,7 +64,7 @@ Every guest window target includes HWND, PID and process creation time. The agen
 
 Capture uses Win32 `PrintWindow` in a bounded background worker, with at most one outstanding capture. A hung application may keep that worker pending; further captures fail until it completes. The agent still returns errors rather than leaving the serial request unbounded. Raw rasters are limited to 16 million pixels; JPEG previews adapt down from at most640×480 to fit 28 KiB, hex-encoded inside the existing64 KiB frame limit. Text can be less crisp than a live high-resolution stream.
 
-Minimized windows must be restored inside Windows. UAC/secure desktops, protected video, GPU-heavy apps, games, cross-process windows and programs ignoring posted Win32 messages may fail or produce a blank frame. Dragging, scrolling, double-click, full keyboard modifiers/shortcuts, clipboard, audio, native app icons and seamless resize are not implemented. This mode does not create guest graphics acceleration or claim frame-rate performance.
+Minimized windows must be restored inside Windows. UAC/secure desktops, protected video, GPU-heavy apps, games, cross-process windows and programs ignoring posted Win32 messages may fail or produce a blank frame. Older agents support only primary click/basic keys. Updated v10 agents add targeted right-click, double-click, wheel, a bounded drag gesture, guarded foreground shortcuts and explicit client-size requests. Continuous video, seamless resizing, host clipboard integration in the viewer, audio and native app icons remain unfinished. This mode does not create guest graphics acceleration or claim frame-rate performance.
 
 Portable tests cover profile/bundle preservation, literal arguments, v1/v2 negotiation and wrong-window response rejection. Windows ARM64 builds/checks include the GDI/User32 branch. Native Mac release packaging additionally exports an offline Dock fixture, lints its plist and verifies its signature; it does **not** boot that fixture or claim Windows/Dock interaction. Recorded real guest tests are reported separately when available.
 
@@ -99,3 +99,15 @@ Periodic refresh encountered a guest capture timeout. The viewer now retries tha
 ## Window identity follow-up (newer than preview.16)
 
 Updated agents negotiate v9 window incarnations. Profiles without arguments reattach to a visible matching process image before sending a new launch. Profiles with arguments retain one literal-argument launch; different-image delegates remain unsupported. [Implementation and validation scope](plans/p3-window-identity.md).
+
+## Extended input (newer than preview.16)
+
+The viewer negotiates `window_input` v10. Click/right-click/double-click and wheel map to client coordinates. A drag is delivered as one bounded gesture on release, with16 interpolated moves; it is not a continuous native pointer stream. `Guest window size` requests a client width/height of64–8192 pixels; Windows/app constraints may limit the result. Selecting another window discards queued input.
+
+Mac Command maps to guest Control. Shortcuts require the exact selected guest root to already be foreground and no guest modifier/requested key held. FreeLane refuses otherwise, without stealing focus or bypassing Windows restrictions. `Copy in guest`/`Paste in guest` use the guest clipboard; they do not transfer the host clipboard. Host sharing still uses the manager's separate opt-in controls. Closing the viewer preserves the guest app. Input errors stop refresh and discard unsent actions; inspect the guest before explicitly retrying.
+
+![English viewer with extended controls](assets/app-input-en.png)
+
+These controls were exercised against an owned Linux RPC fixture displaying a recorded real Notepad frame, not against a live guest. Protocol bounds, legacy refusal, key mappings and native Windows integration coverage have distinct evidence; see [input evidence](evidence/p3-window-input.json). Native Mac app acceptance remains pending.
+
+A native integration limitation remains: egui may consume Cmd/Ctrl+V without delivering a viewer event when the host clipboard has no text. Use **Paste in guest** in that case; no host clipboard text is forwarded by these shortcuts.

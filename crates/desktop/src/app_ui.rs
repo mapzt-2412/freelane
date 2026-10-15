@@ -4,6 +4,7 @@ use freelane::{
     agent,
     app_launcher::{self, AppProfile},
 };
+use freelane_agent_protocol::window_input::{Button, Gesture, Position};
 use freelane_agent_protocol::{Action, Outcome, WindowInfo, WindowTarget};
 use std::{
     collections::VecDeque,
@@ -12,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 enum Event {
-    Opened(u32, Vec<WindowInfo>),
+    Opened(u32, Vec<WindowInfo>, bool),
     Frame(WindowTarget, egui::ColorImage),
     Windows(Vec<WindowInfo>),
     Input,
@@ -33,6 +34,10 @@ struct Viewer {
     started: bool,
     live: bool,
     text: String,
+    extended: bool,
+    drag: Option<(WindowTarget, Position, Button)>,
+    guest_width: u16,
+    guest_height: u16,
 }
 impl Viewer {
     fn task(&mut self, ctx: &egui::Context, f: impl FnOnce() -> Reply + Send + 'static) {
@@ -144,7 +149,15 @@ impl eframe::App for Viewer {
                 } else {
                     app_launcher::open(&p, &cli).map_err(|e| e.to_string())?
                 };
-                Ok(Event::Opened(pid, windows))
+                let extended = freelane::agent_capabilities::inspect(&p.vm)
+                    .ok()
+                    .is_some_and(|i| {
+                        i.supports(
+                            "window_input",
+                            freelane_agent_protocol::window_input::VERSION,
+                        ) == Some(true)
+                    });
+                Ok(Event::Opened(pid, windows, extended))
             });
         }
         if let Some(receiver) = &self.worker {
@@ -158,7 +171,8 @@ impl eframe::App for Viewer {
             if let Some(reply) = ready {
                 self.worker = None;
                 match reply {
-                    Ok(Event::Opened(pid, windows)) => {
+                    Ok(Event::Opened(pid, windows, extended)) => {
+                        self.extended = extended;
                         self.pid = Some(pid);
                         self.windows = windows;
                         self.notice = "Application opened; capturing window".into();
@@ -180,6 +194,7 @@ impl eframe::App for Viewer {
                     }
                     Ok(Event::Windows(windows)) => {
                         self.queue.clear();
+                        self.drag = None;
                         self.windows = windows;
                         self.selected = 0;
                         self.texture = None;
@@ -245,6 +260,7 @@ impl eframe::App for Viewer {
                             }
                         });
                     if old != self.selected {
+                        self.drag = None;
                         self.texture = None;
                         self.queue.clear();
                         self.next = Instant::now();
@@ -302,6 +318,42 @@ impl eframe::App for Viewer {
                         }
                     }
                 });
+                if self.extended {
+                    ui.horizontal_wrapped(|ui| {
+                        for (label, key) in [("Copy in guest", 67), ("Paste in guest", 86)] {
+                            if ui
+                                .add_enabled(
+                                    self.target().is_some(),
+                                    egui::Button::new(lang.text(label)),
+                                )
+                                .clicked()
+                            {
+                                self.enqueue(Action::WindowShortcut {
+                                    target: self.target().unwrap(),
+                                    key,
+                                    modifiers: 1,
+                                });
+                            }
+                        }
+                        ui.label(lang.text("Guest window size"));
+                        ui.add(egui::DragValue::new(&mut self.guest_width).range(64..=8192));
+                        ui.label("×");
+                        ui.add(egui::DragValue::new(&mut self.guest_height).range(64..=8192));
+                        if ui
+                            .add_enabled(
+                                self.target().is_some(),
+                                egui::Button::new(lang.text("Resize window")),
+                            )
+                            .clicked()
+                        {
+                            self.enqueue(Action::WindowResize {
+                                target: self.target().unwrap(),
+                                width: self.guest_width,
+                                height: self.guest_height,
+                            });
+                        }
+                    });
+                }
                 if self.worker.is_some() {
                     ui.spinner();
                 }
@@ -312,58 +364,105 @@ impl eframe::App for Viewer {
                 let response = ui.add(
                     egui::Image::new(texture)
                         .max_size(ui.available_size())
-                        .sense(egui::Sense::click()),
+                        .sense(egui::Sense::click_and_drag()),
                 );
-                if response.clicked() {
-                    response.request_focus();
-                    if let (Some(pos), Some(target)) =
-                        (response.interact_pointer_pos(), self.target())
-                    {
-                        let rect = response.rect;
-                        let x = ((pos.x - rect.left()) / rect.width() * 32767.0).clamp(0.0, 32767.0)
-                            as u16;
-                        let y = ((pos.y - rect.top()) / rect.height() * 32767.0).clamp(0.0, 32767.0)
-                            as u16;
-                        self.enqueue(Action::WindowClick { target, x, y });
+                let position = |pos: egui::Pos2| Position {
+                    x: ((pos.x - response.rect.left()) / response.rect.width() * 32767.0)
+                        .clamp(0.0, 32767.0) as u16,
+                    y: ((pos.y - response.rect.top()) / response.rect.height() * 32767.0)
+                        .clamp(0.0, 32767.0) as u16,
+                };
+                for (native, button) in [
+                    (egui::PointerButton::Primary, Button::Primary),
+                    (egui::PointerButton::Secondary, Button::Secondary),
+                ] {
+                    if response.clicked_by(native) {
+                        response.request_focus();
+                        if let (Some(pos), Some(target)) =
+                            (response.interact_pointer_pos(), self.target())
+                        {
+                            let at = position(pos);
+                            if self.extended {
+                                // egui emits the first single click before the second click arrives.
+                                // The second event emits only double-click/up, avoiding a third click.
+                                self.enqueue(Action::WindowPointer {
+                                    target,
+                                    gesture: Gesture::Click {
+                                        at,
+                                        button,
+                                        count: if response.double_clicked_by(native) {
+                                            2
+                                        } else {
+                                            1
+                                        },
+                                    },
+                                });
+                            } else if button == Button::Primary {
+                                self.enqueue(Action::WindowClick {
+                                    target,
+                                    x: at.x,
+                                    y: at.y,
+                                });
+                            }
+                        }
                     }
-                }
-                if response.has_focus() {
-                    for event in ctx.input(|i| i.events.clone()) {
-                        match event {
-                            egui::Event::Text(text) if text.len() <= 1024 => {
-                                if let Some(target) = self.target() {
-                                    self.enqueue(Action::WindowText { target, text });
+                    if self.extended && response.drag_started_by(native) {
+                        response.request_focus();
+                        if let (Some(origin), Some(target)) =
+                            (ctx.input(|i| i.pointer.press_origin()), self.target())
+                        {
+                            self.drag = Some((target, position(origin), button));
+                        }
+                    }
+                    if response.drag_stopped_by(native) {
+                        if let Some((target, from, drag_button)) = self.drag.take() {
+                            if drag_button == button && self.target().as_ref() == Some(&target) {
+                                if let Some(pos) = ctx.input(|i| i.pointer.latest_pos()) {
+                                    self.enqueue(Action::WindowPointer {
+                                        target,
+                                        gesture: Gesture::Drag {
+                                            from,
+                                            to: position(pos),
+                                            button,
+                                        },
+                                    });
                                 }
                             }
-                            egui::Event::Key {
-                                key,
-                                pressed: true,
-                                modifiers,
-                                ..
-                            } if !modifiers.ctrl && !modifiers.command && !modifiers.alt => {
-                                let code = match key {
-                                    egui::Key::Backspace => 8,
-                                    egui::Key::Tab => 9,
-                                    egui::Key::Enter => 13,
-                                    egui::Key::Escape => 27,
-                                    egui::Key::PageUp => 33,
-                                    egui::Key::PageDown => 34,
-                                    egui::Key::End => 35,
-                                    egui::Key::Home => 36,
-                                    egui::Key::ArrowLeft => 37,
-                                    egui::Key::ArrowUp => 38,
-                                    egui::Key::ArrowRight => 39,
-                                    egui::Key::ArrowDown => 40,
-                                    egui::Key::Delete => 46,
-                                    _ => 0,
-                                };
-                                if code != 0 {
-                                    if let Some(target) = self.target() {
-                                        self.enqueue(Action::WindowKey { target, key: code });
+                        }
+                    }
+                }
+                for event in ctx.input(|i| i.events.clone()) {
+                    if self.extended && response.hovered() {
+                        if let egui::Event::MouseWheel { unit, delta, .. } = event {
+                            if let (Some(pos), Some(target)) =
+                                (ctx.input(|i| i.pointer.hover_pos()), self.target())
+                            {
+                                for (horizontal, value) in [(false, delta.y), (true, delta.x)] {
+                                    let delta =
+                                        super::app_input::wheel_delta(unit, horizontal, value);
+                                    if delta != 0 {
+                                        self.enqueue(Action::WindowPointer {
+                                            target: target.clone(),
+                                            gesture: Gesture::Wheel {
+                                                at: position(pos),
+                                                horizontal,
+                                                delta,
+                                            },
+                                        });
                                     }
                                 }
                             }
-                            _ => {}
+                        }
+                    }
+                }
+                if response.has_focus() {
+                    if let Some(target) = self.target() {
+                        for action in super::app_input::key_actions(
+                            &ctx.input(|i| i.events.clone()),
+                            &target,
+                            self.extended,
+                        ) {
+                            self.enqueue(action);
                         }
                     }
                 }
@@ -431,6 +530,10 @@ pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> e
                 started: false,
                 live: true,
                 text: String::new(),
+                extended: false,
+                drag: None,
+                guest_width: 1280,
+                guest_height: 720,
             }))
         }),
     )

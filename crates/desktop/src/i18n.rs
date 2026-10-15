@@ -31,6 +31,10 @@ impl Language {
 
             "Backup name"=>"Tên bản sao lưu",
             "Restore virtual machine"=>"Khôi phục máy ảo",
+            "Copy in guest"=>"Sao chép trong máy ảo",
+            "Paste in guest"=>"Dán trong máy ảo",
+            "Guest window size"=>"Kích thước cửa sổ khách",
+            "Resize window"=>"Đổi kích thước",
             "Back"=>"Quay lại",
             "Backups"=>"Sao lưu",
             "Snapshots and backups"=>"Snapshot và sao lưu",
