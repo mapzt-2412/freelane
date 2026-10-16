@@ -16,8 +16,12 @@ function Refused([scriptblock]$call,$name) {$failed=$false;try {& $call | Out-Nu
 try {
  Refused {& $script -Action Install -AgentPath $first -ExpectedSha256 ('0'*64)} 'tampered checksum refused'
  Assert (!(Test-Path -LiteralPath (Join-Path $directory 'freelane-guest-agent.exe'))) 'invalid source never published'
- $phase='verified install'
- & $script -Action Install -AgentPath $first -ExpectedSha256 $hash
+ $phase='persisted outbox install'
+ $outbox=Join-Path $root 'Tài liệu xuất';New-Item -ItemType Directory -Path $outbox | Out-Null
+ & $script -Action Install -AgentPath $first -ExpectedSha256 $hash -OutboxDirectory $outbox
+ $settings=Get-Content -LiteralPath (Join-Path $directory 'agent-install.json') -Raw | ConvertFrom-Json
+ Assert ($settings.transfer.outbox -eq $outbox) 'outbox persisted'
+ Assert (!$settings.transfer.inbox) 'inbox remains disabled'
  $dest=Join-Path $directory 'freelane-guest-agent.exe'
  Assert ((Get-FileHash -LiteralPath $dest).Hash -eq $hash) 'verified install'
  Assert (Test-Path -LiteralPath $shortcut) 'startup shortcut'
