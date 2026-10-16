@@ -34,12 +34,18 @@ fn main() {
     } else {
         settings.outbox
     };
-    let mut launcher = freelane_guest_agent::TransferLauncher::new(launcher, root.as_deref())
-        .and_then(|launcher| launcher.with_export_root(export_root.as_deref()))
-        .unwrap_or_else(|_| {
-            eprintln!("Cannot open transfer inbox or export outbox");
-            std::process::exit(2)
-        });
+    use freelane_guest_agent::Launcher;
+    let selected = freelane_guest_agent::settings::Settings {
+        inbox: root,
+        outbox: export_root,
+    };
+    let mut launcher = freelane_guest_agent::TransferLauncher::configured(launcher, &selected);
+    if selected.inbox.is_some() && !launcher.transfer_support() {
+        eprintln!("Guest inbox unavailable; other agent features remain available");
+    }
+    if selected.outbox.is_some() && !launcher.export_support() {
+        eprintln!("Guest outbox unavailable; other agent features remain available");
+    }
     if args == ["--stdio"] {
         let result = freelane_guest_agent::serve(
             &mut std::io::stdin().lock(),

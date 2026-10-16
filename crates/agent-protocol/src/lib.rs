@@ -3,6 +3,7 @@ pub mod clipboard;
 pub mod clipboard_sync;
 pub mod export;
 pub mod export_catalog;
+pub mod transfer_folders;
 pub mod window_input;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
@@ -29,6 +30,9 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    TransferFolders {
+        reconnect: bool,
+    },
     ExportCatalog,
     Export {
         operation: export::Operation,
@@ -310,6 +314,9 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    TransferFolders {
+        report: transfer_folders::Report,
+    },
     ExportCatalog {
         page: export_catalog::Page,
     },
@@ -394,6 +401,7 @@ impl Request {
             window_input::VERSION,
             export::VERSION,
             export_catalog::VERSION,
+            transfer_folders::VERSION,
         ]
         .contains(&self.version)
         {
@@ -401,6 +409,18 @@ impl Request {
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == transfer_folders::VERSION {
+            return if matches!(self.action, Action::TransferFolders { .. }) {
+                Ok(())
+            } else {
+                Err(invalid(
+                    "Protocol v13 only supports file folder state/reconnect",
+                ))
+            };
+        }
+        if matches!(self.action, Action::TransferFolders { .. }) {
+            return Err(invalid("File folder state requires protocol v13"));
         }
         if self.version == export_catalog::VERSION {
             return if matches!(self.action, Action::ExportCatalog) {

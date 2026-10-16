@@ -86,8 +86,12 @@ impl Outbox {
             limited,
         })
     }
-    pub fn action(&mut self, operation: &E) -> io::Result<Outcome> {
-        operation.validate()?;
+    pub(crate) fn busy(&self) -> bool {
+        self.active
+            .as_ref()
+            .is_some_and(|s| s.touched.elapsed() <= Duration::from_secs(300))
+    }
+    pub(crate) fn expire(&mut self) {
         if self
             .active
             .as_ref()
@@ -95,6 +99,10 @@ impl Outbox {
         {
             self.active = None;
         }
+    }
+    pub fn action(&mut self, operation: &E) -> io::Result<Outcome> {
+        operation.validate()?;
+        self.expire();
         let root = self.root.as_ref().ok_or(io::ErrorKind::Unsupported)?;
         match operation {
             E::Begin { name } => {

@@ -12,6 +12,16 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn transfer_folders_support(&self) -> bool {
+        false
+    }
+    fn transfer_folders(
+        &mut self,
+        _: bool,
+    ) -> io::Result<freelane_agent_protocol::transfer_folders::Report> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+
     fn export_catalog_support(&self) -> bool {
         false
     }
@@ -114,6 +124,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                             protocol: freelane_agent_protocol::SHARE_STATUS_VERSION,
                         });
                     }
+                    if launcher.transfer_folders_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "file_folders".into(),
+                            protocol: freelane_agent_protocol::transfer_folders::VERSION,
+                        });
+                    }
                     if launcher.export_catalog_support() {
                         features.push(freelane_agent_protocol::Feature {
                             name: "file_export_catalog".into(),
@@ -204,6 +220,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                                     .export_catalog_support()
                                     .then_some(freelane_agent_protocol::export_catalog::VERSION),
                             )
+                            .chain(
+                                launcher
+                                    .transfer_folders_support()
+                                    .then_some(freelane_agent_protocol::transfer_folders::VERSION),
+                            )
                             .collect(),
                             features,
                             max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -219,6 +240,17 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     os: std::env::consts::OS.into(),
                     arch: std::env::consts::ARCH.into(),
                 },
+                Action::TransferFolders { reconnect } => launcher
+                    .transfer_folders(reconnect)
+                    .map(|report| Outcome::TransferFolders { report })
+                    .unwrap_or_else(|e| Outcome::Failed {
+                        message: if e.kind() == io::ErrorKind::WouldBlock {
+                            "Finish or cancel the file transfer before reconnecting guest folders"
+                                .into()
+                        } else {
+                            "Guest file folders unavailable or refused".into()
+                        },
+                    }),
                 Action::ExportCatalog => launcher
                     .export_catalog()
                     .map(|page| Outcome::ExportCatalog { page })
@@ -284,6 +316,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::window_input::VERSION,
             freelane_agent_protocol::export::VERSION,
             freelane_agent_protocol::export_catalog::VERSION,
+            freelane_agent_protocol::transfer_folders::VERSION,
         ]
         .contains(&request.version)
         {
@@ -572,6 +605,8 @@ mod discovery_tests {
 pub struct TransferLauncher<L> {
     inner: L,
     outbox: export::Outbox,
+    inbox_path: Option<std::path::PathBuf>,
+    outbox_path: Option<std::path::PathBuf>,
     root: Option<cap_std::fs::Dir>,
     completed: Option<(String, String, u64, String)>,
     active: Option<(String, transfer::Transfer, std::time::Instant)>,
@@ -581,6 +616,8 @@ impl<L> TransferLauncher<L> {
         Ok(Self {
             inner,
             outbox: export::Outbox::default(),
+            inbox_path: root.map(std::path::Path::to_path_buf),
+            outbox_path: None,
             root: root
                 .map(|p| cap_std::fs::Dir::open_ambient_dir(p, cap_std::ambient_authority()))
                 .transpose()?,
@@ -588,9 +625,54 @@ impl<L> TransferLauncher<L> {
             completed: None,
         })
     }
+    /// Start independently usable directions; missing roots never prevent other agent RPC.
+    pub fn configured(inner: L, selected: &settings::Settings) -> Self {
+        Self {
+            inner,
+            root: selected.inbox.as_ref().and_then(|p| {
+                cap_std::fs::Dir::open_ambient_dir(p, cap_std::ambient_authority()).ok()
+            }),
+            outbox: export::Outbox::new(selected.outbox.as_deref()).unwrap_or_default(),
+            inbox_path: selected.inbox.clone(),
+            outbox_path: selected.outbox.clone(),
+            active: None,
+            completed: None,
+        }
+    }
     pub fn with_export_root(mut self, root: Option<&std::path::Path>) -> io::Result<Self> {
         self.outbox = export::Outbox::new(root)?;
+        self.outbox_path = root.map(std::path::Path::to_path_buf);
         Ok(self)
+    }
+    fn expire_inbox(&mut self) {
+        if self
+            .active
+            .as_ref()
+            .is_some_and(|(_, _, time)| time.elapsed() > std::time::Duration::from_secs(300))
+        {
+            self.active = None;
+        }
+    }
+    fn folder_report(&self) -> freelane_agent_protocol::transfer_folders::Report {
+        use freelane_agent_protocol::transfer_folders::{Report, State};
+        let state = |configured: bool, opened: bool| {
+            if !configured {
+                State::Disabled
+            } else if opened {
+                State::Ready
+            } else {
+                State::Unavailable
+            }
+        };
+        Report {
+            inbox: state(self.inbox_path.is_some(), self.root.is_some()),
+            outbox: state(self.outbox_path.is_some(), self.outbox.enabled()),
+            busy: self
+                .active
+                .as_ref()
+                .is_some_and(|(_, _, time)| time.elapsed() <= std::time::Duration::from_secs(300))
+                || self.outbox.busy(),
+        }
     }
     pub fn disconnect(&mut self) {
         self.outbox.disconnect();
@@ -599,6 +681,36 @@ impl<L> TransferLauncher<L> {
     }
 }
 impl<L: Launcher> Launcher for TransferLauncher<L> {
+    fn transfer_folders_support(&self) -> bool {
+        true
+    }
+    fn transfer_folders(
+        &mut self,
+        reconnect: bool,
+    ) -> io::Result<freelane_agent_protocol::transfer_folders::Report> {
+        if reconnect {
+            self.expire_inbox();
+            self.outbox.expire();
+            if self.active.is_some() || self.outbox.busy() {
+                return Err(io::ErrorKind::WouldBlock.into());
+            }
+            if self.root.is_none() {
+                if let Some(path) = &self.inbox_path {
+                    self.root =
+                        cap_std::fs::Dir::open_ambient_dir(path, cap_std::ambient_authority()).ok();
+                }
+            }
+            if !self.outbox.enabled() {
+                if let Some(path) = &self.outbox_path {
+                    if let Ok(outbox) = export::Outbox::new(Some(path)) {
+                        self.outbox = outbox;
+                    }
+                }
+            }
+        }
+        Ok(self.folder_report())
+    }
+
     fn export_catalog_support(&self) -> bool {
         self.outbox.enabled()
     }
@@ -657,13 +769,7 @@ impl<L: Launcher> Launcher for TransferLauncher<L> {
     ) -> io::Result<Outcome> {
         use freelane_agent_protocol::TransferAction as T;
         a.validate()?;
-        if self
-            .active
-            .as_ref()
-            .is_some_and(|(_, _, time)| time.elapsed() > std::time::Duration::from_secs(300))
-        {
-            self.active = None;
-        }
+        self.expire_inbox();
         let root = self.root.as_ref().ok_or(io::ErrorKind::Unsupported)?;
         if let T::Open { token } = a {
             let (id, name, size, hash) = self.completed.as_ref().ok_or(io::ErrorKind::NotFound)?;
