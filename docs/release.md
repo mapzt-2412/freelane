@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.18](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.18) adds explicit guest-to-host file reception through a separately enabled outbox, preserving existing host files and verifying final size/SHA-256. It retains preview.17 app input, backup details, CPU/RAM suggestions, library search and22MCP tools. [Verification](evidence/release-preview18.json) records successful required/native CI and independently downloaded DMG/ZIP checksums, ARM64 binaries and source revision. Physical Mac guest/HVF/Dock/device acceptance remains pending.
+[Latest preview: v0.1.0-preview.19](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.19) remembers explicitly selected Windows guest inbox/outbox folders across sign-in and adds manifest-only Configure without replacing the program or its rollback binary. Update/Rollback preserve current folder permissions. Shared RPC cancellation uses neutral English/Vietnamese wording. It retains preview.18 verified file reception and prior app-input/backup/resource/library features. [Verification](evidence/release-preview19.json) records successful native/source/tag CI, public DMG/ZIP checksums and architectures, and the packaged Windows helper matching tag source. Normal-user WindowsARM login, physical drives and Mac/HVF/Dock/device acceptance remain pending.
 
 [Preview.12 verification](evidence/release-preview12.json) records native packaging/required checks and an independently downloaded public DMG checksum. Preview.11 did not publish because of a corrected attribution staging error.
 

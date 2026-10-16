@@ -32,7 +32,7 @@ Xem [bằng chứng Windows](docs/test-evidence.md), [Ubuntu](docs/ubuntu-test-e
 - Một nút setup: chọn ISO Windows ARM64 hoặc phiên bản Ubuntu Server LTS; tự tải công cụ còn thiếu và ảnh Ubuntu. [Hướng dẫn](docs/setup.vi.md).
 - Thư viện VM, thẻ tài nguyên, cấu hình và chuyển ngôn ngữ Việt/Anh.
 - Chia sẻ trực tiếp Ubuntu9p chỉ đọc hoặc đọc/ghi, có kiểm tra và chọn lại thư mục. [Hướng dẫn](docs/sharing.vi.md).
-- Chuyển file hai chiều qua thư mục nhận/xuất đã chọn trong máy ảo, xác minh SHA-256, hủy và giữ file trùng tên; tùy chọn mở văn bản đã gửi. [Hướng dẫn](docs/file-transfer.vi.md).
+- Chuyển file hai chiều qua thư mục nhận/xuất đã chọn trong máy ảo, nhớ lựa chọn trên Windows, xác minh SHA-256, hủy và giữ file trùng tên; tùy chọn mở văn bản đã gửi. [Hướng dẫn](docs/file-transfer.vi.md).
 - Gửi/lấy và tự đồng bộ clipboard tiếng Việt có xử lý xung đột khi bật chia sẻ và dùng guest agent mới trong phiên có giao diện; cài/cập nhật/rollback/gỡ agent Windows có xác minh. [Hướng dẫn](docs/clipboard.vi.md).
 - Chỉnh CPU, RAM, tăng tốc, mạng, media, hiển thị, guest agent và USB.
 - Chuyển thư mục USB chỉ đọc cho Windows/Ubuntu; Ubuntu có chia sẻ đọc/ghi hai chiều qua 9p.
@@ -44,7 +44,7 @@ UI hiện hiển thị ảnh chụp; VM desktop có tùy chọn cập nhật đ�
 
 ## Tải bản thử nghiệm
 
-[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.18): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
+[Tải prerelease cho Mac Apple Silicon](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.19): DMG/ZIP Mac, ZIP agent Windows ARM64 và file SHA256. Mở DMG rồi kéo FreeLane vào Applications. Có viewer app riêng và xuất launcher Dock; đọc ghi chú release trước khi cài.
 
 [Workflow đóng gói Mac Apple Silicon](https://github.com/puma2k/freelane/actions/workflows/release.yml) tạo ZIP `.app` thử nghiệm trên runner Mac. Chỉ tải artifact khi job đã chạy thành công. Cần macOS14+; luồng setup VM tự tải backend còn thiếu, còn runtime mobile có phần thiết lập riêng; bản này ký ad-hoc, chưa notarize. Xem [hướng dẫn release](docs/release.md). Binary Linux cloud là bản riêng, không chạy được trên Mac.
 
