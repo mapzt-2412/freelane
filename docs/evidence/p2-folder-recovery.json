@@ -35,5 +35,12 @@
     "captures_visually_inspected": true
   },
   "review": "One fresh whole-batch review; no Critical/Important or Minor findings. Reviewer could not independently rerun cargo because its shell PATH lacked activation; recorded local and native CI are test evidence.",
-  "scope": "Only directories unavailable at startup; existing opened handles remain pinned. No live hotplug or physical drive identity acceptance."
+  "scope": "Only directories unavailable at startup; existing opened handles remain pinned. No live hotplug or physical drive identity acceptance.",
+  "source_commit": "3744add",
+  "required_ci": "https://github.com/puma2k/freelane/actions/runs/38845446864",
+  "native_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38845446744",
+  "source_checks": {
+    "38845446864": "Success",
+    "38845446744": "Success"
+  }
 }

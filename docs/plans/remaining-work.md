@@ -5,7 +5,7 @@ This is an implementation/acceptance inventory, not a declaration that the produ
 | Area | Remaining source or design work | Acceptance dependency |
 | --- | --- | --- |
 | P0/P1 | Finish native setup/error recovery based on actual failures | Apple Silicon HVF Windows/Ubuntu install, reboot, Finder/Dock, sleep/wake, normal-user Windows agent |
-| P2 | Windows live two-way sharing or conflict-aware file synchronization, broader sharing reconnect | Native guest accounts, Windows ARM sharing backend/driver and physical external storage |
+| P2 | Windows live two-way sharing or conflict-aware file synchronization, live-drive invalidation/reconnect beyond startup-unavailable roots | Native guest accounts, Windows ARM sharing backend/driver and physical external storage |
 | P3 | Dedicated video transport/encoding feasibility, frame dropping/backpressure, dynamic dialogs/delegation, icons and launcher regeneration, viewer clipboard/document UX | Installed Windows ARM and Mac app suite; foreground shortcuts, trackpad, latency/CPU/image-quality measurements; secure/GPU windows remain explicit |
 | P4 | Independent clone identity/TPM design, portable archive/compatibility UX, interruption cleanup and Windows protected restore | Adequate destination storage and verified Windows TPM/protected-data recovery; clone and source must run independently |
 | P5 | Live supported host limits, memory/storage pressure policy, sleep policy, multi-viewer coordination and repeatable boot/input/load benchmarks | Actual Mac resource/energy observations, data preservation and lifecycle acceptance |
