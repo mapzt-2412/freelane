@@ -1,4 +1,5 @@
 //! Separate native viewer process per saved Windows application; snapshots, not Coherence video.
+use super::viewer_schedule::{Decision, Schedule};
 use eframe::egui;
 use freelane::{
     agent,
@@ -29,7 +30,7 @@ struct Viewer {
     texture: Option<egui::TextureHandle>,
     worker: Option<Receiver<Reply>>,
     queue: VecDeque<Action>,
-    next: Instant,
+    schedule: Schedule,
     notice: String,
     started: bool,
     live: bool,
@@ -176,11 +177,11 @@ impl eframe::App for Viewer {
                         self.pid = Some(pid);
                         self.windows = windows;
                         self.notice = "Application opened; capturing window".into();
-                        self.next = Instant::now();
+                        self.schedule.reset(Instant::now());
                     }
                     Ok(Event::Frame(target, frame)) => {
                         if self.target().as_ref() != Some(&target) {
-                            self.next = Instant::now();
+                            self.schedule.reset(Instant::now());
                             return;
                         }
 
@@ -190,7 +191,7 @@ impl eframe::App for Viewer {
                             egui::TextureOptions::LINEAR,
                         ));
                         self.notice.clear();
-                        self.next = Instant::now() + Duration::from_secs(1);
+                        self.schedule.frame_completed(Instant::now());
                     }
                     Ok(Event::Windows(windows)) => {
                         self.queue.clear();
@@ -198,10 +199,11 @@ impl eframe::App for Viewer {
                         self.windows = windows;
                         self.selected = 0;
                         self.texture = None;
-                        self.next = Instant::now();
+                        self.schedule.reset(Instant::now());
                     }
                     Ok(Event::Input) => {
-                        self.next = Instant::now();
+                        self.schedule
+                            .input_completed(Instant::now(), self.queue.is_empty());
                     }
                     Err(e) => {
                         self.notice = if self.queue.is_empty() {
@@ -263,7 +265,7 @@ impl eframe::App for Viewer {
                         self.drag = None;
                         self.texture = None;
                         self.queue.clear();
-                        self.next = Instant::now();
+                        self.schedule.reset(Instant::now());
                     }
                     ui.checkbox(&mut self.live, lang.text("Refresh every second"));
                     if ui
@@ -473,21 +475,30 @@ impl eframe::App for Viewer {
             }
             ui.small(lang.text("Closing this viewer keeps the guest application and VM running"));
         });
-        if self.worker.is_none() {
-            if let Some(action) = self.queue.pop_front() {
-                let vm = self.profile.vm.clone();
-                self.task(&ctx, move || {
-                    agent::window_request(&vm, action).map_err(|e| e.to_string())?;
-                    Ok(Event::Input)
-                });
-            } else if self.live && self.target().is_some() && Instant::now() >= self.next {
-                self.capture(&ctx);
+        match self.schedule.choose(
+            Instant::now(),
+            self.worker.is_some(),
+            self.live,
+            self.target().is_some(),
+            !self.queue.is_empty(),
+        ) {
+            Decision::Input => {
+                if let Some(action) = self.queue.pop_front() {
+                    let vm = self.profile.vm.clone();
+                    self.task(&ctx, move || {
+                        agent::window_request(&vm, action).map_err(|e| e.to_string())?;
+                        Ok(Event::Input)
+                    });
+                }
             }
+            Decision::Capture => self.capture(&ctx),
+            Decision::Idle => {}
         }
         let repaint = if self.worker.is_some() || !self.queue.is_empty() {
             Duration::from_millis(250) // Observe a disconnected worker even if it never sends a wakeup.
         } else if self.live && self.target().is_some() {
-            self.next
+            self.schedule
+                .deadline()
                 .saturating_duration_since(Instant::now())
                 .max(Duration::from_millis(16))
         } else {
@@ -525,7 +536,7 @@ pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> e
                 texture: None,
                 worker: None,
                 queue: VecDeque::new(),
-                next: Instant::now(),
+                schedule: Schedule::new(Instant::now()),
                 notice: String::new(),
                 started: false,
                 live: true,
