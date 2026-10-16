@@ -4,7 +4,7 @@ FreeLane 0.1.0 packages are development previews. The release profile optimizes 
 
 ## Mac Apple Silicon
 
-[Latest preview: v0.1.0-preview.22](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.22) prevents due app snapshots from starving behind continuous input. It retains queue32/one-worker/no-replay safety, with native EN/VI synthetic-peer checks for held requests, actual window selection, stale frames and live-off/manual refresh. It is still a bounded snapshot viewer, not Coherence video or a latency guarantee. [Release verification](evidence/release-preview22.json) records required source/tag CI and public payload checksum/architecture/source checks. Physical Mac and installed WindowsARM acceptance remain pending.
+[Latest preview: v0.1.0-preview.23](https://github.com/puma2k/freelane/releases/tag/v0.1.0-preview.23) skips repeated host JPEG decoding and texture recreation for an identical validated app frame. Changed frames retain bounded decoding; a manual unchanged frame can restore a cleared texture locally without another guest request. Snapshot cadence/quality, guest work, bandwidth and input behavior stay unchanged. [Optimization evidence](evidence/viewer-frame-cache.json) records narrowly scoped Linux debug CPU samples, not Mac/release performance. [Release verification](evidence/release-preview23.json) records successful source/tag/native CI and public payload checksums/architectures/source revision. Native Mac and installed Windows acceptance remain pending.
 
 [Preview.12 verification](evidence/release-preview12.json) records native packaging/required checks and an independently downloaded public DMG checksum. Preview.11 did not publish because of a corrected attribution staging error.
 
