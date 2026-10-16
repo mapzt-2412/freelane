@@ -57,5 +57,10 @@
     "nine_completed_inputs": "RED: due capture starved assertion",
     "remove_combo_queue_clear": "RED: old-target queued input sent",
     "restored_source": "GREEN: full214Rust and both native EN/VI fixtures"
+  },
+  "source_commit": "5e24a9b",
+  "required_ci": "https://github.com/puma2k/freelane/actions/runs/38874351867",
+  "source_checks": {
+    "38874351867": "Success"
   }
 }
