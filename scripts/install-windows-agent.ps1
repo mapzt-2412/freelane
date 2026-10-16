@@ -122,7 +122,8 @@ try {
   # Refuse changed installations before publication; process shutdown remains explicit.
   $checked=ManagedInstallation
   if ($checked.sha256 -ne $oldManifest.sha256) {throw 'Installation changed during configuration'}
-  [IO.File]::Replace($stageManifest,$manifestPath,$null)
+  $manifestBackup=Join-Path $directory ('manifest-config-backup-'+[Guid]::NewGuid().ToString('N')+'.json')
+  [IO.File]::Replace($stageManifest,$manifestPath,$manifestBackup)
   Write-Output 'Transfer folder selections saved. Restart the agent in your user session, or sign in again. No folders were created.'
   return
  }
