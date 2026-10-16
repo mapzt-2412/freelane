@@ -60,6 +60,56 @@ impl Viewer {
             self.notice = "Input queue full; new action was not sent".into();
         }
     }
+    // Returns false when a stale frame should skip this render turn.
+    fn apply_reply(&mut self, ctx: &egui::Context, reply: Reply) -> bool {
+        self.worker = None;
+        match reply {
+            Ok(Event::Opened(pid, windows, extended)) => {
+                self.extended = extended;
+                self.pid = Some(pid);
+                self.windows = windows;
+                self.notice = "Application opened; capturing window".into();
+                self.schedule.reset(Instant::now());
+            }
+            Ok(Event::Frame(target, frame)) => {
+                if self.target().as_ref() != Some(&target) {
+                    self.schedule.reset(Instant::now());
+                    return false;
+                }
+
+                self.texture =
+                    Some(ctx.load_texture("app-frame", frame, egui::TextureOptions::LINEAR));
+                self.notice.clear();
+                self.schedule.frame_completed(Instant::now());
+            }
+            Ok(Event::Windows(windows)) => {
+                self.queue.clear();
+                self.drag = None;
+                self.windows = windows;
+                self.selected = 0;
+                self.texture = None;
+                self.schedule.reset(Instant::now());
+            }
+            Ok(Event::Input) => {
+                self.schedule
+                    .input_completed(Instant::now(), self.queue.is_empty());
+            }
+            Err(e) => {
+                self.notice = if self.queue.is_empty() {
+                    e
+                } else {
+                    format!(
+                        "{e}. Discarded {} unsent actions; inspect the application before retrying",
+                        self.queue.len()
+                    )
+                };
+                self.live = false;
+                self.queue.clear();
+            }
+        }
+        true
+    }
+
     fn capture(&mut self, ctx: &egui::Context) {
         let Some(target) = self.target() else {
             return;
@@ -170,50 +220,8 @@ impl eframe::App for Viewer {
                 )),
             };
             if let Some(reply) = ready {
-                self.worker = None;
-                match reply {
-                    Ok(Event::Opened(pid, windows, extended)) => {
-                        self.extended = extended;
-                        self.pid = Some(pid);
-                        self.windows = windows;
-                        self.notice = "Application opened; capturing window".into();
-                        self.schedule.reset(Instant::now());
-                    }
-                    Ok(Event::Frame(target, frame)) => {
-                        if self.target().as_ref() != Some(&target) {
-                            self.schedule.reset(Instant::now());
-                            return;
-                        }
-
-                        self.texture = Some(ctx.load_texture(
-                            "app-frame",
-                            frame,
-                            egui::TextureOptions::LINEAR,
-                        ));
-                        self.notice.clear();
-                        self.schedule.frame_completed(Instant::now());
-                    }
-                    Ok(Event::Windows(windows)) => {
-                        self.queue.clear();
-                        self.drag = None;
-                        self.windows = windows;
-                        self.selected = 0;
-                        self.texture = None;
-                        self.schedule.reset(Instant::now());
-                    }
-                    Ok(Event::Input) => {
-                        self.schedule
-                            .input_completed(Instant::now(), self.queue.is_empty());
-                    }
-                    Err(e) => {
-                        self.notice = if self.queue.is_empty() {
-                            e
-                        } else {
-                            format!("{e}. Discarded {} unsent actions; inspect the application before retrying", self.queue.len())
-                        };
-                        self.live = false;
-                        self.queue.clear();
-                    }
+                if !self.apply_reply(&ctx, reply) {
+                    return;
                 }
             }
         }
@@ -548,4 +556,128 @@ pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> e
             }))
         }),
     )
+}
+
+#[cfg(test)]
+mod scheduling_tests {
+    use super::*;
+    fn target(handle: u64) -> WindowTarget {
+        WindowTarget {
+            handle,
+            pid: 2,
+            created: 3,
+            incarnation: 4,
+        }
+    }
+    fn viewer() -> Viewer {
+        Viewer {
+            language: super::super::Language::English,
+            profile: AppProfile {
+                name: "Fixture".into(),
+                vm: "/unused/vm.toml".into(),
+                executable: r"C:\Windows\notepad.exe".into(),
+                arguments: vec![],
+                boot_timeout_seconds: 10,
+            },
+            attach_pid: None,
+            pid: Some(2),
+            windows: vec![
+                WindowInfo {
+                    target: target(1),
+                    title: "One".into(),
+                },
+                WindowInfo {
+                    target: target(2),
+                    title: "Two".into(),
+                },
+            ],
+            selected: 0,
+            texture: None,
+            worker: None,
+            queue: VecDeque::new(),
+            schedule: Schedule::new(Instant::now()),
+            notice: String::new(),
+            started: true,
+            live: false,
+            text: String::new(),
+            extended: true,
+            drag: None,
+            guest_width: 1280,
+            guest_height: 720,
+        }
+    }
+    fn deliver(viewer: &mut Viewer, reply: Reply) {
+        let (tx, rx) = mpsc::channel();
+        tx.send(reply).unwrap();
+        viewer.worker = Some(rx);
+        let ctx = egui::Context::default();
+        viewer.apply_reply(&ctx, viewer.worker.as_ref().unwrap().recv().unwrap());
+    }
+
+    #[test]
+    fn stale_frame_cannot_replace_selected_window_texture() {
+        let mut v = viewer();
+        v.selected = 1;
+        deliver(
+            &mut v,
+            Ok(Event::Frame(
+                target(1),
+                egui::ColorImage::new([1, 1], vec![egui::Color32::RED]),
+            )),
+        );
+        assert!(v.texture.is_none());
+        assert!(v.worker.is_none());
+        assert_eq!(v.target(), Some(target(2)));
+    }
+    #[test]
+    fn failed_input_discards_pending_actions_and_stops_live_without_replay() {
+        let mut v = viewer();
+        v.live = true;
+        v.enqueue(Action::WindowText {
+            target: target(1),
+            text: "unsent".into(),
+        });
+        deliver(&mut v, Err("Transport unavailable".into()));
+        assert!(!v.live);
+        assert!(v.queue.is_empty());
+        assert!(v.worker.is_none());
+        assert!(v.notice.contains("Discarded 1 unsent"));
+    }
+    #[test]
+    fn inventory_change_clears_old_input_drag_and_texture() {
+        let mut v = viewer();
+        v.enqueue(Action::WindowKey {
+            target: target(1),
+            key: 13,
+        });
+        v.drag = Some((target(1), Position { x: 0, y: 0 }, Button::Primary));
+        deliver(
+            &mut v,
+            Ok(Event::Windows(vec![WindowInfo {
+                target: target(2),
+                title: "Two".into(),
+            }])),
+        );
+        assert!(v.queue.is_empty());
+        assert!(v.drag.is_none());
+        assert!(v.texture.is_none());
+        assert_eq!(v.target(), Some(target(2)));
+    }
+    #[test]
+    fn full_input_queue_preserves_first_32_actions_and_refuses_new_action() {
+        let mut v = viewer();
+        for n in 0..33 {
+            v.enqueue(Action::WindowText {
+                target: target(1),
+                text: n.to_string(),
+            });
+        }
+        assert_eq!(v.queue.len(), 32);
+        for n in 0..32 {
+            assert!(
+                matches!(v.queue.pop_front(),Some(Action::WindowText{text,..}) if text==n.to_string())
+            );
+        }
+        assert!(v.notice.contains("not sent"));
+    }
 }

@@ -2,7 +2,7 @@
 
 FreeLane has an **experimental separate-window viewer** for ordinary Windows Win32 apps and can export a named macOS `.app` launcher per application. Drag that launcher to the Dock to open it later. It starts the configured VM if stopped, waits for the interactive Windows agent, requests one application launch, finds that process's visible windows and displays genuine client-area snapshots in a separate host window.
 
-This is a first integration path, not Parallels Coherence parity. The viewer uses bounded JPEG snapshots, optionally refreshed one second **after the preceding operation finishes**. It is not continuous video or an accelerated remote graphics protocol. Native Mac/Dock behavior needs testing with a real installed Windows VM; Linux cloud tests exercise the guest transport and viewer separately.
+This is a first integration path, not Parallels Coherence parity. The viewer uses bounded JPEG snapshots, optionally refreshed one second after a successful frame, or sooner after input when the queue drains. It is not continuous video or an accelerated remote graphics protocol. Native Mac/Dock behavior needs testing with a real installed Windows VM; Linux cloud tests exercise the guest transport and viewer separately.
 
 ## Download this revision
 
@@ -111,3 +111,9 @@ Mac Command maps to guest Control. Shortcuts require the exact selected guest ro
 These controls were exercised against an owned Linux RPC fixture displaying a recorded real Notepad frame, not against a live guest. Protocol bounds, legacy refusal, key mappings and native Windows integration coverage have distinct evidence; see [input evidence](evidence/p3-window-input.json). Native Mac app acceptance remains pending.
 
 A native integration limitation remains: egui may consume Cmd/Ctrl+V without delivering a viewer event when the host clipboard has no text. Use **Paste in guest** in that case; no host clipboard text is forwarded by these shortcuts.
+
+## Snapshot scheduling
+
+The updated viewer keeps one request in flight and at most32 queued inputs. When live refresh is on and a frame is due, it gives capture a turn after at most8 completed input actions even if more input is queued. A slow request still blocks the worker until it completes or times out; this bounds scheduling fairness, not wall-clock latency or FPS. Live-off still allows input and explicit Refresh frame.
+
+Switching selected windows clears unsent input, drag and old texture; late frames must match the current target. A failed request stops live refresh and discards unsent input without replaying uncertain operations. The previous conditional read-only capture-timeout retry is unchanged. [Scheduling evidence](evidence/p3-viewer-scheduling.json) separates deterministic policy tests and owned native Linux/synthetic-peer acceptance from pending installed Windows/Mac acceptance.

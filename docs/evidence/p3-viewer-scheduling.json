@@ -1,0 +1,61 @@
+{
+  "milestone": "P3 snapshot viewer scheduling",
+  "baseline": "b07bf87",
+  "rust_tests": {
+    "passed": 214,
+    "failed": 0,
+    "ignored": 9
+  },
+  "mcp_checks_passed": 14,
+  "strict_workspace_lint": true,
+  "mac_core_cross_check": true,
+  "policy_tests": 8,
+  "reply_and_queue_tests": 4,
+  "native_ui": [
+    {
+      "owned_native_linux_viewer": true,
+      "synthetic_guest": true,
+      "held_reply_prevents_second_rpc": true,
+      "due_capture_after_at_most_8_completed_inputs": true,
+      "observed_completed_inputs_before_capture": 8,
+      "live_off_input_and_manual_refresh": true,
+      "native_combo_drops_old_target_queue": true,
+      "held_old_frame_does_not_replace_new_target": true,
+      "failed_input_discards_queue_without_replay": true,
+      "language": "en",
+      "vm_boot_or_mac_acceptance": false
+    },
+    {
+      "owned_native_linux_viewer": true,
+      "synthetic_guest": true,
+      "held_reply_prevents_second_rpc": true,
+      "due_capture_after_at_most_8_completed_inputs": true,
+      "observed_completed_inputs_before_capture": 8,
+      "live_off_input_and_manual_refresh": true,
+      "native_combo_drops_old_target_queue": true,
+      "held_old_frame_does_not_replace_new_target": true,
+      "failed_input_discards_queue_without_replay": true,
+      "language": "vi",
+      "vm_boot_or_mac_acceptance": false
+    }
+  ],
+  "production_limits": {
+    "queued_inputs": 32,
+    "inflight_workers": 1,
+    "completed_inputs_before_due_capture": 8,
+    "periodic_frame_delay_after_success_ms": 1000,
+    "max_jpeg_width": 640,
+    "max_jpeg_height": 480
+  },
+  "baseline_red": "Original native viewer processed12additional window_text requests with no due capture",
+  "review": "One fresh whole-batch review; no production defects. Two Important acceptance gaps fixed: held-input count and actual two-target combo/queue/old-frame coverage. Independent8policy+4handler tests passed. No second review.",
+  "deferred_minors": [
+    "Inventory cleanup unit test starts with textureNone; final assertion alone cannot detect removal of inventory texture clearing. Native combo and stale-frame checks cover separate paths."
+  ],
+  "scope": "Owned Linux native viewer and synthetic guest RPC, not Windows guest execution, native Mac, video throughput or latency acceptance.",
+  "regression_guard_mutations": {
+    "nine_completed_inputs": "RED: due capture starved assertion",
+    "remove_combo_queue_clear": "RED: old-target queued input sent",
+    "restored_source": "GREEN: full214Rust and both native EN/VI fixtures"
+  }
+}
