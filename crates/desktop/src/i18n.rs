@@ -94,7 +94,7 @@ impl Language {
             "Enable an inbox with --transfer-root in the updated guest agent"=>"Chọn thư mục nhận bằng --transfer-root khi chạy guest agent mới",
             "Guest file transfer unavailable or refused"=>"Máy ảo chưa sẵn sàng nhận file hoặc đã từ chối",
             "Clipboard sharing disabled"=>"Đã tắt chia sẻ clipboard",
-            "Clipboard sharing disabled; no request sent"=>"Đã tắt chia sẻ clipboard; chưa gửi dữ liệu",
+            "Guest operation canceled; no request sent"=>"Đã hủy thao tác máy ảo; chưa gửi yêu cầu",
             "Guest clipboard unavailable or refused"=>"Clipboard máy ảo chưa sẵn sàng hoặc đã từ chối",
             "Host text clipboard unavailable"=>"Clipboard văn bản của máy chủ chưa sẵn sàng",
             "Cannot write host text clipboard"=>"Không thể ghi clipboard máy chủ",

@@ -16,7 +16,7 @@ pub(crate) fn request_vm(config: &Path, action: Action, version: u16) -> Result<
 }
 fn cancellation(cancelled: &impl Fn() -> bool) -> Result<()> {
     if cancelled() {
-        Err(Error("Clipboard sharing disabled; no request sent".into()))
+        Err(Error("Guest operation canceled; no request sent".into()))
     } else {
         Ok(())
     }
@@ -527,4 +527,24 @@ pub fn export_request(
         freelane_agent_protocol::export::VERSION,
         cancelled,
     )
+}
+
+#[cfg(test)]
+mod operation_cancellation_tests {
+    use super::*;
+    #[test]
+    fn canceled_file_export_reports_the_operation_without_accessing_a_vm() {
+        let error = export_request(
+            Path::new("/missing-freelane-cancellation-fixture/vm.toml"),
+            freelane_agent_protocol::export::Operation::Begin {
+                name: "result.txt".into(),
+            },
+            &|| true,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Guest operation canceled; no request sent"
+        );
+    }
 }

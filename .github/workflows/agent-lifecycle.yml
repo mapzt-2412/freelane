@@ -27,7 +27,8 @@ jobs:
             }
           }
           exit $testExit
+      - run: cargo build --locked -p freelane-guest-agent
       - run: cargo build --locked -p freelane-guest-agent --target aarch64-pc-windows-msvc
       - name: Verify per-user agent lifecycle with a real ARM64 artifact
         shell: pwsh
-        run: ./tests/agent-lifecycle.ps1 -AgentPath ./target/aarch64-pc-windows-msvc/debug/freelane-guest-agent.exe
+        run: ./tests/agent-lifecycle.ps1 -AgentPath ./target/aarch64-pc-windows-msvc/debug/freelane-guest-agent.exe -NativeAgentPath ./target/debug/freelane-guest-agent.exe

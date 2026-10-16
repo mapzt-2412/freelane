@@ -1,11 +1,45 @@
 # Per-user lifecycle only: no elevation, service, driver or unowned process changes.
 [CmdletBinding()]
 param(
- [ValidateSet('Install','Update','Rollback','Uninstall')][string]$Action='Install',
+ [ValidateSet('Install','Update','Rollback','Uninstall','Configure')][string]$Action='Install',
  [string]$AgentPath,
- [string]$ExpectedSha256
+ [string]$ExpectedSha256,
+ [AllowEmptyString()][string]$InboxDirectory,
+ [AllowEmptyString()][string]$OutboxDirectory
 )
 $ErrorActionPreference='Stop'
+$inboxRequested=$PSBoundParameters.ContainsKey('InboxDirectory')
+$outboxRequested=$PSBoundParameters.ContainsKey('OutboxDirectory')
+if (($inboxRequested -or $outboxRequested) -and $Action -in @('Rollback','Uninstall')) {throw 'Transfer folders can be changed only during Install, Update or Configure'}
+if ($Action -eq 'Configure' -and !$inboxRequested -and !$outboxRequested) {throw 'Select a transfer folder or pass an empty value to disable it'}
+function ValidStoredRoot($path) {
+ if ($null -eq $path) {return}
+ if ($path -isnot [string] -or !$path -or [Text.Encoding]::UTF8.GetByteCount($path) -gt 2048 -or $path -match '[\x00-\x1f\x7f]' -or ![IO.Path]::IsPathRooted($path) -or [IO.Path]::GetFullPath($path) -ine $path) {throw 'Invalid saved transfer folder'}
+}
+function SelectedFolder([string]$path) {
+ if (!$path) {return $null}
+ ValidStoredRoot $path
+ $resolved=Resolve-Path -LiteralPath $path
+ if ($resolved.Provider.Name -ne 'FileSystem') {throw 'Select an existing filesystem folder'}
+ $item=Get-Item -LiteralPath $resolved.ProviderPath -Force
+ if (!$item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {throw 'Transfer folder must be an existing ordinary directory'}
+ return $item.FullName
+}
+$selectedInbox=$null;$selectedOutbox=$null
+if ($inboxRequested) {$selectedInbox=SelectedFolder $InboxDirectory}
+if ($outboxRequested) {$selectedOutbox=SelectedFolder $OutboxDirectory}
+function TransferSelections($previous) {
+ $selection=@{inbox=$null;outbox=$null}
+ if ($previous -and $previous.transfer) {$selection.inbox=$previous.transfer.inbox;$selection.outbox=$previous.transfer.outbox}
+ if ($inboxRequested) {$selection.inbox=$selectedInbox}
+ if ($outboxRequested) {$selection.outbox=$selectedOutbox}
+ return $selection
+}
+function WriteManifestStage([string]$path,$value) {
+ $json=$value | ConvertTo-Json -Depth 4 -Compress
+ if ([Text.Encoding]::UTF8.GetByteCount($json) -gt 4096) {throw 'Transfer settings exceed the installation manifest limit'}
+ [IO.File]::WriteAllText($path,$json,[Text.UTF8Encoding]::new($false))
+}
 $directory=Join-Path $env:LOCALAPPDATA 'FreeLane'
 $destination=Join-Path $directory 'freelane-guest-agent.exe'
 $manifestPath=Join-Path $directory 'agent-install.json'
@@ -33,6 +67,13 @@ function ReadManifest {
  $value=[IO.File]::ReadAllText($manifestPath) | ConvertFrom-Json
  if ($value.schema -ne 1 -or $value.sha256 -notmatch '^[0-9a-f]{64}$') {throw 'Invalid installation manifest'}
  if ($value.backup -and ($value.backup -notmatch '^agent-backup-[0-9a-f]{32}\.exe$' -or $value.backup_sha256 -notmatch '^[0-9a-f]{64}$')) {throw 'Invalid backup metadata'}
+ if ($value.PSObject.Properties.Name -contains 'transfer') {
+  if (!$value.transfer -or $value.transfer -isnot [pscustomobject]) {throw 'Invalid saved transfer settings'}
+  foreach ($property in $value.transfer.PSObject.Properties) {
+   if ($property.Name -notin @('inbox','outbox')) {throw 'Invalid saved transfer settings'}
+   ValidStoredRoot $property.Value
+  }
+ }
  return $value
 }
 function ManagedInstallation {
@@ -71,6 +112,20 @@ try {
  if ($Action -eq 'Install') {
   foreach ($path in @($destination,$shortcut,$manifestPath)) {if (Test-Path -LiteralPath $path) {throw 'Existing installation or shortcut found; no files replaced'}}
  } else {$oldManifest=ManagedInstallation}
+ if ($Action -eq 'Configure') {
+  # One atomic manifest replacement: executable, binary backups and Startup link stay intact.
+  $configured=@{}
+  foreach ($property in $oldManifest.PSObject.Properties) {$configured[$property.Name]=$property.Value}
+  $configured.transfer=TransferSelections $oldManifest
+  $stageManifest=Join-Path $directory ('manifest-stage-'+[Guid]::NewGuid().ToString('N')+'.json')
+  WriteManifestStage $stageManifest $configured
+  # Refuse changed installations before publication; process shutdown remains explicit.
+  $checked=ManagedInstallation
+  if ($checked.sha256 -ne $oldManifest.sha256) {throw 'Installation changed during configuration'}
+  [IO.File]::Replace($stageManifest,$manifestPath,$null)
+  Write-Output 'Transfer folder selections saved. Restart the agent in your user session, or sign in again. No folders were created.'
+  return
+ }
  if ($Action -eq 'Uninstall') {
   # Rename on each original filesystem before committing; a locked file refuses safely.
   $id=[Guid]::NewGuid().ToString('N')
@@ -109,7 +164,7 @@ try {
  [IO.File]::Copy($source,$stage,$false)
  PlainFile $stage;Arm64 $stage
  if ((Hash $stage) -ne $expected) {throw 'Staged checksum verification failed; installation refused'}
- $newManifest=@{schema=1;sha256=$expected;backup=$null;backup_sha256=$null}
+ $newManifest=@{schema=1;sha256=$expected;backup=$null;backup_sha256=$null;transfer=(TransferSelections $oldManifest)}
  if ($oldManifest) {
   # Recheck immediately before replacement; File.Replace retains the actual old bytes.
   $checked=ManagedInstallation
@@ -128,7 +183,7 @@ try {
   [IO.File]::Move($stageShortcut,$shortcut);$installedShortcut=$true
  }
  $stageManifest=Join-Path $directory ('manifest-stage-'+$id+'.json')
- [IO.File]::WriteAllText($stageManifest,($newManifest | ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+ WriteManifestStage $stageManifest $newManifest
  if ($oldManifest) {
   $manifestBackup=Join-Path $directory ('manifest-backup-'+$id+'.json')
   [IO.File]::Replace($stageManifest,$manifestPath,$manifestBackup)

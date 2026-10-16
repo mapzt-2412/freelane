@@ -3,6 +3,7 @@ pub mod catalog;
 mod documents;
 pub mod export;
 pub mod mounts;
+pub mod settings;
 pub mod transfer;
 use freelane_agent_protocol::{Action, Outcome, Request, Response, VERSION};
 use std::io::{self, BufRead, Write};

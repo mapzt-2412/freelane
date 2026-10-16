@@ -6,6 +6,12 @@ fn main() {
     let launcher = freelane_guest_agent::WindowsLauncher;
     #[cfg(target_os = "linux")]
     let launcher = freelane_guest_agent::LinuxLauncher;
+    #[cfg(windows)]
+    let settings = std::env::current_exe().and_then(|path|freelane_guest_agent::settings::Settings::load(&path.with_file_name("agent-install.json"))).unwrap_or_else(|_| {
+        eprintln!("Saved agent transfer settings are invalid; repair them with the per-user installer");std::process::exit(2)
+    });
+    #[cfg(target_os = "linux")]
+    let settings = freelane_guest_agent::settings::Settings::default();
     let root = if let Some(index) = args.iter().position(|a| a == "--transfer-root") {
         if index + 1 >= args.len() {
             eprintln!("Missing transfer inbox directory");
@@ -15,7 +21,7 @@ fn main() {
         args.remove(index);
         Some(root)
     } else {
-        None
+        settings.inbox
     };
     let export_root = if let Some(index) = args.iter().position(|a| a == "--export-root") {
         if index + 1 >= args.len() {
@@ -26,7 +32,7 @@ fn main() {
         args.remove(index);
         Some(root)
     } else {
-        None
+        settings.outbox
     };
     let mut launcher = freelane_guest_agent::TransferLauncher::new(launcher, root.as_deref())
         .and_then(|launcher| launcher.with_export_root(export_root.as_deref()))
