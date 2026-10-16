@@ -117,3 +117,7 @@ A native integration limitation remains: egui may consume Cmd/Ctrl+V without del
 The updated viewer keeps one request in flight and at most32 queued inputs. When live refresh is on and a frame is due, it gives capture a turn after at most8 completed input actions even if more input is queued. A slow request still blocks the worker until it completes or times out; this bounds scheduling fairness, not wall-clock latency or FPS. Live-off still allows input and explicit Refresh frame.
 
 Switching selected windows clears unsent input, drag and old texture; late frames must match the current target. A failed request stops live refresh and discards unsent input without replaying uncertain operations. The previous conditional read-only capture-timeout retry is unchanged. [Scheduling evidence](evidence/p3-viewer-scheduling.json) separates deterministic policy tests and owned native Linux/synthetic-peer acceptance from pending installed Windows/Mac acceptance.
+
+## Identical frames
+
+The optimized host viewer skips JPEG decoding and texture recreation for an exact match to the previous validated frame/window identity. Changed frames still decode normally; selection changes/errors invalidate the key. A manual unchanged reply can restore a cleared texture locally, without extra guest I/O. [Implementation and measured scope](viewer-optimization.md). Guest capture/encoding, bandwidth and snapshot cadence remain unchanged.

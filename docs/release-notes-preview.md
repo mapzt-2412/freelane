@@ -1,13 +1,13 @@
-FreeLane v0.1.0-preview.22 for Apple Silicon Macs (macOS14+).
+FreeLane v0.1.0-preview.23 for Apple Silicon Macs (macOS14+).
 
-Prevents a due app-viewer snapshot from starving behind continuous input. Full roadmap development continues.
+Reduces repeated host work when an app-viewer frame is unchanged.
 
-- With live refresh enabled, a due capture gets a turn after at most8 completed inputs even when the queue stays nonempty. Queue remains bounded32 and only one RPC runs at a time; input stays FIFO. Successful frames retain the1second periodic delay and640×480 JPEG bound. No protocol change or new codec.
-- Live-off still accepts input and manual Refresh frame. Selecting another window drops unsent old-window input/drag/texture; late frames must match the selected target. Connection failures stop live refresh and discard pending input without replay. Existing read-only timeout retry behavior is unchanged.
-- This bounds scheduling fairness by operation count. Slow RPCs still wait for completion/timeout; it is not a video, FPS, latency or Parallels performance claim.
+- Exact matches to the last validated window identity/incarnation, dimensions and JPEG skip repeated hex parsing, JPEG decoding and texture creation. Changed frames still use bounded decoding. Selection/inventory changes and errors invalidate the retained key.
+- If a manual unchanged reply arrives after selecting away and back, the viewer can restore its cleared texture using one local decode worker, even with live refresh off and without another guest request. Late local results still require the selected target to match.
+- Keeps snapshot cadence/quality, guest capture/encoding, bandwidth, protocol versions, input order/no-replay and one-worker/queue limits unchanged. This is not a video transport or a claim of Coherence parity.
 
-Validation:214 Rust checks passed/9ignored,14MCP, strict workspace lint and Mac core cross-check. Original native viewer reproduced starvation after12additional inputs; updated owned EN/VI viewer captured after8total completed inputs. Authenticated X11/synthetic guest tests cover held replies/no second request, real combo target switching with old queued input and pending frame, failure/no replay and live-off input/manual refresh. A fresh review independently passed8policy+4handler tests. Two acceptance gaps were corrected; one minor remains: inventory cleanup unit test initializes no texture, so that assertion alone does not guard texture clearing.
+Validation:222Rust passed/9ignored,14MCP, strict lint and Mac core cross-check. Actual texture allocation regression RED→GREEN; exact/changed/invalid/dimensions/incarnation decoder tests and cache invalidation tests pass. Owned native EN/VI viewer/synthetic guest tests cover manual selection roundtrip, no extra guest request, stale results, held requests, input fairness and failure/no replay. One review Important was reproduced and fixed; no deferred minors.
 
-Installed WindowsARM, native Mac/HVF/Dock/sleep, real latency/CPU measurements and continuous video remain unaccepted. Ad-hoc signed; no Developer ID/notarization.
+In short Linux software-rendered debug static640x360 samples (three4second samples each), viewer CPU medians were14.50% before and8.25% after of one core. Raw samples/binary hashes are in docs/evidence/viewer-frame-cache.json. This is not customer release, native Mac, guest CPU, latency, battery or Parallels performance evidence. Installed WindowsARM/native Mac and remaining roadmap acceptance stay pending. Ad-hoc signed; no Developer ID/notarization.
 
-Tiếng Việt: Viewer không còn đợi hết toàn bộ input mới lấy hình; frame đến hạn được một lượt sau tối đa8input hoàn tất. Giữ queue32, một request đang chạy và không gửi lại input khi lỗi. Đã kiểm tra UI Anh/Việt với guest giả lập giao thức riêng; chưa phải video Coherence hoặc nghiệm thu Mac thật.
+Tiếng Việt: Bỏ xử lý lại JPEG/texture khi frame giống hệt frame đã xác minh. Frame thay đổi vẫn được kiểm tra và giải mã; đổi cửa sổ không dùng nhầm cache. Đã sửa trường hợp chụp thủ công rồi đổi đi/đổi lại bị trống hình, không cần thêm request guest. Số đo CPU chỉ thuộc bài thử Linux debug, chưa phải kết quả trên Mac.

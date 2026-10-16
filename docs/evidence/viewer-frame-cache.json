@@ -1,0 +1,125 @@
+{
+  "baseline_commit": "69242d9",
+  "change": "Skip repeated hex parse/JPEG decoding and texture recreation only for exact last validated target/dimensions/JPEG; restore locally if selection cleared texture while unchanged response was pending.",
+  "rust_tests": {
+    "passed": 222,
+    "failed": 0,
+    "ignored": 9
+  },
+  "mcp_checks_passed": 14,
+  "strict_workspace_lint": true,
+  "mac_core_cross_check": true,
+  "native_ui": [
+    {
+      "owned_native_linux_viewer": true,
+      "synthetic_guest": true,
+      "held_reply_prevents_second_rpc": true,
+      "due_capture_after_at_most_8_completed_inputs": true,
+      "observed_completed_inputs_before_capture": 8,
+      "live_off_input_and_manual_refresh": true,
+      "manual_same_target_return_restores_texture_without_extra_rpc": true,
+      "native_combo_drops_old_target_queue": true,
+      "held_old_frame_does_not_replace_new_target": true,
+      "failed_input_discards_queue_without_replay": true,
+      "language": "en",
+      "vm_boot_or_mac_acceptance": false
+    },
+    {
+      "owned_native_linux_viewer": true,
+      "synthetic_guest": true,
+      "held_reply_prevents_second_rpc": true,
+      "due_capture_after_at_most_8_completed_inputs": true,
+      "observed_completed_inputs_before_capture": 8,
+      "live_off_input_and_manual_refresh": true,
+      "manual_same_target_return_restores_texture_without_extra_rpc": true,
+      "native_combo_drops_old_target_queue": true,
+      "held_old_frame_does_not_replace_new_target": true,
+      "failed_input_discards_queue_without_replay": true,
+      "language": "vi",
+      "vm_boot_or_mac_acceptance": false
+    }
+  ],
+  "measurement": {
+    "build_profile": "debug for both binaries; not customer release performance",
+    "renderer": "Linux software rendering on owned authenticated X11 display",
+    "baseline_binary_sha256": "f280372b2736c323e382ca62f6bce1a3b82d304b4c13426d0a90fa9b942a8fa9",
+    "optimized_binary_sha256": "ad01fe1529ad9cf2c07f6111f560978b227405981c9383eab1eba2661f8e612f",
+    "baseline": {
+      "scope": "Owned Linux software-rendered viewer, unchanged640x360 JPEG at existing1second cadence, synthetic guest; host viewer process only, not VM/Mac or end-to-end latency",
+      "label": "preview22_before",
+      "samples": [
+        {
+          "wall_seconds": 4.000385375984479,
+          "cpu_seconds": 0.5099999999999999,
+          "percent_of_one_cpu": 12.748771732385682,
+          "resident_bytes": 113000448,
+          "captures": 4
+        },
+        {
+          "wall_seconds": 4.00032315403223,
+          "cpu_seconds": 0.6000000000000001,
+          "percent_of_one_cpu": 14.998788270272975,
+          "resident_bytes": 113000448,
+          "captures": 4
+        },
+        {
+          "wall_seconds": 4.000351187016349,
+          "cpu_seconds": 0.5800000000000001,
+          "percent_of_one_cpu": 14.498727058825839,
+          "resident_bytes": 113000448,
+          "captures": 4
+        }
+      ]
+    },
+    "optimized": {
+      "scope": "Owned Linux software-rendered viewer, unchanged640x360 JPEG at existing1second cadence, synthetic guest; host viewer process only, not VM/Mac or end-to-end latency",
+      "label": "optimized_final",
+      "samples": [
+        {
+          "wall_seconds": 4.0003688839497045,
+          "cpu_seconds": 0.31999999999999995,
+          "percent_of_one_cpu": 7.999262300132,
+          "resident_bytes": 110936064,
+          "captures": 4
+        },
+        {
+          "wall_seconds": 4.0005091819912195,
+          "cpu_seconds": 0.32999999999999996,
+          "percent_of_one_cpu": 8.24894994581028,
+          "resident_bytes": 110936064,
+          "captures": 4
+        },
+        {
+          "wall_seconds": 4.00030589097878,
+          "cpu_seconds": 0.3400000000000001,
+          "percent_of_one_cpu": 8.49935003137498,
+          "resident_bytes": 110936064,
+          "captures": 4
+        }
+      ]
+    },
+    "median_cpu_percent_of_one_core_before": 14.498727058825839,
+    "median_cpu_percent_of_one_core_after": 8.24894994581028,
+    "observed_relative_decrease_percent": 43.1056953321369,
+    "method": "Three4second /proc process CPU samples each after3second warmup, one constant640x360 JPEG at unchanged1second cadence. Sequential, no concurrent builds during samples. Short single-host observations, no significance/latency/battery/release/Mac/guest CPU claim."
+  },
+  "review": {
+    "reviewer": "review_identical_frames",
+    "critical": 0,
+    "important_fixed": [
+      "Live-off manual unchanged reply after A\u2192B\u2192A could leave blank. Handler regression RED missing local worker\u2192GREEN, local restore worker without RPC; target change during restore rejected. Native EN/VI manual roundtrip restored pixels with no extra capture request."
+    ],
+    "minors": [],
+    "prior_minor_resolved": "Inventory texture-clear regression now seeds actual texture/key as required cache invalidation coverage.",
+    "second_review": false
+  },
+  "bounds": {
+    "cached_jpeg_hex_bytes_max": 65536,
+    "decoded_allocation_limit_bytes": 4194304,
+    "width_max": 640,
+    "height_max": 480,
+    "cache_identity": "WindowTarget including incarnation, dimensions, exact JPEG hex"
+  },
+  "unchanged": "Guest capture/encoding, transport bandwidth, frame cadence/quality, RPC versions, input FIFO/no-replay and one-worker limits",
+  "native_mac_or_installed_windows_acceptance": false
+}

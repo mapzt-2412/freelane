@@ -51,6 +51,19 @@ def main():
         until=time.monotonic()+8
         while 'capture_window' not in trace and time.monotonic()<until: time.sleep(.05)
         assert 'capture_window' in trace and app.poll() is None
+        if os.environ.get('FREELANE_VIEWER_BENCHMARK'):
+            time.sleep(3)
+            def counters():
+                fields=Path(f'/proc/{app.pid}/stat').read_text().rsplit(')',1)[1].split()
+                return (int(fields[11])+int(fields[12]))/os.sysconf('SC_CLK_TCK'),int(fields[21])*os.sysconf('SC_PAGE_SIZE')
+            samples=[]
+            for _ in range(3):
+                cpu,_=counters();begin=time.monotonic();before=trace.count('capture_window');time.sleep(4)
+                after,rss=counters();wall=time.monotonic()-begin
+                samples.append({'wall_seconds':wall,'cpu_seconds':after-cpu,'percent_of_one_cpu':100*(after-cpu)/wall,'resident_bytes':rss,'captures':trace.count('capture_window')-before})
+            assert not errors and all(row['captures']>=3 for row in samples)
+            print(json.dumps({'scope':'Owned Linux software-rendered viewer, unchanged640x360 JPEG at existing1second cadence, synthetic guest; host viewer process only, not VM/Mac or end-to-end latency','label':os.environ['FREELANE_VIEWER_BENCHMARK'],'samples':samples}))
+            return
         # Authenticate only to this owned display, focus the owned viewer, click its image.
         x=ctypes.CDLL('libX11.so.6');t=ctypes.CDLL('libXtst.so.6')
         x.XOpenDisplay.argtypes=[ctypes.c_char_p];x.XOpenDisplay.restype=ctypes.c_void_p
@@ -116,10 +129,20 @@ def main():
         before=trace.count('window_text');click(200,350)
         t.XTestFakeKeyEvent(d,38,1,0);t.XTestFakeKeyEvent(d,38,0,0);x.XSync(d,0);time.sleep(.4)
         assert trace.count('window_text')==before+1 and trace.count('capture_window')==captures
-        click(390,99)
+        # Manual unchanged reply after B→A→B must restore even with live disabled.
+        capture_held.clear();capture_release.clear();hold_capture.set()
+        click(390,99);assert capture_held.wait(2)
+        click(90,99);click(90,136)
+        click(90,99);click(90,178)
+        capture_release.set()
         until=time.monotonic()+2
         while trace.count('capture_window')==captures and time.monotonic()<until:time.sleep(.05)
         assert trace.count('capture_window')==captures+1,'Manual refresh did not capture with live off'
+        time.sleep(.5)
+        subprocess.run(['import','-window','root',str(screenshot)],env=env,check=True)
+        pixel=Image.open(screenshot).convert('RGB').getpixel((200,350))
+        assert pixel[1]>pixel[2]+40 and pixel[1]>pixel[0]+40,'Manual unchanged frame did not restore the cleared texture'
+        assert trace.count('capture_window')==captures+1,'Restoring a cached frame sent an extra guest request'
         # An uncertain input fails while later input waits: no replay or automatic frame.
         fail_input.set();click(200,350);assert failure_held.wait(2)
         failure_mark=len(identities)
@@ -128,7 +151,7 @@ def main():
         failure_release.set();time.sleep(1.4)
         assert len(identities)==failure_mark,'Failed input was replayed or queued input escaped'
         assert not errors,errors
-        print(json.dumps({'owned_native_linux_viewer':True,'synthetic_guest':True,'held_reply_prevents_second_rpc':True,'due_capture_after_at_most_8_completed_inputs':True,'observed_completed_inputs_before_capture':1+suffix.index('capture_window'),'live_off_input_and_manual_refresh':True,'native_combo_drops_old_target_queue':True,'held_old_frame_does_not_replace_new_target':True,'failed_input_discards_queue_without_replay':True,'language':os.environ.get('FREELANE_VIEWER_LANGUAGE','en'),'vm_boot_or_mac_acceptance':False}))
+        print(json.dumps({'owned_native_linux_viewer':True,'synthetic_guest':True,'held_reply_prevents_second_rpc':True,'due_capture_after_at_most_8_completed_inputs':True,'observed_completed_inputs_before_capture':1+suffix.index('capture_window'),'live_off_input_and_manual_refresh':True,'manual_same_target_return_restores_texture_without_extra_rpc':True,'native_combo_drops_old_target_queue':True,'held_old_frame_does_not_replace_new_target':True,'failed_input_discards_queue_without_replay':True,'language':os.environ.get('FREELANE_VIEWER_LANGUAGE','en'),'vm_boot_or_mac_acceptance':False}))
     finally:
         typing_stop.set();stopped.set();release.set();capture_release.set();failure_release.set()
         if typing: typing.join(timeout=3)
