@@ -39,6 +39,53 @@ impl Outbox {
     pub fn disconnect(&mut self) {
         self.active = None;
     }
+    pub fn catalog(&self) -> io::Result<freelane_agent_protocol::export_catalog::Page> {
+        use freelane_agent_protocol::export_catalog::{Entry, Page, MAX_FILES, MAX_SCAN};
+        let root = self.root.as_ref().ok_or(io::ErrorKind::Unsupported)?;
+        let mut files = std::collections::BTreeMap::new();
+        let mut limited = false;
+        for (index, entry) in root.entries()?.enumerate() {
+            if index >= MAX_SCAN {
+                limited = true;
+                break;
+            }
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(_) => {
+                    limited = true;
+                    continue;
+                }
+            };
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            if !export::valid_name(&name) {
+                continue;
+            }
+            let metadata = match root.symlink_metadata(&name) {
+                Ok(m) => m,
+                Err(_) => {
+                    limited = true;
+                    continue;
+                }
+            };
+            if !metadata.is_file() || metadata.len() > export::MAX_SIZE {
+                continue;
+            }
+            if files.len() >= MAX_FILES {
+                limited = true;
+                continue;
+            }
+            files.insert(name, metadata.len());
+        }
+        Ok(Page {
+            files: files
+                .into_iter()
+                .map(|(name, size)| Entry { name, size })
+                .collect(),
+            limited,
+        })
+    }
     pub fn action(&mut self, operation: &E) -> io::Result<Outcome> {
         operation.validate()?;
         if self

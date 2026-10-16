@@ -12,6 +12,13 @@ mod clipboard;
 #[cfg(windows)]
 mod windows;
 pub trait Launcher {
+    fn export_catalog_support(&self) -> bool {
+        false
+    }
+    fn export_catalog(&mut self) -> io::Result<freelane_agent_protocol::export_catalog::Page> {
+        Err(io::ErrorKind::Unsupported.into())
+    }
+
     fn export_support(&self) -> bool {
         false
     }
@@ -107,6 +114,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                             protocol: freelane_agent_protocol::SHARE_STATUS_VERSION,
                         });
                     }
+                    if launcher.export_catalog_support() {
+                        features.push(freelane_agent_protocol::Feature {
+                            name: "file_export_catalog".into(),
+                            protocol: freelane_agent_protocol::export_catalog::VERSION,
+                        });
+                    }
                     if launcher.export_support() {
                         features.push(freelane_agent_protocol::Feature {
                             name: "file_export".into(),
@@ -186,6 +199,11 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                                     .export_support()
                                     .then_some(freelane_agent_protocol::export::VERSION),
                             )
+                            .chain(
+                                launcher
+                                    .export_catalog_support()
+                                    .then_some(freelane_agent_protocol::export_catalog::VERSION),
+                            )
                             .collect(),
                             features,
                             max_frame: freelane_agent_protocol::MAX_FRAME as u32,
@@ -201,6 +219,12 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
                     os: std::env::consts::OS.into(),
                     arch: std::env::consts::ARCH.into(),
                 },
+                Action::ExportCatalog => launcher
+                    .export_catalog()
+                    .map(|page| Outcome::ExportCatalog { page })
+                    .unwrap_or_else(|_| Outcome::Failed {
+                        message: "Guest outbox listing unavailable or refused".into(),
+                    }),
                 Action::Export { ref operation } => launcher
                     .export_action(operation)
                     .unwrap_or_else(|_| Outcome::Failed {
@@ -259,6 +283,7 @@ pub fn handle(request: Request, launcher: &mut impl Launcher) -> Response {
             freelane_agent_protocol::WINDOW_IDENTITY_VERSION,
             freelane_agent_protocol::window_input::VERSION,
             freelane_agent_protocol::export::VERSION,
+            freelane_agent_protocol::export_catalog::VERSION,
         ]
         .contains(&request.version)
         {
@@ -574,6 +599,13 @@ impl<L> TransferLauncher<L> {
     }
 }
 impl<L: Launcher> Launcher for TransferLauncher<L> {
+    fn export_catalog_support(&self) -> bool {
+        self.outbox.enabled()
+    }
+    fn export_catalog(&mut self) -> io::Result<freelane_agent_protocol::export_catalog::Page> {
+        self.outbox.catalog()
+    }
+
     fn export_support(&self) -> bool {
         self.outbox.enabled()
     }

@@ -2,6 +2,7 @@
 pub mod clipboard;
 pub mod clipboard_sync;
 pub mod export;
+pub mod export_catalog;
 pub mod window_input;
 use serde::{Deserialize, Serialize};
 use std::io::{self, BufRead, Read, Write};
@@ -28,6 +29,7 @@ pub struct Request {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    ExportCatalog,
     Export {
         operation: export::Operation,
     },
@@ -308,6 +310,9 @@ pub struct Response {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Outcome {
+    ExportCatalog {
+        page: export_catalog::Page,
+    },
     ExportReady {
         token: String,
         size: u64,
@@ -388,6 +393,7 @@ impl Request {
             WINDOW_IDENTITY_VERSION,
             window_input::VERSION,
             export::VERSION,
+            export_catalog::VERSION,
         ]
         .contains(&self.version)
         {
@@ -395,6 +401,16 @@ impl Request {
         }
         if self.id == 0 {
             return Err(invalid("Request ID must not be zero"));
+        }
+        if self.version == export_catalog::VERSION {
+            return if matches!(self.action, Action::ExportCatalog) {
+                Ok(())
+            } else {
+                Err(invalid("Protocol v12 only supports outbox listing"))
+            };
+        }
+        if matches!(self.action, Action::ExportCatalog) {
+            return Err(invalid("Outbox listing requires protocol v12"));
         }
         if self.version == export::VERSION {
             return match &self.action {
