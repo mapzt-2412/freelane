@@ -37,5 +37,12 @@
   },
   "review": "One fresh whole-batch review, no Critical/Important; default-off message and adaptive size units addressed during pending native UI acceptance. No second review.",
   "review_native_probe": "Two inventories of128 max-length filenames each fit33503-byte responses, followed by successful v11Begin",
-  "native_mac_or_windows_arm_interactive_acceptance": false
+  "native_mac_or_windows_arm_interactive_acceptance": false,
+  "source_commit": "7aa555d",
+  "required_ci": "https://github.com/puma2k/freelane/actions/runs/38843069248",
+  "native_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38843069246",
+  "source_checks": {
+    "38843069246": "Success",
+    "38843069248": "Success"
+  }
 }
