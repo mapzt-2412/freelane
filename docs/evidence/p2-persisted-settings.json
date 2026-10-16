@@ -1,0 +1,39 @@
+{
+  "feature": "Persistent per-user Windows inbox/outbox selections",
+  "source_commit": "d692c6d",
+  "default": "both directions disabled on a fresh installation without folder parameters",
+  "configuration": "existing folders explicitly selected; empty parameter revokes, omission preserves",
+  "native_windows_lifecycle": "https://github.com/puma2k/freelane/actions/runs/38837874945",
+  "required_checks": "https://github.com/puma2k/freelane/actions/runs/38837874893",
+  "native_checks_status": {
+    "38837874945": "Success",
+    "38837874893": "Success"
+  },
+  "native_startup_probe": "Actual native x64 Windows guest-agent process with installer-produced settings; capability changes verified. No ARM64 execution claimed on the x64 CI runner.",
+  "red_green": {
+    "new_parameter": "38836872430 unknown OutboxDirectory -> implemented",
+    "atomic_configure": "38837411240 null backup converted to empty path -> unique owned backup",
+    "unicode_control": "38837659609 accepted U+0085 then runtime refused -> shared Unicode-control validation"
+  },
+  "checks": {
+    "rust_passed": 188,
+    "rust_failed": 0,
+    "rust_ignored": 9,
+    "mcp_passed": 14,
+    "strict_workspace_lint": true,
+    "windows_arm64_lint_and_build": true,
+    "mac_core_cross_check": true,
+    "linux_3mib_two_way_transfer_regression": true
+  },
+  "preservation": [
+    "verified executable and Startup link unchanged by Configure",
+    "existing binary rollback metadata preserved by Configure",
+    "current folder permissions preserved across update/rollback",
+    "locked manifest leaves existing configuration intact",
+    "selected folders and unrelated files retained on uninstall"
+  ],
+  "normal_user_windows_arm_login_verified": false,
+  "physical_removable_drive_verified": false,
+  "native_mac_vm_verified": false,
+  "review": "One fresh whole-batch review; Unicode mismatch regraded Important by unusable-startup impact and fixed RED->GREEN. Stale documentation qualified. No second review."
+}
