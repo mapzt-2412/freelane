@@ -13,3 +13,5 @@ This is an implementation/acceptance inventory, not a declaration that the produ
 | P7 | Recent-app UX, updater authenticity/rollback and clean-Mac upgrade/uninstall acceptance; disposable guest automation beyond owned backup jobs | Trusted release/signing design, clean Mac and secure Developer ID/notarization access |
 
 The current app viewer is bounded JPEG snapshots. Protocol/input improvements do not establish video, universal Windows compatibility or a performance advantage over Parallels. Linux cloud fixtures and native CI remain useful independent evidence; they cannot replace the hardware/driver/guest gates above. Continue the approved roadmap in dependency order, with cloud-independent work where a concrete design and useful acceptance check exist.
+
+Continuation order and per-milestone acceptance: [next delivery plan](continuation-preview21.md). First detailed task: [viewer scheduling](../superpowers/plans/2026-10-16-viewer-scheduling.md). These are proposed future work, not completed milestones.
