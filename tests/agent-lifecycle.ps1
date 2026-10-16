@@ -69,6 +69,10 @@ try {
  Refused {& $script -Action Configure -OutboxDirectory (Join-Path $root 'missing')} 'missing folder refused'
  Assert ([IO.File]::ReadAllText((Join-Path $directory 'agent-install.json')) -eq $configuration) 'invalid configuration leaves manifest intact'
  Assert (!(Test-Path -LiteralPath (Join-Path $root 'missing'))) 'missing folder never created'
+ $phase='unicode control folder refusal'
+ $controlFolder=Join-Path $root ('control-'+[char]0x85);New-Item -ItemType Directory -Path $controlFolder | Out-Null
+ Refused {& $script -Action Configure -OutboxDirectory $controlFolder} 'unicode control folder refused before saving'
+ Assert ([IO.File]::ReadAllText((Join-Path $directory 'agent-install.json')) -eq $configuration) 'refused control folder preserves working configuration'
  $phase='verified rollback'
  & $script -Action Rollback
  Assert ((Get-FileHash -LiteralPath $dest).Hash -eq $hash) 'rollback restored verified old binary'
