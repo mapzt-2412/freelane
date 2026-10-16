@@ -174,3 +174,5 @@ Added separately negotiated read-only v12 outbox filenames/sizes, CLI file-list 
 195 Rust checks/9ignored,14MCP, strict lint/WinARM64 build/Mac core check passed. Real Linux CLI/agent listed and received3MiB; actual EN/VI UI selected a Vietnamese filename by click and received matching bytes, with only the host folder chooser substituted using an owned path. Fresh review found no Critical/Important; native maximum-name probe confirmed33503-byte frames for128 entries and continued v11 transfer. Physical Mac/WindowsARM/removable-drive/disconnect gates remain open. Evidence: `docs/evidence/p2-outbox-picker.json`.
 
 Source required38843069248 and native Windows lifecycle38843069246 passed for the picker milestone, including native Windows directory-listing tests. Physical guest/device acceptance remains open.
+
+Preview.20 published from762b333; source/tag required checks, native Windows lifecycle and Mac/Windows packaging succeeded. Public DMG/MacZIP/Windowsagent hashes, formats/ARM64 and Mac revision verified; bundled Windows installer equals tag source. See `docs/evidence/release-preview20.json`. Full roadmap and native hardware/guest acceptance remain open.
