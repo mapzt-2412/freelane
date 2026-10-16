@@ -149,6 +149,24 @@ pub fn catalog(config: &Path) -> Result<freelane_agent_protocol::export_catalog:
     }
 }
 
+/// Read-only check or explicitly requested reopening of previously unavailable configured roots.
+pub fn folders(
+    config: &Path,
+    reconnect: bool,
+) -> Result<freelane_agent_protocol::transfer_folders::Report> {
+    if crate::agent_capabilities::inspect(config)?.supports(
+        "file_folders",
+        freelane_agent_protocol::transfer_folders::VERSION,
+    ) != Some(true)
+    {
+        return Err(Error("Update guest agent to check guest folders".into()));
+    }
+    match crate::agent::transfer_folders(config, reconnect)?.outcome {
+        Outcome::TransferFolders { report } => Ok(report),
+        _ => Err(Error("Invalid guest folder response".into())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

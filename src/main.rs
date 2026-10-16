@@ -16,6 +16,10 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command,config] if command=="file-folders" || command=="file-reconnect" => {
+            let report=freelane::file_receive::folders(Path::new(config),command=="file-reconnect")?;
+            println!("{}",serde_json::to_string(&report).map_err(|e|Error(e.to_string()))?);Ok(())
+        }
         [command, config] if command == "file-list" => {
             let page=freelane::file_receive::catalog(Path::new(config))?;
             println!("{}",serde_json::to_string(&page).map_err(|e|Error(e.to_string()))?);Ok(())

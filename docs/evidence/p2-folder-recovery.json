@@ -1,0 +1,39 @@
+{
+  "native_linux_agent": true,
+  "host_cli": true,
+  "metadata_only_status": true,
+  "missing_root_not_created": true,
+  "healthy_direction_3mib_preserved": true,
+  "check_does_not_reopen": true,
+  "explicit_reconnect_recovers_startup_missing_root": true,
+  "active_transfer_blocks_reconnect_and_keeps_bytes": true,
+  "recovered_export_3mib_sha256": "f6dd7fec8584ad00219a447071c1fa368a1caee4d9c146083d233713ddccd2c0",
+  "guest_source_preserved": true,
+  "vm_boot_or_physical_hotplug": false,
+  "protocol": 13,
+  "rust_tests": {
+    "passed": 202,
+    "failed": 0,
+    "ignored": 9
+  },
+  "mcp_checks_passed": 14,
+  "strict_workspace_and_windows_arm_lint": true,
+  "windows_arm64_build": true,
+  "mac_core_cross_check": true,
+  "native_ui": {
+    "scope": "Owned Linux native UI + host RPC + stdio Linux guest agent, folder dialog substituted with an owned path; no VM boot/native Mac claim",
+    "languages": [
+      "en",
+      "vi"
+    ],
+    "source_and_received_bytes_equal": true,
+    "saved_config_unchanged": true,
+    "source_files_preserved": true,
+    "unicode_filename_selected_by_click_without_typing": true,
+    "outbox_listing_requested_only_by_button": true,
+    "explicit_check_missing_then_reconnect_ready": true,
+    "captures_visually_inspected": true
+  },
+  "review": "One fresh whole-batch review; no Critical/Important or Minor findings. Reviewer could not independently rerun cargo because its shell PATH lacked activation; recorded local and native CI are test evidence.",
+  "scope": "Only directories unavailable at startup; existing opened handles remain pinned. No live hotplug or physical drive identity acceptance."
+}

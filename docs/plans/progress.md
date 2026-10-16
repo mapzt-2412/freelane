@@ -176,3 +176,5 @@ Added separately negotiated read-only v12 outbox filenames/sizes, CLI file-list 
 Source required38843069248 and native Windows lifecycle38843069246 passed for the picker milestone, including native Windows directory-listing tests. Physical guest/device acceptance remains open.
 
 Preview.20 published from762b333; source/tag required checks, native Windows lifecycle and Mac/Windows packaging succeeded. Public DMG/MacZIP/Windowsagent hashes, formats/ARM64 and Mac revision verified; bundled Windows installer equals tag source. See `docs/evidence/release-preview20.json`. Full roadmap and native hardware/guest acceptance remain open.
+
+P2 startup-unavailable guest folders: independent degraded direction, v13 explicit check/reconnect, no mkdir or pinned-root replacement, active-transfer guard and VM-scoped EN/VI controls implemented. 202 Rust passed/9ignored,14MCP, strict lint, WinARM build and Mac core check; actual Linux hostCLI/agent3MiB transfer and owned EN/VI check→restore fixture directory→reconnect→Unicode receive passed. No VM boot/physical hotplug acceptance. [Evidence](../evidence/p2-folder-recovery.json).

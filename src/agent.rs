@@ -221,6 +221,9 @@ fn request_socket_cancellable(
     let expected = matches!(
         (&request.action, &response.outcome),
         (
+            Action::TransferFolders { .. },
+            freelane_agent_protocol::Outcome::TransferFolders { .. }
+        ) | (
             Action::ExportCatalog,
             freelane_agent_protocol::Outcome::ExportCatalog { .. }
         ) | (
@@ -540,6 +543,14 @@ pub fn export_catalog(config: &Path) -> Result<Response> {
         config,
         Action::ExportCatalog,
         freelane_agent_protocol::export_catalog::VERSION,
+    )
+}
+
+pub fn transfer_folders(config: &Path, reconnect: bool) -> Result<Response> {
+    request_vm(
+        config,
+        Action::TransferFolders { reconnect },
+        freelane_agent_protocol::transfer_folders::VERSION,
     )
 }
 

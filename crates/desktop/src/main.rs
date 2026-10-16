@@ -3,6 +3,7 @@ mod app_ui;
 mod catalog_ui;
 mod clipboard_ui;
 mod file_picker;
+mod folder_ui;
 mod i18n;
 mod interface;
 mod mobile_ui;
@@ -41,6 +42,10 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    TransferFolders(
+        PathBuf,
+        Result<freelane_agent_protocol::transfer_folders::Report, String>,
+    ),
     OutboxCatalog(
         PathBuf,
         Result<freelane_agent_protocol::export_catalog::Page, String>,
@@ -85,6 +90,7 @@ type WorkResult = Result<Event, String>;
 struct Desktop {
     transfer_open_document: bool,
     transfer_export_name: String,
+    transfer_folder_status: Option<(PathBuf, freelane_agent_protocol::transfer_folders::Report)>,
     transfer_catalog: Option<(PathBuf, freelane_agent_protocol::export_catalog::Page)>,
     transfer_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     transfer_progress: Option<mpsc::Receiver<(u64, u64)>>,
@@ -579,6 +585,9 @@ impl Desktop {
                                 self.resources = Some(value);
                             }
                         }
+                        Ok(Event::TransferFolders(path, result)) => {
+                            self.apply_folder_report(path, result)
+                        }
                         Ok(Event::OutboxCatalog(path, result)) => {
                             self.apply_outbox_catalog(path, result)
                         }
@@ -718,6 +727,7 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.transfer_folder_status = None;
                             self.transfer_catalog = None;
                             self.transfer_export_name.clear();
                             self.app_catalog.clear();

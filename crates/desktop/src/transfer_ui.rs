@@ -147,6 +147,7 @@ impl Desktop {
                 egui::Button::new(lang.text("Receive file from guest")),
             )
             .clicked();
+        self.file_folders_ui(ui, ctx);
         if !send && !receive {
             return;
         }
@@ -237,5 +238,14 @@ mod tests {
         assert_eq!(desktop.notice, "keep");
         desktop.apply_outbox_catalog("current.toml".into(), Ok(page));
         assert!(desktop.transfer_catalog.is_some());
+        let report = freelane_agent_protocol::transfer_folders::Report {
+            inbox: freelane_agent_protocol::transfer_folders::State::Disabled,
+            outbox: freelane_agent_protocol::transfer_folders::State::Unavailable,
+            busy: false,
+        };
+        desktop.apply_folder_report("old.toml".into(), Ok(report.clone()));
+        assert!(desktop.transfer_folder_status.is_none());
+        desktop.apply_folder_report("current.toml".into(), Ok(report));
+        assert!(desktop.transfer_folder_status.is_some());
     }
 }
