@@ -1,0 +1,46 @@
+{
+  "tag": "v0.1.0-preview.21",
+  "source_prefix": "985b8e9662d8",
+  "public_download_verified": true,
+  "assets": [
+    {
+      "name": "FreeLane-0.1.0-985b8e9662d8-macos-arm64.dmg",
+      "sha256": "638d2da7c19741030fd9dede96e65540b6dea1277013b7dfa008c6058052b044",
+      "bytes": 14560265,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.21/FreeLane-0.1.0-985b8e9662d8-macos-arm64.dmg",
+      "udif_footer": true
+    },
+    {
+      "name": "FreeLane-0.1.0-985b8e9662d8-macos-arm64.zip",
+      "sha256": "36e179004d5002514d41c72ac4394cf779d4a25ebc27e3451c8598eb5793b75e",
+      "bytes": 12133827,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.21/FreeLane-0.1.0-985b8e9662d8-macos-arm64.zip",
+      "embedded_source_revision": "985b8e9662d8",
+      "macos_arm64_macho_cli_and_desktop": true
+    },
+    {
+      "name": "FreeLane-v0.1.0-preview.21-windows-arm64-agent.zip",
+      "sha256": "5c30dcc238348ea564c2327204520cb88a3597132f6eae2d5d8ac4877affd47d",
+      "bytes": 1410315,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.21/FreeLane-v0.1.0-preview.21-windows-arm64-agent.zip",
+      "windows_arm64_pe_and_inner_sha256": true
+    }
+  ],
+  "dmg": "FreeLane-0.1.0-985b8e9662d8-macos-arm64.dmg",
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.21/FreeLane-0.1.0-985b8e9662d8-macos-arm64.dmg",
+  "sha256": "638d2da7c19741030fd9dede96e65540b6dea1277013b7dfa008c6058052b044",
+  "bytes": 14560265,
+  "udif_footer": true,
+  "source_commit": "985b8e9662d8d817067f503ad3601e725814d978",
+  "source_required_ci": "https://github.com/puma2k/freelane/actions/runs/38845446864",
+  "source_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38845446744",
+  "tag_checks": {
+    "38845677700": "Success",
+    "38845677723": "Success",
+    "38845677747": "Success"
+  },
+  "packaging_ci": "https://github.com/puma2k/freelane/actions/runs/38845677700",
+  "tag_required_ci": "https://github.com/puma2k/freelane/actions/runs/38845677747",
+  "tag_windows_lifecycle_ci": "https://github.com/puma2k/freelane/actions/runs/38845677723",
+  "packaged_windows_installer_matches_tag_source": true
+}
