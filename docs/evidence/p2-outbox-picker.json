@@ -1,0 +1,41 @@
+{
+  "native_agent": true,
+  "host_cli": true,
+  "bytes": 3145728,
+  "sha256_match": true,
+  "unicode_filename": true,
+  "conflict_preserved": true,
+  "cancel_clean": true,
+  "outbox_inventory_verified": true,
+  "guest_to_host_verified": true,
+  "empty_file_verified": true,
+  "vm_boot": false,
+  "protocol": 12,
+  "scan_limit": 512,
+  "returned_file_limit": 128,
+  "listing": "Read-only explicit selected outbox metadata; no background scanning, arbitrary paths or content reading",
+  "rust_tests": {
+    "passed": 195,
+    "failed": 0,
+    "ignored": 9
+  },
+  "mcp_checks_passed": 14,
+  "strict_workspace_and_windows_arm_lint": true,
+  "windows_arm64_build": true,
+  "mac_core_cross_check": true,
+  "native_ui": {
+    "scope": "Owned Linux native UI + host RPC + stdio Linux guest agent, folder dialog substituted with an owned path; no VM boot/native Mac claim",
+    "languages": [
+      "en",
+      "vi"
+    ],
+    "source_and_received_bytes_equal": true,
+    "saved_config_unchanged": true,
+    "source_files_preserved": true,
+    "unicode_filename_selected_by_click_without_typing": true,
+    "outbox_listing_requested_only_by_button": true
+  },
+  "review": "One fresh whole-batch review, no Critical/Important; default-off message and adaptive size units addressed during pending native UI acceptance. No second review.",
+  "review_native_probe": "Two inventories of128 max-length filenames each fit33503-byte responses, followed by successful v11Begin",
+  "native_mac_or_windows_arm_interactive_acceptance": false
+}

@@ -49,3 +49,9 @@ Agent Windows mới có thể lưu riêng thư mục nhận/xuất bằng `-Inbo
 ```
 
 Chạy lại agent hoặc đăng nhập lại để áp dụng. Cài mới không chọn thư mục thì cả hai chiều đều tắt. Update/rollback giữ lựa chọn hiện tại, không khôi phục quyền xuất đã tắt. Thư mục/ổ bị mất kết nối không được tự tạo lại; cấu hình lỗi sẽ từ chối khởi động agent. Linux vẫn dùng cờ CLI. Cần agent cùng bản mới; preview.18 vẫn dùng cờ cho từng phiên như phần trên.
+
+## Chọn file từ danh sách máy ảo
+
+Với agent mới có hỗ trợ v12, bấm **Chọn file trong máy ảo** ở tab Màn hình, rồi chọn tên trong cửa sổ thư mục xuất. App điền tên vào ô nhận; bấm **Nhận file từ máy ảo** để chọn nơi lưu và xác minh dữ liệu như trước. **Tải lại danh sách** chỉ đọc lại khi anh bấm. CLI: `freelane file-list vm.toml` trả tên và dung lượng dạng JSON.
+
+Tính năng `file_export_catalog` v12 chỉ liệt kê thư mục xuất đã được bật, đọc thông tin file và không mở nội dung hay chạy chương trình. Mỗi lượt xét tối đa512 mục, trả tối đa128 file thường hợp lệ theo thứ tự tên. Không hiện thư mục con, symlink, tên ẩn/không hợp lệ hoặc file vượt giới hạn chuyển. Danh sách bị giới hạn có thông báo; vẫn có thể nhập tên hoặc chọn thư mục xuất ít file hơn. Đây là danh sách tại thời điểm đọc; tên/nội dung có thể đổi trước lúc nhận, không phải snapshot. Bước nhận vẫn kiểm tra kích thước/SHA-256. Agent cũ vẫn nhận bằng tên qua v11; nút chọn danh sách sẽ báo cần cập nhật. Danh sách/phản hồi cũ không được áp dụng sang VM khác.

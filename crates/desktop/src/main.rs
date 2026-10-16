@@ -41,6 +41,10 @@ struct VmInfo {
     acceleration: &'static str,
 }
 enum Event {
+    OutboxCatalog(
+        PathBuf,
+        Result<freelane_agent_protocol::export_catalog::Page, String>,
+    ),
     Resources(PathBuf, serde_json::Value),
     CheckpointPicked(Option<String>),
     CheckpointInfo(String, Result<freelane::checkpoint::Info, String>),
@@ -81,6 +85,7 @@ type WorkResult = Result<Event, String>;
 struct Desktop {
     transfer_open_document: bool,
     transfer_export_name: String,
+    transfer_catalog: Option<(PathBuf, freelane_agent_protocol::export_catalog::Page)>,
     transfer_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     transfer_progress: Option<mpsc::Receiver<(u64, u64)>>,
     transfer_status: Option<(u64, u64)>,
@@ -574,6 +579,9 @@ impl Desktop {
                                 self.resources = Some(value);
                             }
                         }
+                        Ok(Event::OutboxCatalog(path, result)) => {
+                            self.apply_outbox_catalog(path, result)
+                        }
                         Ok(Event::AppCatalog(path, apps)) => {
                             if self.vm.as_ref().is_some_and(|vm| vm.path == path) {
                                 self.app_catalog = apps;
@@ -710,6 +718,8 @@ impl Desktop {
                             ))
                         }
                         Ok(Event::Loaded(vm, warning)) => {
+                            self.transfer_catalog = None;
+                            self.transfer_export_name.clear();
                             self.app_catalog.clear();
                             self.app_catalog_search.clear();
                             self.resources = None;

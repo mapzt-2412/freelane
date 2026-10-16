@@ -42,6 +42,8 @@ def main():
             assert call({'operation':'cancel','token':token})['status']=='transfer_canceled'
             assert not (inbox/'cancel.txt').exists()
             exported=outbox/'Kết quả.bin';exported.write_bytes(data)
+            listing=json.loads(subprocess.check_output([str(repo/'target/debug/freelane'),'file-list',str(config)],timeout=10))
+            assert listing=={'files':[{'name':exported.name,'size':len(data)}],'limited':False}
             receive=[str(repo/'target/debug/freelane'),'file-receive',str(config),exported.name,str(host)]
             subprocess.run(receive,check=True,stdout=subprocess.DEVNULL,timeout=60)
             assert (host/exported.name).read_bytes()==data
@@ -52,7 +54,7 @@ def main():
             assert (host/'empty.txt').read_bytes()==b''
             assert len(list(host.iterdir()))==2
             assert len(list(inbox.iterdir()))==1 and not errors
-            print(json.dumps({'native_agent':True,'host_cli':True,'bytes':len(data),'sha256_match':True,'unicode_filename':True,'conflict_preserved':True,'cancel_clean':True,'guest_to_host_verified':True,'empty_file_verified':True,'vm_boot':False}))
+            print(json.dumps({'native_agent':True,'host_cli':True,'bytes':len(data),'sha256_match':True,'unicode_filename':True,'conflict_preserved':True,'cancel_clean':True,'outbox_inventory_verified':True,'guest_to_host_verified':True,'empty_file_verified':True,'vm_boot':False}))
         finally:
             stopped.set();server.close();worker.join(timeout=3);agent.terminate();agent.wait(timeout=5)
             for path in runtime.iterdir():path.unlink()

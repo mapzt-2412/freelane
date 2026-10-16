@@ -128,6 +128,27 @@ fn receive_with(
     let _ = rpc(E::Close { token });
     result
 }
+/// Explicit read-only listing of a separately opted-in guest outbox.
+pub fn catalog(config: &Path) -> Result<freelane_agent_protocol::export_catalog::Page> {
+    if crate::agent_capabilities::inspect(config)?.supports(
+        "file_export_catalog",
+        freelane_agent_protocol::export_catalog::VERSION,
+    ) != Some(true)
+    {
+        return Err(Error(
+            "Update guest agent and enable an outbox to choose a file".into(),
+        ));
+    }
+    match crate::agent::export_catalog(config)?.outcome {
+        Outcome::ExportCatalog { page } => {
+            page.validate()
+                .map_err(|_| Error("Invalid guest outbox listing".into()))?;
+            Ok(page)
+        }
+        _ => Err(Error("Invalid guest outbox listing".into())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

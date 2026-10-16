@@ -16,6 +16,10 @@ fn load(path: &str) -> Result<Config> {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.as_slice() {
+        [command, config] if command == "file-list" => {
+            let page=freelane::file_receive::catalog(Path::new(config))?;
+            println!("{}",serde_json::to_string(&page).map_err(|e|Error(e.to_string()))?);Ok(())
+        }
         [command, config, name, destination] if command == "file-receive" => {
             let output=freelane::file_receive::receive(Path::new(config),name,Path::new(destination),&||false,&mut |_,_|{})?;
             println!("Received and SHA-256 verified: {}",output.display());Ok(())

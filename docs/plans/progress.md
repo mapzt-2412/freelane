@@ -165,3 +165,10 @@ Installer folder parameters and manifest-only Configure persist independent defa
 188 Rust checks/9ignored,14MCP, lint/ARM64 Windows build/Mac cross-check and real3MiB Linux transfer regression passed. Required CI38837874893 and native Windows lifecycle38837874945 passed, including actual native x64 agent startup against installer-produced settings. Native RED->GREEN covered new folder parameters, atomic Configure backup-path handling and Unicode-control refusal. The x64 probe does not establish ARM64 execution/login or physical removable-drive behavior; native Mac acceptance remains deferred. See `docs/evidence/p2-persisted-settings.json`. Full roadmap remains in progress.
 
 Preview.19 published fromb3fdee9 with source/tag required checks, native Windows lifecycle and Mac/Windows packaging all successful. Public DMG/MacZIP/Windowsagent ZIP hashes, formats, ARM64 architecture and embedded Mac source revision verified; packaged Windows installer matches tag source exactly. Evidence: `docs/evidence/release-preview19.json`. Native Mac/normal-user WindowsARM/physical-drive acceptance and remaining roadmap stay open.
+
+
+### 2026-10-16 — P2 explicit guest outbox picker
+
+Added separately negotiated read-only v12 outbox filenames/sizes, CLI file-list and EN/VI desktop selection with explicit Refresh. Discovery stays within the opted-in pinned outbox, examines at most512 entries and returns128 eligible regular files with a limited flag/manual fallback. Late replies/cache are VM-scoped; selecting a name still uses the existing size/SHA-256/no-overwrite receive flow.
+
+195 Rust checks/9ignored,14MCP, strict lint/WinARM64 build/Mac core check passed. Real Linux CLI/agent listed and received3MiB; actual EN/VI UI selected a Vietnamese filename by click and received matching bytes, with only the host folder chooser substituted using an owned path. Fresh review found no Critical/Important; native maximum-name probe confirmed33503-byte frames for128 entries and continued v11 transfer. Physical Mac/WindowsARM/removable-drive/disconnect gates remain open. Evidence: `docs/evidence/p2-outbox-picker.json`.
