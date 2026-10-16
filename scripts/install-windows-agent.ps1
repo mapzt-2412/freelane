@@ -14,7 +14,8 @@ if (($inboxRequested -or $outboxRequested) -and $Action -in @('Rollback','Uninst
 if ($Action -eq 'Configure' -and !$inboxRequested -and !$outboxRequested) {throw 'Select a transfer folder or pass an empty value to disable it'}
 function ValidStoredRoot($path) {
  if ($null -eq $path) {return}
- if ($path -isnot [string] -or !$path -or [Text.Encoding]::UTF8.GetByteCount($path) -gt 2048 -or $path -match '[\x00-\x1f\x7f]' -or ![IO.Path]::IsPathRooted($path) -or [IO.Path]::GetFullPath($path) -ine $path) {throw 'Invalid saved transfer folder'}
+ if ($path -isnot [string] -or !$path -or [Text.Encoding]::UTF8.GetByteCount($path) -gt 2048 -or ![IO.Path]::IsPathRooted($path) -or [IO.Path]::GetFullPath($path) -ine $path) {throw 'Invalid saved transfer folder'}
+ foreach ($character in $path.ToCharArray()) {if ([char]::IsControl($character)) {throw 'Invalid saved transfer folder'}}
 }
 function SelectedFolder([string]$path) {
  if (!$path) {return $null}

@@ -38,7 +38,7 @@ freelane file-receive vm.toml "Ket qua.txt" /duong-dan/thu-muc-nhan
 
 Cần agent hỗ trợ `file_export` v11; các tính năng cũ vẫn dùng phiên bản giao thức cũ. Chỉ nhận tên file, không nhận đường dẫn/thư mục con hoặc duyệt toàn bộ máy ảo. Mỗi lần đọc một file thường, từng khối tối đa 16 KiB, giới hạn chuyển mỗi file 64 GiB (không phải giới hạn đĩa máy ảo). Agent tính checksum từng khối và trả SHA-256 ở bước kết thúc sau khi kiểm tra kích thước/thời gian sửa file nguồn. App so khớp kích thước và checksum cuối trước khi công bố file hoàn chỉnh; hủy, sai checksum hoặc trùng tên đều giữ nguyên file cũ, kể cả symlink hỏng. File tạm riêng tư nằm trong thư mục nhận; cần dùng thư mục cục bộ tin cậy, tránh tiến trình khác thay thế file tạm. Không sửa file nguồn khi đang chuyển; đây là bản sao chủ động, chưa phải đồng bộ trực tiếp hoặc snapshot nguyên tử.
 
-Mỗi agent có một phiên đọc, hết hạn sau năm phút không hoạt động và bị thu hồi khi mất kết nối. Không tự thử lại, mở file hay xóa file nguồn trong guest. Bộ cài tự khởi động hiện chạy agent không có thư mục xuất; hãy dừng agent đó rồi chạy lệnh trên để bật riêng cho phiên dùng. Kiểm thử tương tác thực trên Mac và Windows ARM vẫn còn chờ.
+Mỗi agent có một phiên đọc, hết hạn sau năm phút không hoạt động và bị thu hồi khi mất kết nối. Không tự thử lại, mở file hay xóa file nguồn trong guest. Bộ cài tự khởi động của preview.18 chạy agent không có thư mục xuất; hãy dừng agent đó rồi chạy lệnh trên để bật riêng cho phiên dùng. Kiểm thử tương tác thực trên Mac và Windows ARM vẫn còn chờ.
 
 Agent Windows mới có thể lưu riêng thư mục nhận/xuất bằng `-InboxDirectory`, `-OutboxDirectory` khi cài, hoặc đổi/tắt bằng `-Action Configure`. Ví dụ, sau khi dừng agent đang chạy:
 
