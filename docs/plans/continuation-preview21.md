@@ -41,3 +41,5 @@ Không gán ngày hoàn thành cho video/driver/native acceptance trước khi c
 - [Spec viewer scheduling](../superpowers/specs/2026-10-16-viewer-scheduling-design.md).
 - [Implementation plan viewer scheduling](../superpowers/plans/2026-10-16-viewer-scheduling.md).
 - Các đợt sau nhận spec/plan riêng sau khi đánh giá phụ thuộc; tài liệu này giữ thứ tự và tiêu chí nghiệm thu chung.
+
+Đợt1 đã giao trong preview.22: chống đói lịch snapshot, queue32/một worker, kiểm thử EN/VI với peer giao thức sở hữu riêng. Native Mac/installed Windows acceptance vẫn chờ. Đợt kế tiếp là đánh giá video theo tiêu chí ở bảng trên, chưa cam kết codec hay FPS.

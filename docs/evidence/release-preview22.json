@@ -1,0 +1,51 @@
+{
+  "tag": "v0.1.0-preview.22",
+  "source_prefix": "673d48750d37",
+  "public_download_verified": true,
+  "assets": [
+    {
+      "name": "FreeLane-0.1.0-673d48750d37-macos-arm64.dmg",
+      "sha256": "e6806441af31c4102693d3410095658bca356fad833c639a4df633945624c729",
+      "bytes": 14674055,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.22/FreeLane-0.1.0-673d48750d37-macos-arm64.dmg",
+      "udif_footer": true
+    },
+    {
+      "name": "FreeLane-0.1.0-673d48750d37-macos-arm64.zip",
+      "sha256": "6739cac221b071e24a1fb7cfba5446e6504190edb1d8d98c2e71f5b98b91e891",
+      "bytes": 12213855,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.22/FreeLane-0.1.0-673d48750d37-macos-arm64.zip",
+      "embedded_source_revision": "673d48750d37",
+      "macos_arm64_macho_cli_and_desktop": true
+    },
+    {
+      "name": "FreeLane-v0.1.0-preview.22-windows-arm64-agent.zip",
+      "sha256": "df4592549f01ee9dce81169c4dd8db561913dedb29186b3f7da967e0fe97d514",
+      "bytes": 1410313,
+      "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.22/FreeLane-v0.1.0-preview.22-windows-arm64-agent.zip",
+      "windows_arm64_pe_and_inner_sha256": true
+    }
+  ],
+  "dmg": "FreeLane-0.1.0-673d48750d37-macos-arm64.dmg",
+  "url": "https://github.com/puma2k/freelane/releases/download/v0.1.0-preview.22/FreeLane-0.1.0-673d48750d37-macos-arm64.dmg",
+  "sha256": "e6806441af31c4102693d3410095658bca356fad833c639a4df633945624c729",
+  "bytes": 14674055,
+  "udif_footer": true,
+  "source_commit": "673d48750d372d325fe8503f8e37dd251262a3fa",
+  "source_required_ci": "https://github.com/puma2k/freelane/actions/runs/38874351867",
+  "source_checks": {
+    "38874351867": "Success"
+  },
+  "source_windows_lifecycle": "Path-filtered: no guest/protocol/installer changes in this source batch; Windows guest tests still run in required CI.",
+  "tag_checks": {
+    "38874668938": "Success",
+    "38874669006": "Success",
+    "38874668947": "Success"
+  },
+  "packaged_windows_installer_matches_tag_source": true,
+  "tag_check_workflows": {
+    "38874668938": "lifecycle",
+    "38874669006": "required",
+    "38874668947": "packaging"
+  }
+}

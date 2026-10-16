@@ -55,7 +55,7 @@
 - [x] Run the fixture against Task1 and require all dispatch/target/no-replay assertions pass. Test live off with input and explicit manual refresh in owned EN/VI viewer windows, capture and inspect actual screenshots. No visual snapshot assertions that mirror layout.
 - [x] Run `cargo fmt --all --check`, `cargo test --locked --workspace`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, `python3 -m unittest discover -s tests/mcp -v`, and platform checks affected by the final diff. Record actual counts/ignored checks; require required native CI green. Existing tool activation/setup instructions apply.
 - [x] Request one fresh whole-batch review under requesting-code-review; fix Critical/Important and record minors/rulings. Update evidence/docs with actual source, limitations and results; commit `test(viewer): verify fair dispatch and stale frame handling`.
-- [ ] Push the reviewed source using existing authorization. Only after required CI succeeds, prepare the next unused preview tag, publish through existing workflow and verify downloaded payload checksums/architectures/revision. Update EN/VI README release links. Do not reuse preview.21 or claim physical Mac acceptance.
+- [x] Push the reviewed source using existing authorization. Only after required CI succeeds, prepare the next unused preview tag, publish through existing workflow and verify downloaded payload checksums/architectures/revision. Update EN/VI README release links. Do not reuse preview.21 or claim physical Mac acceptance.
 
 ## Self-review and handoff
 
