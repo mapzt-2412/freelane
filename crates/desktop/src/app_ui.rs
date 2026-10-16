@@ -15,7 +15,7 @@ use std::{
 };
 enum Event {
     Opened(u32, Vec<WindowInfo>, bool),
-    Frame(WindowTarget, egui::ColorImage),
+    Frame(WindowTarget, super::app_frame::Decoded),
     Windows(Vec<WindowInfo>),
     Input,
 }
@@ -28,6 +28,7 @@ struct Viewer {
     windows: Vec<WindowInfo>,
     selected: usize,
     texture: Option<egui::TextureHandle>,
+    frame_key: Option<std::sync::Arc<super::app_frame::Key>>,
     worker: Option<Receiver<Reply>>,
     queue: VecDeque<Action>,
     schedule: Schedule,
@@ -77,8 +78,18 @@ impl Viewer {
                     return false;
                 }
 
-                self.texture =
-                    Some(ctx.load_texture("app-frame", frame, egui::TextureOptions::LINEAR));
+                if let Some(image) = frame.image {
+                    self.texture =
+                        Some(ctx.load_texture("app-frame", image, egui::TextureOptions::LINEAR));
+                } else if self.texture.is_none() {
+                    self.frame_key = None;
+                    let key = frame.key;
+                    self.task(ctx, move || {
+                        super::app_frame::restore(key).map(|frame| Event::Frame(target, frame))
+                    });
+                    return true;
+                }
+                self.frame_key = Some(frame.key);
                 self.notice.clear();
                 self.schedule.frame_completed(Instant::now());
             }
@@ -88,6 +99,7 @@ impl Viewer {
                 self.windows = windows;
                 self.selected = 0;
                 self.texture = None;
+                self.frame_key = None;
                 self.schedule.reset(Instant::now());
             }
             Ok(Event::Input) => {
@@ -95,6 +107,7 @@ impl Viewer {
                     .input_completed(Instant::now(), self.queue.is_empty());
             }
             Err(e) => {
+                self.frame_key = None;
                 self.notice = if self.queue.is_empty() {
                     e
                 } else {
@@ -115,6 +128,7 @@ impl Viewer {
             return;
         };
         let vm = self.profile.vm.clone();
+        let previous = self.texture.as_ref().and(self.frame_key.clone());
         self.task(ctx, move || {
             let action = Action::CaptureWindow {
                 target: target.clone(),
@@ -146,31 +160,14 @@ impl Viewer {
             else {
                 return Err("Guest did not return a window frame".into());
             };
-            let bytes: Result<Vec<u8>, _> = jpeg_hex
-                .as_bytes()
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|p| u8::from_str_radix(std::str::from_utf8(p).unwrap_or(""), 16))
-                .collect();
-            let bytes = bytes.map_err(|e| e.to_string())?;
-            let mut reader = image::ImageReader::with_format(
-                std::io::Cursor::new(bytes),
-                image::ImageFormat::Jpeg,
-            );
-            let mut limits = image::Limits::default();
-            limits.max_alloc = Some(4 * 1024 * 1024);
-            limits.max_image_width = Some(640);
-            limits.max_image_height = Some(480);
-            reader.limits(limits);
-            let rgb = reader.decode().map_err(|e| e.to_string())?.into_rgb8();
-            if rgb.width() != width || rgb.height() != height {
-                return Err("JPEG dimensions do not match the response".into());
-            }
-            Ok(Event::Frame(
-                target,
-                egui::ColorImage::from_rgb([width as usize, height as usize], rgb.as_raw()),
-            ))
+            let decoded = super::app_frame::decode(
+                target.clone(),
+                width,
+                height,
+                jpeg_hex,
+                previous.as_ref(),
+            )?;
+            Ok(Event::Frame(target, decoded))
         });
     }
 }
@@ -272,6 +269,7 @@ impl eframe::App for Viewer {
                     if old != self.selected {
                         self.drag = None;
                         self.texture = None;
+                        self.frame_key = None;
                         self.queue.clear();
                         self.schedule.reset(Instant::now());
                     }
@@ -542,6 +540,7 @@ pub fn run(path: &Path, attach_pid: Option<u32>, language: super::Language) -> e
                 windows: Vec::new(),
                 selected: 0,
                 texture: None,
+                frame_key: None,
                 worker: None,
                 queue: VecDeque::new(),
                 schedule: Schedule::new(Instant::now()),
@@ -569,6 +568,23 @@ mod scheduling_tests {
             incarnation: 4,
         }
     }
+    fn decoded(
+        target: WindowTarget,
+        previous: Option<&std::sync::Arc<super::super::app_frame::Key>>,
+    ) -> super::super::app_frame::Decoded {
+        let mut data = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut data, 90)
+            .encode(&[255, 0, 0], 1, 1, image::ExtendedColorType::Rgb8)
+            .unwrap();
+        super::super::app_frame::decode(
+            target,
+            1,
+            1,
+            data.iter().map(|b| format!("{b:02x}")).collect(),
+            previous,
+        )
+        .unwrap()
+    }
     fn viewer() -> Viewer {
         Viewer {
             language: super::super::Language::English,
@@ -593,6 +609,7 @@ mod scheduling_tests {
             ],
             selected: 0,
             texture: None,
+            frame_key: None,
             worker: None,
             queue: VecDeque::new(),
             schedule: Schedule::new(Instant::now()),
@@ -620,10 +637,7 @@ mod scheduling_tests {
         v.selected = 1;
         deliver(
             &mut v,
-            Ok(Event::Frame(
-                target(1),
-                egui::ColorImage::new([1, 1], vec![egui::Color32::RED]),
-            )),
+            Ok(Event::Frame(target(1), decoded(target(1), None))),
         );
         assert!(v.texture.is_none());
         assert!(v.worker.is_none());
@@ -632,6 +646,8 @@ mod scheduling_tests {
     #[test]
     fn failed_input_discards_pending_actions_and_stops_live_without_replay() {
         let mut v = viewer();
+        let ctx = egui::Context::default();
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), decoded(target(1), None))));
         v.live = true;
         v.enqueue(Action::WindowText {
             target: target(1),
@@ -639,6 +655,7 @@ mod scheduling_tests {
         });
         deliver(&mut v, Err("Transport unavailable".into()));
         assert!(!v.live);
+        assert!(v.frame_key.is_none());
         assert!(v.queue.is_empty());
         assert!(v.worker.is_none());
         assert!(v.notice.contains("Discarded 1 unsent"));
@@ -646,6 +663,9 @@ mod scheduling_tests {
     #[test]
     fn inventory_change_clears_old_input_drag_and_texture() {
         let mut v = viewer();
+        let ctx = egui::Context::default();
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), decoded(target(1), None))));
+        assert!(v.texture.is_some() && v.frame_key.is_some());
         v.enqueue(Action::WindowKey {
             target: target(1),
             key: 13,
@@ -661,6 +681,7 @@ mod scheduling_tests {
         assert!(v.queue.is_empty());
         assert!(v.drag.is_none());
         assert!(v.texture.is_none());
+        assert!(v.frame_key.is_none());
         assert_eq!(v.target(), Some(target(2)));
     }
     #[test]
@@ -679,5 +700,57 @@ mod scheduling_tests {
             );
         }
         assert!(v.notice.contains("not sent"));
+    }
+    #[test]
+    fn identical_frame_keeps_existing_texture_allocation() {
+        let mut v = viewer();
+        let ctx = egui::Context::default();
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), decoded(target(1), None))));
+        let before = v.texture.as_ref().unwrap().id();
+        let next = decoded(target(1), v.frame_key.as_ref());
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), next)));
+        assert_eq!(v.texture.as_ref().unwrap().id(), before);
+    }
+    #[test]
+    fn manual_unchanged_reply_restores_missing_texture_even_with_live_off() {
+        let mut v = viewer();
+        let ctx = egui::Context::default();
+        assert!(!v.live);
+        let first = decoded(target(1), None);
+        let same = decoded(target(1), Some(&first.key));
+        assert!(same.image.is_none());
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), same)));
+        assert!(
+            v.worker.is_some(),
+            "Cacheless manual reply needs a local decode worker"
+        );
+        let result = v
+            .worker
+            .as_ref()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
+        v.apply_reply(&ctx, result);
+        assert!(v.texture.is_some() && v.frame_key.is_some());
+        assert!(v.worker.is_none() && !v.live);
+    }
+    #[test]
+    fn local_restore_cannot_display_a_target_selected_away_from() {
+        let mut v = viewer();
+        let ctx = egui::Context::default();
+        let first = decoded(target(1), None);
+        let same = decoded(target(1), Some(&first.key));
+        v.apply_reply(&ctx, Ok(Event::Frame(target(1), same)));
+        v.selected = 1;
+        let result = v
+            .worker
+            .as_ref()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
+        assert!(!v.apply_reply(&ctx, result));
+        assert!(v.texture.is_none() && v.frame_key.is_none());
+        assert!(v.worker.is_none());
+        assert_eq!(v.target(), Some(target(2)));
     }
 }

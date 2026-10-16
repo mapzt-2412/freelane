@@ -1,3 +1,4 @@
+mod app_frame;
 mod app_input;
 mod app_ui;
 mod catalog_ui;
