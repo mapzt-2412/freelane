@@ -121,5 +121,10 @@
     "cache_identity": "WindowTarget including incarnation, dimensions, exact JPEG hex"
   },
   "unchanged": "Guest capture/encoding, transport bandwidth, frame cadence/quality, RPC versions, input FIFO/no-replay and one-worker limits",
-  "native_mac_or_installed_windows_acceptance": false
+  "native_mac_or_installed_windows_acceptance": false,
+  "source_commit": "b332b62",
+  "required_ci": "https://github.com/puma2k/freelane/actions/runs/38877204867",
+  "source_checks": {
+    "38877204867": "Success"
+  }
 }
